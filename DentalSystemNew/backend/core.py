@@ -14,11 +14,13 @@ import unicodedata
 from collections import defaultdict, deque
 from pathlib import Path
 
-from mysql_store import MySQLStore
+from .mysql_store import MySQLStore
 
 
-BASE_DIR = Path(__file__).resolve().parents[1]
-PUBLIC_DIR = BASE_DIR / "public"
+BACKEND_DIR = Path(__file__).resolve().parent
+BASE_DIR = BACKEND_DIR.parent
+PUBLIC_DIR = BASE_DIR / "frontend"
+DATABASE_DIR = BASE_DIR / "database"
 
 
 def load_environment_file(path: Path) -> None:
@@ -38,10 +40,14 @@ def load_environment_file(path: Path) -> None:
         os.environ.setdefault(key, value)
 
 
-load_environment_file(BASE_DIR / ".env")
+load_environment_file(BACKEND_DIR / ".env")
 
 configured_data_file = os.environ.get("DRMS_DATA_FILE")
-DATA_FILE = Path(configured_data_file) if configured_data_file else BASE_DIR / "data" / "app_data.json"
+DATA_FILE = (
+    Path(configured_data_file)
+    if configured_data_file
+    else DATABASE_DIR / "data" / "app_data.json"
+)
 if not DATA_FILE.is_absolute():
     DATA_FILE = BASE_DIR / DATA_FILE
 SESSION_COOKIE = "drms_session"
