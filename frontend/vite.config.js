@@ -21,6 +21,11 @@ export default defineConfig({
 
   preview: {
     host: "0.0.0.0",
+
+    allowedHosts: [
+      "dental-frontend-production-5b96.up.railway.app",
+    ],
+
     proxy: {
       "/api": {
         target: apiTarget,
