@@ -7,10 +7,12 @@ const apiTarget =
 export default defineConfig({
   plugins: [vue()],
 
+  // Local development
   server: {
     host: "0.0.0.0",
     port: 5173,
     strictPort: true,
+
     proxy: {
       "/api": {
         target: apiTarget,
@@ -19,11 +21,14 @@ export default defineConfig({
     },
   },
 
+  // Railway production preview
   preview: {
     host: "0.0.0.0",
+    port: Number(process.env.PORT) || 8080,
+    strictPort: true,
 
     allowedHosts: [
-      "dental-frontend-production-5b96.up.railway.app",
+      "borjadentalclinic.up.railway.app",
     ],
 
     proxy: {
