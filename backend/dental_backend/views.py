@@ -1,3 +1,5 @@
+import logging
+
 from django.db import connection
 from django.db.models import Count, Sum
 from django.http import JsonResponse
@@ -9,7 +11,19 @@ from scheduling.models import Appointment
 from .api import api_error, doctor_required
 
 
+logger = logging.getLogger(__name__)
+
+
 def csrf_failure(request, reason=""):
+    # Keep the user-facing response generic, but put Django's exact rejection
+    # reason in Railway logs so deployment problems can be diagnosed safely.
+    logger.warning(
+        "CSRF rejected path=%s host=%s origin=%s reason=%s",
+        request.path,
+        request.get_host(),
+        request.headers.get("Origin", ""),
+        reason,
+    )
     return api_error("Security token expired. Refresh the page and try again.", 403)
 
 

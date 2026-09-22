@@ -248,11 +248,20 @@ trusted_origins = os.environ.get(
     "",
 ).strip()
 
-CSRF_TRUSTED_ORIGINS = [
+# Keep the current Railway frontend origin trusted even if the Railway variable
+# is accidentally missing. Additional origins can still be supplied through
+# DRMS_CSRF_TRUSTED_ORIGINS as a comma-separated list.
+_default_csrf_origins = [
+    "https://borjadentalclinic.up.railway.app",
+]
+_configured_csrf_origins = [
     origin.strip()
     for origin in trusted_origins.split(",")
     if origin.strip()
 ]
+CSRF_TRUSTED_ORIGINS = list(
+    dict.fromkeys(_default_csrf_origins + _configured_csrf_origins)
+)
 
 
 # ============================================================
