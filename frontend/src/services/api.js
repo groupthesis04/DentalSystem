@@ -19,15 +19,19 @@ export async function apiRequest(path, options = {}) {
   let response;
   try {
     response = await fetch(path, {
-      method,
-      credentials: "same-origin",
-      headers,
-      body: hasBody
-        ? typeof options.body === "string"
-          ? options.body
-          : JSON.stringify(options.body)
-        : undefined,
-    });
+  method,
+  credentials: "same-origin",
+  cache: "no-store",
+  headers: {
+    ...headers,
+    "Cache-Control": "no-cache",
+  },
+  body: hasBody
+    ? typeof options.body === "string"
+      ? options.body
+      : JSON.stringify(options.body)
+    : undefined,
+});
   } catch {
     throw new Error("Cannot reach the server. Start the Django backend and try again.");
   }
