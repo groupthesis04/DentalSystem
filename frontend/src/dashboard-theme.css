@@ -138,7 +138,7 @@ body[data-page="patient"] #app {
   flex-direction: column;
   gap: 8px;
   overflow-x: hidden;
-  overflow-y: auto;
+  overflow-y: hidden;
   border: 0;
   border-right: 1px solid var(--dashboard-border);
   border-radius: 0;
@@ -152,6 +152,7 @@ body[data-page="patient"] #app {
   display: grid;
   width: 100%;
   min-height: 122px;
+  flex: 0 0 auto;
   place-items: center;
   align-content: center;
   gap: 6px;
@@ -197,9 +198,14 @@ body[data-page="patient"] #app {
 .side-nav {
   display: flex;
   flex-direction: column;
+  flex: 1 1 auto;
   gap: 4px;
   width: 100%;
+  min-height: 0;
   margin: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
 }
 
 .side-nav-item {
@@ -293,6 +299,11 @@ body[data-page="patient"] #app {
   transform: none;
 }
 
+.mobile-sidebar-submenu-backdrop,
+.mobile-sidebar-submenu {
+  display: none;
+}
+
 .sidebar-icon-wrap {
   display: grid;
   width: 30px;
@@ -326,6 +337,7 @@ body[data-page="patient"] #app {
   width: 100%;
   min-width: 0;
   min-height: 64px;
+  flex: 0 0 auto;
   margin-top: auto;
   align-items: center;
   gap: 9px;
@@ -388,6 +400,7 @@ body[data-page="patient"] #app {
   display: flex;
   width: 100%;
   min-height: 50px;
+  flex: 0 0 auto;
   align-items: center;
   justify-content: flex-start;
   gap: 10px;
@@ -1350,6 +1363,108 @@ body[data-page="patient"] #app {
   .side-nav-submenu,
   .sidebar-nav-chevron {
     display: none;
+  }
+
+  .mobile-sidebar-submenu-backdrop {
+    position: fixed;
+    inset: 0 0 78px;
+    z-index: 61;
+    display: block;
+    width: 100%;
+    border: 0;
+    background: rgba(15, 23, 42, 0.28);
+    cursor: default;
+  }
+
+  .mobile-sidebar-submenu {
+    position: fixed;
+    bottom: 86px;
+    left: 50%;
+    z-index: 62;
+    display: block;
+    width: min(360px, calc(100vw - 24px));
+    max-height: calc(100dvh - 110px);
+    overflow-y: auto;
+    transform: translateX(-50%);
+    border: 1px solid var(--dashboard-border);
+    border-radius: 12px;
+    background: var(--dashboard-surface);
+    padding: 12px;
+    color: var(--dashboard-text);
+    box-shadow: 0 14px 40px rgba(15, 23, 42, 0.22);
+  }
+
+  .mobile-sidebar-submenu-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 2px 4px 10px;
+  }
+
+  .mobile-sidebar-submenu-heading strong {
+    font-size: 0.86rem;
+  }
+
+  .mobile-sidebar-submenu nav button {
+    display: flex;
+    width: 100%;
+    min-height: 44px;
+    align-items: center;
+    gap: 10px;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    background: transparent;
+    padding: 9px 12px;
+    color: var(--dashboard-text);
+    font: inherit;
+    font-size: 0.84rem;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .mobile-sidebar-submenu-heading button {
+    display: inline-grid;
+    width: 44px;
+    height: 44px;
+    flex: 0 0 44px;
+    justify-content: center;
+    place-items: center;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--dashboard-text);
+    cursor: pointer;
+  }
+
+  .mobile-sidebar-submenu nav {
+    display: grid;
+    gap: 4px;
+  }
+
+  .mobile-sidebar-submenu nav button.active,
+  .mobile-sidebar-submenu nav button:hover,
+  .mobile-sidebar-submenu nav button:focus-visible,
+  .mobile-sidebar-submenu-heading button:hover,
+  .mobile-sidebar-submenu-heading button:focus-visible {
+    border-color: #d2e1ff;
+    background: #e9f1ff;
+    color: var(--dashboard-blue-dark);
+    outline: none;
+  }
+
+  html[data-dashboard-theme="dark"]
+    .mobile-sidebar-submenu
+    :is(
+      nav button.active,
+      nav button:hover,
+      nav button:focus-visible,
+      .mobile-sidebar-submenu-heading button:hover,
+      .mobile-sidebar-submenu-heading button:focus-visible
+    ) {
+    border-color: #4169a3;
+    background: #1b3152;
+    color: #dbeafe;
   }
 
   .portal-header {

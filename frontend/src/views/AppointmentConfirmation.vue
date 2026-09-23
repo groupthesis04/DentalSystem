@@ -12,11 +12,17 @@ import {
   Trash2,
   UserRound,
 } from "lucide-vue-next";
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, reactive, ref, watch } from "vue";
 
+import AvailabilityDatePicker from "../components/AvailabilityDatePicker.vue";
 import { dashboardPath, navigate } from "../router";
 import { apiRequest, refreshSession, session } from "../services/api";
-import { clearPendingAppointment, pendingAppointmentForUser } from "../services/pendingAppointment";
+import { availableSlotDates, futureOpenSlots } from "../services/availability";
+import {
+  clearPendingAppointment,
+  pendingAppointmentForUser,
+  savePendingAppointment,
+} from "../services/pendingAppointment";
 import { consumeQueuedToast, queueToast, showToast } from "../services/toast";
 import { validatedPayload } from "../services/validation";
 
@@ -27,8 +33,26 @@ const loading = ref(true);
 const checking = ref(false);
 const confirming = ref(false);
 const validationError = ref("");
+const editing = ref(false);
+const editChecking = ref(false);
+const editSaving = ref(false);
+const editError = ref("");
+const editForm = reactive({ service: "", doctor: "", date: "", time: "", notes: "" });
 
 const details = computed(() => draft.value?.appointment || null);
+const editableSlots = computed(() => futureOpenSlots(availability.value, editForm.doctor));
+const editableDates = computed(() => availableSlotDates(editableSlots.value));
+const editableTimes = computed(() =>
+  editableSlots.value.filter((slot) => slot.date === editForm.date),
+);
+
+watch(
+  () => editForm.date,
+  (date, previousDate) => {
+    if (editing.value && date !== previousDate) editForm.time = "";
+  },
+  { flush: "sync" },
+);
 
 function formatDate(value) {
   if (!value) return "Not selected";
@@ -64,12 +88,8 @@ function currentValidationError() {
   if (!serviceExists) {
     return "This dental service is no longer offered. Please choose another service.";
   }
-  const slotExists = availability.value.some(
-    (slot) =>
-      !slot.booked &&
-      slot.doctor?.trim().toLowerCase() === details.value.doctor.toLowerCase() &&
-      slot.date === details.value.date &&
-      slot.time === details.value.time,
+  const slotExists = futureOpenSlots(availability.value, details.value.doctor).some(
+    (slot) => slot.date === details.value.date && slot.time === details.value.time,
   );
   if (!slotExists) {
     return "This appointment slot is no longer available. Please choose another date or time.";
@@ -77,16 +97,21 @@ function currentValidationError() {
   return "";
 }
 
+async function loadBookingOptions() {
+  const [serviceData, availabilityData] = await Promise.all([
+    apiRequest("/api/services"),
+    apiRequest("/api/availability"),
+  ]);
+  services.value = serviceData.services || [];
+  availability.value = availabilityData.availability || [];
+  return availabilityData.clinic_doctor || availability.value[0]?.doctor || "";
+}
+
 async function refreshValidation() {
   checking.value = true;
   validationError.value = "";
   try {
-    const [serviceData, availabilityData] = await Promise.all([
-      apiRequest("/api/services"),
-      apiRequest("/api/availability"),
-    ]);
-    services.value = serviceData.services || [];
-    availability.value = availabilityData.availability || [];
+    await loadBookingOptions();
     validationError.value = currentValidationError();
   } catch (error) {
     validationError.value = `We could not recheck this appointment. ${error.message}`;
@@ -95,12 +120,108 @@ async function refreshValidation() {
   }
 }
 
-function editAppointment() {
-  navigate("/?edit-booking=1#home");
+async function refreshEditorOptions() {
+  if (editChecking.value) return false;
+  editChecking.value = true;
+  editError.value = "";
+  try {
+    const clinicDoctor = await loadBookingOptions();
+    if (!editForm.doctor && clinicDoctor) editForm.doctor = clinicDoctor;
+    if (
+      editForm.service &&
+      !services.value.some(
+        (service) => service.name?.trim().toLowerCase() === editForm.service.toLowerCase(),
+      )
+    ) {
+      editForm.service = "";
+      editError.value = "The saved dental service is no longer offered. Choose another service.";
+    }
+    if (editForm.date && !editableDates.value.includes(editForm.date)) {
+      editForm.date = "";
+      editForm.time = "";
+      editError.value =
+        "The saved appointment slot is no longer available. Choose a new date and time.";
+    } else if (editForm.time && !editableTimes.value.some((slot) => slot.time === editForm.time)) {
+      editForm.time = "";
+      editError.value = "The saved appointment time is no longer available. Choose another time.";
+    }
+    return true;
+  } catch (error) {
+    editError.value = `We could not load current clinic availability. ${error.message}`;
+    return false;
+  } finally {
+    editChecking.value = false;
+  }
+}
+
+async function editAppointment() {
+  if (!details.value || confirming.value) return;
+  Object.assign(editForm, details.value);
+  editError.value = "";
+  editing.value = true;
+  await refreshEditorOptions();
+}
+
+function discardEdits() {
+  editing.value = false;
+  editError.value = "";
+}
+
+function savedDraftIsCurrent() {
+  const currentDraft = pendingAppointmentForUser(session.user?.id);
+  return (
+    currentDraft &&
+    draft.value &&
+    currentDraft.bookingToken === draft.value.bookingToken &&
+    currentDraft.updatedAt === draft.value.updatedAt
+  );
+}
+
+async function saveEditedAppointment() {
+  if (!draft.value || !session.user || editSaving.value || editChecking.value) return;
+  editSaving.value = true;
+  editError.value = "";
+  try {
+    if (!(await refreshEditorOptions())) return;
+    if (editError.value) return;
+    const payload = validatedPayload({ ...editForm, _website: "" });
+    if (!payload.service || !payload.doctor || !payload.date || !payload.time) {
+      throw new Error("Choose a dental service, date, and available time.");
+    }
+    if (
+      !services.value.some(
+        (service) => service.name?.trim().toLowerCase() === payload.service.toLowerCase(),
+      )
+    ) {
+      throw new Error("Choose a currently offered dental service.");
+    }
+    if (
+      !futureOpenSlots(availability.value, payload.doctor).some(
+        (slot) => slot.date === payload.date && slot.time === payload.time,
+      )
+    ) {
+      throw new Error("Choose a currently available appointment date and time.");
+    }
+    if (!savedDraftIsCurrent()) {
+      throw new Error("This saved appointment changed. Refresh the page to continue.");
+    }
+    draft.value = savePendingAppointment(payload, { userId: session.user.id });
+    validationError.value = currentValidationError();
+    editing.value = false;
+    showToast("Appointment changes saved.");
+  } catch (error) {
+    editError.value = error.message;
+  } finally {
+    editSaving.value = false;
+  }
 }
 
 function cancelAppointment() {
   if (!window.confirm("Discard this saved appointment?")) return;
+  if (!savedDraftIsCurrent()) {
+    showToast("The saved appointment changed. Refresh the page and try again.", "error");
+    return;
+  }
   if (!clearPendingAppointment(draft.value?.bookingToken || "")) {
     showToast("The saved appointment changed. Refresh the page and try again.", "error");
     return;
@@ -115,6 +236,9 @@ async function confirmAppointment() {
   try {
     await refreshValidation();
     if (validationError.value) throw new Error(validationError.value);
+    if (!savedDraftIsCurrent()) {
+      throw new Error("This saved appointment changed. Refresh the page before confirming it.");
+    }
     const payload = validatedPayload({
       ...details.value,
       booking_token: draft.value.bookingToken,
@@ -127,7 +251,8 @@ async function confirmAppointment() {
         ? "Your appointment was already submitted and is pending approval."
         : "Appointment request submitted and pending clinic approval.",
     );
-    navigate("/patient-dashboard.html");
+    navigate("/", { replace: true });
+    navigate(dashboardPath("patient"));
   } catch (error) {
     if (error.status === 401) {
       queueToast("Log in again to confirm your saved appointment.", "error");
@@ -161,7 +286,7 @@ onMounted(async () => {
       return;
     }
     draft.value = pendingAppointmentForUser(session.user.id);
-    if (draft.value?.ownerUserId !== session.user.id) draft.value = null;
+    if (draft.value?.ownerUserId !== String(session.user.id)) draft.value = null;
     if (draft.value) await refreshValidation();
   } catch (error) {
     showToast(error.message, "error");
@@ -216,7 +341,11 @@ onMounted(async () => {
           <div>
             <p>Final step</p>
             <h1>Confirm Your Appointment</h1>
-            <span>Review your saved details before sending the request to the clinic.</span>
+            <span>{{
+              editing
+                ? "Update your appointment details, then review them before confirming."
+                : "Review your saved details before sending the request to the clinic."
+            }}</span>
           </div>
         </header>
 
@@ -226,18 +355,24 @@ onMounted(async () => {
           <li class="active"><span>3</span>Confirmation</li>
         </ol>
 
-        <section class="confirmation-summary" aria-labelledby="appointment-summary-title">
+        <section
+          class="confirmation-summary"
+          :class="{ 'is-editing': editing }"
+          aria-labelledby="appointment-summary-title"
+        >
           <header>
             <div>
-              <p>Saved appointment</p>
-              <h2 id="appointment-summary-title">Appointment Summary</h2>
+              <p>{{ editing ? "Update saved appointment" : "Saved appointment" }}</p>
+              <h2 id="appointment-summary-title">
+                {{ editing ? "Edit Appointment" : "Appointment Summary" }}
+              </h2>
             </div>
             <span class="confirmation-secure"
               ><ShieldCheck :size="18" />Secure patient request</span
             >
           </header>
 
-          <dl class="confirmation-details">
+          <dl v-if="!editing" class="confirmation-details">
             <div>
               <dt><Stethoscope :size="20" />Dental Service</dt>
               <dd>{{ details.service }}</dd>
@@ -260,22 +395,114 @@ onMounted(async () => {
             </div>
           </dl>
 
-          <div v-if="checking" class="confirmation-check" role="status">
+          <form
+            v-else
+            id="confirmation-edit-form"
+            class="confirmation-edit-form"
+            aria-label="Edit appointment details"
+            @submit.prevent="saveEditedAppointment"
+          >
+            <label class="confirmation-edit-field">
+              <span><Stethoscope :size="20" aria-hidden="true" />Dental Service <b>*</b></span>
+              <select v-model="editForm.service" required :disabled="editChecking || editSaving">
+                <option value="">Select a dental service</option>
+                <option
+                  v-for="service in services"
+                  :key="service.id || service.name"
+                  :value="service.name"
+                >
+                  {{ service.name }}
+                </option>
+              </select>
+            </label>
+            <label class="confirmation-edit-field">
+              <span><UserRound :size="20" aria-hidden="true" />Dentist</span>
+              <input v-model="editForm.doctor" readonly required />
+            </label>
+            <div class="confirmation-edit-field">
+              <span><CalendarDays :size="20" aria-hidden="true" />Preferred Date <b>*</b></span>
+              <AvailabilityDatePicker
+                v-model="editForm.date"
+                :available-dates="editableDates"
+                :disabled="editChecking || editSaving"
+                placeholder="Select an available date"
+                aria-label="Select a preferred appointment date"
+                @open="refreshEditorOptions"
+              />
+            </div>
+            <label class="confirmation-edit-field">
+              <span><Clock3 :size="20" aria-hidden="true" />Preferred Time <b>*</b></span>
+              <select
+                v-model="editForm.time"
+                required
+                :disabled="editChecking || editSaving || !editForm.date || !editableTimes.length"
+              >
+                <option value="">
+                  {{
+                    !editForm.date
+                      ? "Select a date first"
+                      : editableTimes.length
+                        ? "Select a time"
+                        : "No available times"
+                  }}
+                </option>
+                <option v-for="slot in editableTimes" :key="slot.id" :value="slot.time">
+                  {{ formatTime(slot.time) }}
+                </option>
+              </select>
+            </label>
+            <label class="confirmation-edit-field confirmation-edit-notes">
+              <span><FileText :size="20" aria-hidden="true" />Notes / Symptoms / Concerns</span>
+              <textarea
+                v-model="editForm.notes"
+                rows="3"
+                maxlength="1000"
+                placeholder="Add any symptoms, concerns, or details for the clinic"
+                :disabled="editChecking || editSaving"
+              ></textarea>
+              <small>{{ editForm.notes.length }}/1000 characters</small>
+            </label>
+            <div v-if="editChecking" class="confirmation-edit-message" role="status">
+              <span class="confirmation-spinner small" aria-hidden="true"></span>
+              Checking current clinic availability...
+            </div>
+            <p v-if="editError" class="confirmation-edit-error" role="alert">{{ editError }}</p>
+          </form>
+
+          <div v-if="!editing && checking" class="confirmation-check" role="status">
             <span class="confirmation-spinner small" aria-hidden="true"></span>
             Checking current clinic availability...
           </div>
-          <div v-else-if="validationError" class="confirmation-warning" role="alert">
+          <div v-else-if="!editing && validationError" class="confirmation-warning" role="alert">
             <strong>Appointment update needed</strong>
             <p>{{ validationError }}</p>
             <button class="secondary-button" type="button" @click="editAppointment">
               <Pencil :size="17" />Choose Another Time
             </button>
           </div>
-          <div v-else class="confirmation-available">
+          <div v-else-if="!editing" class="confirmation-available">
             <CheckCircle2 :size="20" />This service and appointment slot are currently available.
           </div>
 
-          <footer class="confirmation-actions">
+          <footer v-if="editing" class="confirmation-actions confirmation-edit-actions">
+            <button
+              class="secondary-button"
+              type="button"
+              :disabled="editSaving"
+              @click="discardEdits"
+            >
+              Discard Changes
+            </button>
+            <button
+              class="primary-button confirmation-submit"
+              type="submit"
+              form="confirmation-edit-form"
+              :disabled="editChecking || editSaving"
+            >
+              <CheckCircle2 :size="19" />{{ editSaving ? "Saving..." : "Save Changes" }}
+            </button>
+          </footer>
+          <footer v-else class="confirmation-actions">
             <button class="danger-outline-button" type="button" @click="cancelAppointment">
               <Trash2 :size="18" />Cancel
             </button>
@@ -470,6 +697,10 @@ onMounted(async () => {
   box-shadow: 0 14px 34px rgb(32 75 103 / 9%);
 }
 
+.confirmation-summary.is-editing {
+  overflow: visible;
+}
+
 .confirmation-summary > header {
   display: flex;
   align-items: center;
@@ -544,6 +775,113 @@ onMounted(async () => {
   white-space: pre-wrap;
 }
 
+.confirmation-edit-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px 22px;
+  padding: 24px 28px;
+}
+
+.confirmation-edit-field {
+  display: grid;
+  min-width: 0;
+  align-content: start;
+  gap: 8px;
+  color: #102849;
+  font-size: 0.94rem;
+  font-weight: 650;
+}
+
+.confirmation-edit-field > span:first-child {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: #60728a;
+  font-size: 0.79rem;
+  font-weight: 750;
+  text-transform: uppercase;
+}
+
+.confirmation-edit-field > span:first-child svg {
+  flex: 0 0 auto;
+  color: #087d94;
+}
+
+.confirmation-edit-field b {
+  color: #c52f45;
+}
+
+.confirmation-edit-field select,
+.confirmation-edit-field input,
+.confirmation-edit-field textarea {
+  width: 100%;
+  min-width: 0;
+  min-height: 46px;
+  border: 1px solid #cfdde8;
+  border-radius: 7px;
+  padding: 10px 12px;
+  color: #102849;
+  background: #fff;
+  font: inherit;
+}
+
+.confirmation-edit-field select:focus-visible,
+.confirmation-edit-field textarea:focus-visible {
+  border-color: #087d94;
+  outline: 3px solid rgb(8 125 148 / 15%);
+}
+
+.confirmation-edit-field input[readonly],
+.confirmation-edit-field :disabled {
+  color: #60728a;
+  background: #f4f7f9;
+}
+
+.confirmation-edit-field:has(.availability-date-picker) {
+  position: relative;
+  z-index: 2;
+}
+
+.confirmation-edit-field :deep(.availability-date-trigger) {
+  min-height: 46px;
+}
+
+.confirmation-edit-notes,
+.confirmation-edit-message,
+.confirmation-edit-error {
+  grid-column: 1 / -1;
+}
+
+.confirmation-edit-notes textarea {
+  min-height: 90px;
+  resize: vertical;
+}
+
+.confirmation-edit-notes small {
+  justify-self: end;
+  color: #60728a;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.confirmation-edit-message {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: #536981;
+  font-weight: 600;
+}
+
+.confirmation-edit-error {
+  margin: 0;
+  border: 1px solid #e6a8b2;
+  border-radius: 6px;
+  padding: 12px 15px;
+  color: #a32c40;
+  background: #fff3f4;
+  line-height: 1.5;
+}
+
 .confirmation-check,
 .confirmation-warning,
 .confirmation-available {
@@ -588,6 +926,10 @@ onMounted(async () => {
   padding: 22px 28px;
   background: #f8fbfd;
   border-top: 1px solid #e1ebf1;
+}
+
+.confirmation-edit-actions {
+  grid-template-columns: auto 1fr;
 }
 
 .confirmation-submit {
@@ -750,6 +1092,11 @@ onMounted(async () => {
 
   .confirmation-details .confirmation-notes {
     grid-column: auto;
+  }
+
+  .confirmation-edit-form {
+    grid-template-columns: 1fr;
+    padding: 20px;
   }
 
   .confirmation-check,

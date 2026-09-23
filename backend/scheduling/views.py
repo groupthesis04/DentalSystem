@@ -4,6 +4,7 @@ from django.db import IntegrityError, transaction
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
 
+from accounts.identity import PatientIdentityConflict, creation_conflict, normalized_full_name
 from accounts.models import PatientProfile, User
 from clinic.models import Service
 from communications.services import create_notification, notify_doctors
@@ -130,9 +131,12 @@ def create_manual_patient(payload):
     sex = str(payload.get("sex", "")).strip().lower()
     if sex and sex not in {"male", "female", "other", "prefer not to say"}:
         raise ValueError("Choose a valid gender value.")
+    first_name, middle_name, last_name = split_name(name)
+    full_name = normalized_full_name(first_name, middle_name, last_name)
+    if creation_conflict(email, phone, birthdate, full_name):
+        raise PatientIdentityConflict("A patient record may already exist. Select that patient or enter a birthdate to verify a different patient.")
     if email and (User.objects.filter(email__iexact=email).exists() or PatientProfile.objects.filter(email__iexact=email).exists()):
         raise IntegrityError("duplicate email")
-    first_name, middle_name, last_name = split_name(name)
     return PatientProfile.objects.create(
         id=make_id("pat"),
         first_name=first_name,
@@ -258,6 +262,10 @@ def create_appointment(request, payload):
             else:
                 create_notification(request.user, "appointment_created", "Appointment request submitted", f"{service_name} with {doctor_name} on {appointment_date.isoformat()} at {appointment_time.strftime('%H:%M')} is pending approval.", "appointment", item.id)
                 notify_doctors("appointment_created", "New appointment request", f"{request.user.name} requested {service_name} on {appointment_date.isoformat()} at {appointment_time.strftime('%H:%M')}.", "appointment", item.id)
+    except PatientIdentityConflict as error:
+        return api_error(str(error), 409)
+    except ValueError as error:
+        return api_error(str(error))
     except IntegrityError:
         return api_error("A patient record or booking already uses the supplied information.", 409)
 

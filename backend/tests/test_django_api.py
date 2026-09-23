@@ -121,9 +121,11 @@ class DentalApiTests(TestCase):
             token,
             "/api/register",
             {
-                "name": "New Patient",
+                "first_name": "New",
+                "last_name": "Patient",
                 "email": "new.patient@example.com",
                 "phone": "09112223333",
+                "birthdate": "2000-04-12",
                 "password": "NewPatient123!",
                 "role": "patient",
             },

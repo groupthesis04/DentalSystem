@@ -1,5 +1,16 @@
 <script setup>
-import { Eye, EyeOff, LockKeyhole, Mail, ShieldCheck, UserRound, X } from "lucide-vue-next";
+import {
+  ArrowRight,
+  CalendarDays,
+  Eye,
+  EyeOff,
+  LockKeyhole,
+  Mail,
+  Phone,
+  ShieldCheck,
+  UserRound,
+  X,
+} from "lucide-vue-next";
 import { onBeforeUnmount, onMounted, reactive, ref } from "vue";
 
 import { session, apiRequest } from "../services/api";
@@ -17,7 +28,10 @@ const showPassword = ref(false);
 const errorMessage = ref("");
 const login = reactive({ email: "", password: "", remember: false, _website: "" });
 const register = reactive({
-  name: "",
+  first_name: "",
+  middle_name: "",
+  last_name: "",
+  birthdate: "",
   phone: "",
   email: "",
   password: "",
@@ -25,6 +39,7 @@ const register = reactive({
   profile_image: "",
   _website: "",
 });
+const confirmPassword = ref("");
 const passwordInput = ref(null);
 // Optional local credentials are read only in development and stay out of source control.
 const configuredTestAccounts = [
@@ -101,7 +116,20 @@ async function submitRegister() {
   errorMessage.value = "";
   busy.value = true;
   try {
-    const payload = validatedPayload({ ...register }, { registration: true });
+    if (!register.birthdate) throw new Error("Please select your birthdate.");
+    if (register.password !== confirmPassword.value) {
+      throw new Error("Passwords do not match.");
+    }
+    const payload = validatedPayload(
+      {
+        ...register,
+        name: [register.first_name, register.middle_name, register.last_name]
+          .map((part) => part.trim())
+          .filter(Boolean)
+          .join(" "),
+      },
+      { registration: true },
+    );
     const data = await apiRequest("/api/register", { method: "POST", body: payload });
     session.user = data.user;
     session.csrfToken = data.csrf_token || session.csrfToken;
@@ -112,12 +140,18 @@ async function submitRegister() {
     busy.value = false;
   }
 }
+
+function handleRegisterInvalid(event) {
+  if (event.target?.name === "birthdate") {
+    errorMessage.value = "Please select your birthdate.";
+  }
+}
 </script>
 
 <template>
   <Teleport to="body">
     <div class="modal-backdrop" role="dialog" aria-modal="true" @mousedown.self="emit('close')">
-      <div class="auth-modal">
+      <div class="auth-modal" :class="{ 'auth-modal-register': tab === 'register' }">
         <button class="modal-close" type="button" aria-label="Close" @click="emit('close')">
           <X aria-hidden="true" />
         </button>
@@ -216,56 +250,153 @@ async function submitRegister() {
           </p>
         </form>
 
-        <form v-else class="auth-form" @submit.prevent="submitRegister">
+        <form
+          v-else
+          class="auth-form auth-register-form"
+          @submit.prevent="submitRegister"
+          @invalid.capture="handleRegisterInvalid"
+        >
           <label class="hp-field" aria-hidden="true"
             >Website<input v-model="register._website" tabindex="-1" autocomplete="off"
           /></label>
           <div class="auth-heading compact">
             <img class="auth-brand-logo" src="/assets/logo.png" alt="" />
+            <span class="auth-brand-wordmark" aria-hidden="true">
+              <strong>BORJA</strong>
+              <small>DENTAL CLINIC</small>
+            </span>
             <h2>Create your account</h2>
             <p>Start booking dental visits securely.</p>
           </div>
-          <div class="form-grid two">
-            <label
-              >Full name<input
-                v-model="register.name"
-                autocomplete="name"
-                minlength="2"
-                maxlength="120"
-                required
-            /></label>
-            <label
-              >Phone<input
-                v-model="register.phone"
-                autocomplete="tel"
-                inputmode="tel"
-                maxlength="24"
-            /></label>
+          <div class="register-grid">
+            <label class="register-field">
+              <span>First name</span>
+              <span class="register-input-wrap">
+                <UserRound aria-hidden="true" />
+                <input
+                  v-model="register.first_name"
+                  name="first_name"
+                  autocomplete="given-name"
+                  maxlength="80"
+                  placeholder="Enter your first name"
+                  required
+                />
+              </span>
+            </label>
+            <label class="register-field">
+              <span>Middle name (optional)</span>
+              <span class="register-input-wrap">
+                <UserRound aria-hidden="true" />
+                <input
+                  v-model="register.middle_name"
+                  name="middle_name"
+                  autocomplete="additional-name"
+                  maxlength="80"
+                  placeholder="Enter your middle name"
+                />
+              </span>
+            </label>
+            <label class="register-field">
+              <span>Last name</span>
+              <span class="register-input-wrap">
+                <UserRound aria-hidden="true" />
+                <input
+                  v-model="register.last_name"
+                  name="last_name"
+                  autocomplete="family-name"
+                  maxlength="80"
+                  placeholder="Enter your last name"
+                  required
+                />
+              </span>
+            </label>
+            <label class="register-field">
+              <span>Birthdate</span>
+              <span class="register-input-wrap">
+                <CalendarDays aria-hidden="true" />
+                <input
+                  v-model="register.birthdate"
+                  name="birthdate"
+                  type="date"
+                  autocomplete="bday"
+                  required
+                />
+              </span>
+            </label>
+            <label class="register-field">
+              <span>Phone number</span>
+              <span class="register-input-wrap">
+                <Phone aria-hidden="true" />
+                <input
+                  v-model="register.phone"
+                  name="phone"
+                  type="tel"
+                  autocomplete="tel"
+                  inputmode="tel"
+                  maxlength="24"
+                  placeholder="e.g. 0917 123 4567"
+                  required
+                />
+              </span>
+            </label>
+            <label class="register-field">
+              <span>Email</span>
+              <span class="register-input-wrap">
+                <Mail aria-hidden="true" />
+                <input
+                  v-model="register.email"
+                  name="email"
+                  type="email"
+                  autocomplete="email"
+                  maxlength="254"
+                  placeholder="you@example.com"
+                  required
+                />
+              </span>
+            </label>
+            <label class="register-field">
+              <span>Password</span>
+              <span class="register-input-wrap">
+                <LockKeyhole aria-hidden="true" />
+                <input
+                  v-model="register.password"
+                  name="password"
+                  type="password"
+                  autocomplete="new-password"
+                  minlength="10"
+                  maxlength="128"
+                  placeholder="Create a password"
+                  required
+                />
+              </span>
+            </label>
+            <label class="register-field">
+              <span>Confirm Password</span>
+              <span class="register-input-wrap">
+                <LockKeyhole aria-hidden="true" />
+                <input
+                  v-model="confirmPassword"
+                  name="confirm_password"
+                  type="password"
+                  autocomplete="new-password"
+                  minlength="10"
+                  maxlength="128"
+                  placeholder="Confirm your password"
+                  required
+                />
+              </span>
+            </label>
           </div>
-          <label
-            >Email<input
-              v-model="register.email"
-              type="email"
-              autocomplete="email"
-              maxlength="254"
-              required
-          /></label>
-          <label
-            >Password<input
-              v-model="register.password"
-              type="password"
-              autocomplete="new-password"
-              minlength="10"
-              maxlength="128"
-              required
-          /></label>
           <p v-if="errorMessage" class="form-error" role="alert">{{ errorMessage }}</p>
-          <button class="primary-button full" type="submit" :disabled="busy">
-            {{ busy ? "Creating..." : "Create Account" }}
+          <button class="primary-button register-submit full" type="submit" :disabled="busy">
+            <span>{{ busy ? "Creating..." : "Create Account" }}</span>
+            <ArrowRight v-if="!busy" aria-hidden="true" />
           </button>
-          <p class="auth-switch">
-            Already have an account?
-            <button class="active" type="button" @click="switchTab('login')">Log In</button>
+          <p class="auth-switch register-switch">
+            <span
+              >Already have an account?
+              <button class="active" type="button" @click="switchTab('login')">Log In</button>
+            </span>
           </p>
         </form>
       </div>

@@ -349,9 +349,10 @@ onBeforeUnmount(() => window.clearInterval(timer));
                         ><strong>{{ item.name }}</strong>
                       </div>
                     </td>
-                    <td>{{ item.trigger }}</td>
-                    <td>{{ item.frequency }}</td>
+                    <td><span class="mobile-cell-label">Trigger</span>{{ item.trigger }}</td>
+                    <td><span class="mobile-cell-label">Frequency</span>{{ item.frequency }}</td>
                     <td>
+                      <span class="mobile-cell-label">Status</span>
                       <label class="sms-toggle"
                         ><input
                           type="checkbox"
@@ -420,20 +421,27 @@ onBeforeUnmount(() => window.clearInterval(timer));
                 </thead>
                 <tbody>
                   <tr v-for="item in messages" :key="item.id">
-                    <td>{{ dateLabel(item.created_at) }}</td>
                     <td>
+                      <span class="mobile-cell-label">Date &amp; Time</span>
+                      {{ dateLabel(item.created_at) }}
+                    </td>
+                    <td>
+                      <span class="mobile-cell-label">Patient</span>
                       <strong>{{ item.patient_name }}</strong
                       ><small>{{ item.phone || "No mobile number" }}</small>
                     </td>
                     <td>
+                      <span class="mobile-cell-label">Message Preview</span>
                       <span class="message-preview">{{ item.body }}</span>
                     </td>
                     <td>
+                      <span class="mobile-cell-label">Type</span>
                       <span class="type-badge" :class="item.rule">{{
                         item.is_test ? "Test SMS" : item.name
                       }}</span>
                     </td>
                     <td>
+                      <span class="mobile-cell-label">Status</span>
                       <span class="sms-status" :class="item.display_status">{{
                         statusLabels[item.display_status]
                       }}</span>
@@ -450,7 +458,7 @@ onBeforeUnmount(() => window.clearInterval(timer));
                       </button>
                     </td>
                   </tr>
-                  <tr v-if="!messages.length">
+                  <tr v-if="!messages.length" class="sms-empty-row">
                     <td colspan="6" class="sms-empty">
                       No SMS messages {{ status || logRule ? "match these filters" : "yet" }}.
                     </td>
@@ -795,6 +803,9 @@ onBeforeUnmount(() => window.clearInterval(timer));
   vertical-align: middle;
   overflow-wrap: anywhere;
 }
+.mobile-cell-label {
+  display: none;
+}
 .sms-center tr.selected {
   background: #f6faff;
 }
@@ -1129,7 +1140,114 @@ onBeforeUnmount(() => window.clearInterval(timer));
     font-size: 23px;
   }
   .sms-center table {
-    min-width: 720px;
+    display: block;
+    width: 100%;
+    min-width: 0;
+  }
+  .sms-center table thead {
+    display: none;
+  }
+  .sms-center table tbody {
+    display: grid;
+    gap: 10px;
+    padding: 10px;
+  }
+  .sms-center table tr {
+    display: grid;
+    gap: 10px 12px;
+    border: 1px solid var(--dashboard-border, #dbe6f2);
+    border-radius: 7px;
+    background: var(--surface, #fff);
+    padding: 12px;
+  }
+  .sms-center table td {
+    display: block;
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    font-size: 12px;
+  }
+  .mobile-cell-label {
+    display: block;
+    margin-bottom: 3px;
+    color: var(--dashboard-muted, #66809f);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .sms-rules .sms-table-wrap {
+    overflow: visible;
+    border: 0;
+    background: transparent;
+  }
+  .rules-table tr {
+    grid-template-columns: 30px minmax(0, 1fr) auto;
+    align-items: center;
+  }
+  .rules-table td:first-child {
+    grid-column: 1;
+    grid-row: 1;
+    align-self: start;
+    color: var(--dashboard-muted, #66809f);
+    font-weight: 700;
+  }
+  .rules-table td:first-child::before {
+    content: "#";
+  }
+  .rules-table td:nth-child(2) {
+    grid-column: 2 / -1;
+    grid-row: 1;
+  }
+  .rules-table td:nth-child(3),
+  .rules-table td:nth-child(4) {
+    grid-column: 1 / -1;
+  }
+  .rules-table td:nth-child(5) {
+    grid-column: 1 / 3;
+  }
+  .rules-table td:nth-child(6) {
+    grid-column: 3;
+    align-self: end;
+  }
+  .rules-table .rule-name {
+    align-items: flex-start;
+  }
+  .rules-table .sms-toggle {
+    min-height: 36px;
+    font-size: 12px;
+  }
+  .sms-center .rules-table .sms-template-action {
+    width: auto;
+    min-height: 38px;
+    font-size: 11px;
+  }
+  .logs-table tr:not(.sms-empty-row) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .logs-table td:nth-child(-n + 3) {
+    grid-column: 1 / -1;
+  }
+  .logs-table td:last-child {
+    grid-column: 1 / -1;
+    justify-self: end;
+  }
+  .logs-table td,
+  .logs-table td small {
+    font-size: 12px;
+  }
+  .logs-table .sms-empty-row {
+    display: block;
+  }
+  .sms-center .logs-table .sms-empty {
+    padding: 18px;
+  }
+  .log-filters {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .log-filters select {
+    max-width: none;
   }
   .sms-actions {
     width: 100%;
@@ -1160,6 +1278,9 @@ onBeforeUnmount(() => window.clearInterval(timer));
   }
 }
 @media (max-width: 420px) {
+  .log-filters {
+    grid-template-columns: 1fr;
+  }
   .sms-stats article {
     gap: 8px;
     padding: 10px;

@@ -4,8 +4,10 @@ from decimal import Decimal
 
 from django.core.management.base import BaseCommand
 from django.db import connection, transaction
+from django.db.models import Q
 from django.utils import timezone
 
+from accounts.identity import canonical_mobile, normalized_full_name, profile_has_mobile
 from accounts.models import PatientProfile, User
 from clinic.models import Feedback, Promotion, Service
 from communications.models import Message, Notification
@@ -80,6 +82,34 @@ def money(value):
 class Command(BaseCommand):
     help = "Copy rows from the legacy mysql-connector tables into Django ORM tables."
 
+    def warn_unresolved_patient(self, user, profile):
+        if not hasattr(self, "unresolved_patient_links"):
+            self.unresolved_patient_links = set()
+        self.unresolved_patient_links.add((user.id, profile.id))
+
+    def warn_unresolved_patient_row(self, table_name, row_id, patient_id):
+        if not hasattr(self, "unresolved_patient_rows"):
+            self.unresolved_patient_rows = set()
+        self.unresolved_patient_rows.add((table_name, row_id, patient_id))
+
+    def plausible_unlinked_profile(self, user):
+        first_name, middle_name, last_name = split_name(user.name)
+        full_name = normalized_full_name(first_name, middle_name, last_name)
+        mobile = canonical_mobile(user.phone)
+        filters = Q()
+        if user.email:
+            filters |= Q(email__iexact=user.email)
+        if full_name and mobile:
+            filters |= Q(normalized_name=full_name)
+        if not filters:
+            return None
+        for profile in PatientProfile.objects.filter(filters, user__isnull=True).exclude(id=user.id).order_by("id"):
+            if user.email and profile.email.casefold() == user.email.casefold():
+                return profile
+            if full_name == profile.normalized_name and profile_has_mobile(profile, mobile):
+                return profile
+        return None
+
     def table_rows(self, table_name):
         existing = set(connection.introspection.table_names())
         if table_name not in existing:
@@ -105,24 +135,30 @@ class Command(BaseCommand):
         profile = PatientProfile.objects.filter(user=user).first()
         if profile:
             return profile
+        profile = PatientProfile.objects.filter(id=user.id).first()
+        if profile:
+            if profile.user_id is None:
+                profile.user = user
+                profile.save(update_fields=["user", "updated_at"])
+                return profile
+            self.warn_unresolved_patient(user, profile)
+            return None
+        plausible = self.plausible_unlinked_profile(user)
+        if plausible:
+            self.warn_unresolved_patient(user, plausible)
+            return None
         first_name, middle_name, last_name = split_name(user.name)
-        profile, _ = PatientProfile.objects.get_or_create(
+        return PatientProfile.objects.create(
             id=user.id,
-            defaults={
-                "user": user,
-                "first_name": first_name,
-                "middle_name": middle_name,
-                "last_name": last_name,
-                "email": user.email,
-                "phone_number": user.phone,
-                "mobile_number": user.phone,
-                "legacy_payload": user.legacy_payload,
-            },
+            user=user,
+            first_name=first_name,
+            middle_name=middle_name,
+            last_name=last_name,
+            email=user.email,
+            phone_number=user.phone,
+            mobile_number=user.phone,
+            legacy_payload=user.legacy_payload,
         )
-        if profile.user_id is None:
-            profile.user = user
-            profile.save(update_fields=["user", "updated_at"])
-        return profile
 
     def restore_created_at(self, model, object_id, row):
         """Preserve legacy ordering without overwriting later application edits."""
@@ -139,9 +175,13 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         counts = {}
+        self.unresolved_patient_links = set()
+        self.unresolved_patient_rows = set()
         with transaction.atomic():
             counts["users"] = self.import_users()
             counts["patients"] = self.import_patients()
+            for user in User.objects.filter(role="patient").order_by("id"):
+                self.ensure_patient_profile(user)
             counts["services"] = self.import_services()
             counts["promos"] = self.import_promos()
             counts["feedback"] = self.import_feedback()
@@ -152,6 +192,16 @@ class Command(BaseCommand):
             counts["messages"] = self.import_messages()
         summary = ", ".join(f"{name}: {count} added" for name, count in counts.items())
         self.stdout.write(self.style.SUCCESS(f"Legacy import complete ({summary})."))
+        for user_id, patient_id in sorted(self.unresolved_patient_links):
+            self.stderr.write(self.style.WARNING(
+                f"Review legacy patient link: user {user_id} may belong to patient {patient_id}. "
+                "No automatic link was made for this ID pair; related rows may need manual reconciliation."
+            ))
+        for table_name, row_id, patient_id in sorted(self.unresolved_patient_rows):
+            self.stderr.write(self.style.WARNING(
+                f"Skipped legacy {table_name} {row_id}: patient reference {patient_id or '<blank>'} "
+                "could not be resolved. Reconcile this relationship and rerun the import."
+            ))
 
     def import_users(self):
         added = 0
@@ -176,8 +226,6 @@ class Command(BaseCommand):
                 added += 1
             elif not user.legacy_payload:
                 User.objects.filter(id=user.id).update(legacy_payload=json_safe(row))
-        for user in User.objects.filter(role="patient"):
-            self.ensure_patient_profile(user)
         return added
 
     def import_patients(self):
@@ -198,7 +246,7 @@ class Command(BaseCommand):
             birthdate = safe_date(row.get("birthdate"))
             user = User.objects.filter(id=patient_id, role="patient").first()
             defaults = {
-                "user": user,
+                "user": None,
                 "first_name": first_name or "Patient",
                 "middle_name": middle_name,
                 "last_name": last_name,
@@ -217,9 +265,13 @@ class Command(BaseCommand):
             profile, created = PatientProfile.objects.get_or_create(id=patient_id, defaults=defaults)
             if created:
                 added += 1
-            elif user and not profile.user_id:
-                profile.user = user
-                profile.save(update_fields=["user", "updated_at"])
+            if user:
+                if profile.user_id and profile.user_id != user.id:
+                    self.warn_unresolved_patient(user, profile)
+                elif not profile.user_id:
+                    linked = self.ensure_patient_profile(user)
+                    if linked and linked.id != profile.id:
+                        self.warn_unresolved_patient(user, profile)
         return added
 
     def import_services(self):
@@ -301,9 +353,12 @@ class Command(BaseCommand):
         added = 0
         for row in self.table_rows("appointments"):
             appointment_id = safe_text(row.get("id"))
-            patient = self.resolve_patient(safe_text(row.get("patient_id")))
+            patient_id = safe_text(row.get("patient_id"))
+            patient = self.resolve_patient(patient_id)
             date_value = safe_date(row.get("date") or row.get("appointment_date"))
             time_value = safe_time(row.get("time") or row.get("appointment_time"))
+            if appointment_id and not patient:
+                self.warn_unresolved_patient_row("appointment", appointment_id, patient_id)
             if not appointment_id or not patient or not date_value or not time_value:
                 continue
             doctor_name = safe_text(row.get("doctor") or row.get("doctor_name"))
@@ -341,8 +396,11 @@ class Command(BaseCommand):
         added = 0
         for row in self.table_rows("treatments"):
             record_id = safe_text(row.get("id"))
-            patient = self.resolve_patient(safe_text(row.get("patient_id")))
+            patient_id = safe_text(row.get("patient_id"))
+            patient = self.resolve_patient(patient_id)
             treatment_date = safe_date(row.get("treatment_date")) or safe_date(row.get("created_at"))
+            if record_id and not patient:
+                self.warn_unresolved_patient_row("treatment", record_id, patient_id)
             if not record_id or not patient or not treatment_date:
                 continue
             doctor = User.objects.filter(id=safe_text(row.get("doctor_id"))).first()

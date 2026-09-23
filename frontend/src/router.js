@@ -11,9 +11,10 @@ window.addEventListener("popstate", () => {
   window.scrollTo({ top: 0, behavior: "auto" });
 });
 
-export function navigate(path) {
+export function navigate(path, { replace = false } = {}) {
   if (normalizedPath() === path) return;
-  window.history.pushState({}, "", path);
+  if (replace) window.history.replaceState({}, "", path);
+  else window.history.pushState({}, "", path);
   currentPath.value = normalizedPath();
   window.scrollTo({ top: 0, behavior: "auto" });
 }

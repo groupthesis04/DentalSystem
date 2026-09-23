@@ -412,30 +412,38 @@ onBeforeUnmount(() => {
                 @click="selectMessage(item)"
               >
                 <td>
+                  <span class="mobile-log-label">Date &amp; Time</span>
                   <time :datetime="item.created_at"
                     >{{ dateLabel(item.created_at)
                     }}<small>{{ timeLabel(item.created_at) }}</small></time
                   >
                 </td>
                 <td class="recipient-cell">
+                  <span class="mobile-log-label">Recipient</span>
                   {{ item.patient_name }}<small v-if="item.is_test">Test recipient</small>
                 </td>
-                <td class="phone-cell">{{ phoneLabel(item.phone) }}</td>
+                <td class="phone-cell">
+                  <span class="mobile-log-label">Mobile Number</span>{{ phoneLabel(item.phone) }}
+                </td>
                 <td>
+                  <span class="mobile-log-label">Message Type</span>
                   <span class="log-type" :class="item.rule">{{
                     types[item.rule] || item.name
                   }}</span>
                 </td>
                 <td>
+                  <span class="mobile-log-label">Message Preview</span>
                   <span class="log-preview" :title="item.body">{{ item.body }}</span>
                 </td>
-                <td>{{ sources[item.source] }}</td>
+                <td><span class="mobile-log-label">Source</span>{{ sources[item.source] }}</td>
                 <td>
+                  <span class="mobile-log-label">Status</span>
                   <span class="log-status" :class="item.display_status"
                     ><i></i>{{ statuses[item.display_status] }}</span
                   >
                 </td>
                 <td>
+                  <span class="mobile-log-label">Actions</span>
                   <div class="log-row-actions">
                     <button
                       type="button"
@@ -457,7 +465,7 @@ onBeforeUnmount(() => {
                   </div>
                 </td>
               </tr>
-              <tr v-if="!messages.length">
+              <tr v-if="!messages.length" class="log-empty-row">
                 <td colspan="8" class="log-empty">
                   <MessageCircleMore :size="34" /><strong>{{
                     loading
@@ -945,6 +953,9 @@ onBeforeUnmount(() => {
   padding: 11px 8px;
   border-bottom: 1px solid var(--dashboard-border, #dbe6f2);
   overflow-wrap: anywhere;
+}
+.mobile-log-label {
+  display: none;
 }
 .sms-log-page td + td,
 .sms-log-page th + th {
@@ -1439,6 +1450,85 @@ onBeforeUnmount(() => {
   }
 }
 @media (max-width: 750px) {
+  .log-table-scroll {
+    overflow: visible;
+  }
+  .sms-log-page table {
+    display: block;
+    width: 100%;
+    min-width: 0;
+  }
+  .sms-log-page table colgroup,
+  .sms-log-page table thead {
+    display: none;
+  }
+  .sms-log-page table tbody {
+    display: grid;
+    gap: 10px;
+    padding: 10px;
+  }
+  .sms-log-page table tr:not(.log-empty-row) {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 11px 12px;
+    border: 1px solid var(--dashboard-border, #dbe6f2);
+    border-radius: 7px;
+    background: var(--surface, #fff);
+    padding: 12px;
+  }
+  .sms-log-page table tr.selected {
+    border-color: #b7d7fa;
+    background: #edf6ff;
+  }
+  .sms-log-page table td {
+    display: block;
+    min-width: 0;
+    border: 0;
+    padding: 0;
+    font-size: 12px;
+  }
+  .sms-log-page table td + td {
+    border-left: 0;
+  }
+  .sms-log-page table td:nth-child(1),
+  .sms-log-page table td:nth-child(4),
+  .sms-log-page table td:nth-child(5),
+  .sms-log-page table td:nth-child(8) {
+    grid-column: 1 / -1;
+  }
+  .mobile-log-label {
+    display: block;
+    margin-bottom: 4px;
+    color: var(--dashboard-muted, #627da1);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .sms-log-page td small {
+    font-size: 11px;
+  }
+  .log-preview {
+    -webkit-line-clamp: 3;
+  }
+  .log-row-actions {
+    justify-content: flex-start;
+    gap: 8px;
+  }
+  .log-row-actions button {
+    width: 40px;
+    height: 40px;
+    min-height: 40px;
+    border: 1px solid var(--dashboard-border, #dbe6f2);
+  }
+  .sms-log-page table .log-empty-row {
+    display: block;
+  }
+  .sms-log-page td.log-empty {
+    height: auto;
+    min-height: 190px;
+    padding: 26px 14px;
+  }
   .log-metrics {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
