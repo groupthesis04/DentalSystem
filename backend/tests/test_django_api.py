@@ -134,6 +134,56 @@ class DentalApiTests(TestCase):
         self.assertEqual(user.patient_profile.id, user.id)
         self.assertEqual(client.get("/api/session").json()["user"]["id"], user.id)
 
+    def test_doctor_patient_create_and_update_sex(self):
+        client, token = self.csrf_client()
+        client.force_login(self.doctor)
+        payload = {
+            "first_name": "Alex",
+            "last_name": "Rivera",
+            "email": "alex.rivera@example.com",
+            "mobile_number": "09123456780",
+            "birthdate": "1995-04-12",
+            "sex": "female",
+            "address": "123 Main Street",
+            "nationality": "Filipino",
+            "occupation": "Teacher",
+        }
+
+        created = self.post_json(client, token, "/api/patients", payload)
+        self.assertEqual(created.status_code, 201)
+        patient_id = created.json()["patient"]["id"]
+        self.assertEqual(created.json()["patient"]["sex"], "female")
+        self.assertEqual(PatientProfile.objects.get(id=patient_id).sex, "female")
+
+        updated = self.patch_json(
+            client, token, "/api/patients", {**payload, "id": patient_id, "sex": "male"}
+        )
+        self.assertEqual(updated.status_code, 200)
+        self.assertEqual(updated.json()["patient"]["sex"], "male")
+        self.assertEqual(PatientProfile.objects.get(id=patient_id).sex, "male")
+
+    def test_doctor_patient_create_requires_sex(self):
+        client, token = self.csrf_client()
+        client.force_login(self.doctor)
+        response = self.post_json(
+            client,
+            token,
+            "/api/patients",
+            {
+                "first_name": "Alex",
+                "last_name": "Rivera",
+                "email": "alex.rivera@example.com",
+                "mobile_number": "09123456780",
+                "birthdate": "1995-04-12",
+                "address": "123 Main Street",
+                "nationality": "Filipino",
+                "occupation": "Teacher",
+            },
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("sex", response.json()["error"].lower())
+        self.assertFalse(PatientProfile.objects.filter(email="alex.rivera@example.com").exists())
+
     def test_csrf_is_required_for_writes(self):
         client = Client(enforce_csrf_checks=True)
         response = client.post(

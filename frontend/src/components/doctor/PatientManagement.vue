@@ -4,14 +4,20 @@ import {
   CalendarDays,
   ChevronRight,
   CircleDollarSign,
+  ClipboardPlus,
   Clock3,
+  FileText,
   Flag,
+  Globe,
   Mail,
   MapPin,
   Phone,
   Plus,
+  Save,
   Search,
   Smartphone,
+  UserRound,
+  UsersRound,
 } from "lucide-vue-next";
 import { computed, nextTick, reactive, ref, watch } from "vue";
 
@@ -49,6 +55,12 @@ const treatmentDetailOpen = ref(false);
 const selectedPatientId = ref("");
 const detailRecord = ref(null);
 const busy = ref(false);
+const sexLabels = {
+  female: "Female",
+  male: "Male",
+  other: "Other",
+  "prefer not to say": "Prefer not to say",
+};
 
 const emptyPatient = () => ({
   id: "",
@@ -57,6 +69,7 @@ const emptyPatient = () => ({
   middle_name: "",
   birthdate: "",
   age: "",
+  sex: "",
   nationality: "",
   occupation: "",
   phone_number: "",
@@ -203,6 +216,7 @@ function resetPatientForm(patient = null) {
           middle_name: patient.middle_name || "",
           birthdate: patient.birthdate || "",
           age: patient.age || calculateAge(patient.birthdate),
+          sex: patient.sex || "",
           nationality: patient.nationality || "",
           occupation: patient.occupation || "",
           phone_number: patient.phone_number || "",
@@ -254,7 +268,7 @@ async function openProfile(patient) {
 }
 
 function editPatient(patient) {
-  if (patient.source !== "record") {
+  if (patient.source !== "profile") {
     showToast("Patient login accounts manage their own profile.", "error");
     return;
   }
@@ -264,7 +278,7 @@ function editPatient(patient) {
 
 async function deletePatient(patient) {
   if (
-    patient.source !== "record" ||
+    patient.source !== "profile" ||
     !window.confirm(`Delete ${patient.name} and all linked treatment records?`)
   )
     return;
@@ -480,7 +494,7 @@ function viewTreatment(record) {
                 <Plus :size="17" aria-hidden="true" />
                 Add Treatment
               </button>
-              <template v-if="selectedPatient.source === 'record'">
+              <template v-if="selectedPatient.source === 'profile'">
                 <ActionIconButton
                   action="edit"
                   :label="`Edit ${selectedPatient.name}`"
@@ -514,6 +528,11 @@ function viewTreatment(record) {
                       old</span
                     >
                   </dd>
+                </div>
+                <div>
+                  <UsersRound :size="18" aria-hidden="true" />
+                  <dt>Sex</dt>
+                  <dd>{{ sexLabels[selectedPatient.sex] || "Not provided" }}</dd>
                 </div>
                 <div>
                   <Flag :size="18" aria-hidden="true" />
@@ -704,85 +723,193 @@ function viewTreatment(record) {
       v-if="patientEditorOpen"
       :title="patientForm.id ? 'Edit Patient' : 'Add Patient'"
       eyebrow="Patient record"
+      size-class="patient-editor-dialog"
       @close="patientEditorOpen = false"
     >
-      <form class="stacked-form patient-form-grid" @submit.prevent="savePatient">
-        <label class="hp-field" aria-hidden="true"
-          >Website<input v-model="patientForm._website" tabindex="-1"
-        /></label>
-        <label
-          >Last Name<input
-            v-model="patientForm.last_name"
-            autocomplete="family-name"
-            minlength="2"
-            maxlength="80"
-            required
-        /></label>
-        <label
-          >First Name<input
-            v-model="patientForm.first_name"
-            autocomplete="given-name"
-            minlength="2"
-            maxlength="80"
-            required
-        /></label>
-        <label
-          >Middle Name<input
-            v-model="patientForm.middle_name"
-            autocomplete="additional-name"
-            maxlength="80"
-        /></label>
-        <label
-          >Birthdate (MM/DD/YYYY)<input v-model="patientForm.birthdate" type="date" required
-        /></label>
-        <label>Age<input v-model="patientForm.age" readonly /></label>
-        <label
-          >Nationality<input
-            v-model="patientForm.nationality"
-            minlength="2"
-            maxlength="80"
-            required
-        /></label>
-        <label
-          >Occupation<input v-model="patientForm.occupation" minlength="2" maxlength="120" required
-        /></label>
-        <label
-          >Phone Number (optional)<input
-            v-model="patientForm.phone_number"
-            autocomplete="tel"
-            maxlength="24"
-        /></label>
-        <label
-          >Mobile Number<input
-            v-model="patientForm.mobile_number"
-            autocomplete="tel"
-            maxlength="24"
-            required
-        /></label>
-        <label
-          >Email Address<input
-            v-model="patientForm.email"
-            type="email"
-            autocomplete="email"
-            maxlength="254"
-            required
-        /></label>
-        <label class="wide-field"
-          >Home Address<input
-            v-model="patientForm.address"
-            autocomplete="street-address"
-            minlength="5"
-            maxlength="300"
-            required
-        /></label>
-        <label class="wide-field"
-          >Notes<textarea v-model="patientForm.notes" rows="3" maxlength="1000"></textarea>
-        </label>
-        <div class="crud-dialog-actions wide-field">
+      <template #header-icon>
+        <span class="patient-editor-header-icon" aria-hidden="true">
+          <ClipboardPlus :size="31" />
+        </span>
+      </template>
+      <template #subtitle>
+        <p class="patient-editor-subtitle">
+          {{
+            patientForm.id
+              ? "Update this patient's clinic information."
+              : "Add a new patient to the clinic records."
+          }}
+        </p>
+      </template>
+      <form class="patient-editor-form" @submit.prevent="savePatient">
+        <div class="patient-editor-fields patient-form-grid">
+          <label class="hp-field" aria-hidden="true"
+            >Website<input v-model="patientForm._website" tabindex="-1"
+          /></label>
+          <label class="patient-editor-field patient-editor-third">
+            <span>Last Name <b aria-hidden="true">*</b></span>
+            <span class="patient-editor-control">
+              <UserRound :size="18" aria-hidden="true" />
+              <input
+                v-model="patientForm.last_name"
+                autocomplete="family-name"
+                minlength="2"
+                maxlength="80"
+                placeholder="Enter last name"
+                required
+              />
+            </span>
+          </label>
+          <label class="patient-editor-field patient-editor-third">
+            <span>First Name <b aria-hidden="true">*</b></span>
+            <span class="patient-editor-control">
+              <UserRound :size="18" aria-hidden="true" />
+              <input
+                v-model="patientForm.first_name"
+                autocomplete="given-name"
+                minlength="2"
+                maxlength="80"
+                placeholder="Enter first name"
+                required
+              />
+            </span>
+          </label>
+          <label class="patient-editor-field patient-editor-third">
+            <span>Middle Name</span>
+            <span class="patient-editor-control">
+              <UserRound :size="18" aria-hidden="true" />
+              <input
+                v-model="patientForm.middle_name"
+                autocomplete="additional-name"
+                maxlength="80"
+                placeholder="Enter middle name"
+              />
+            </span>
+          </label>
+          <label class="patient-editor-field patient-editor-quarter">
+            <span>Birthdate <b aria-hidden="true">*</b></span>
+            <span class="patient-editor-control">
+              <CalendarDays :size="18" aria-hidden="true" />
+              <input v-model="patientForm.birthdate" type="date" required />
+            </span>
+          </label>
+          <label class="patient-editor-field patient-editor-quarter">
+            <span>Age <b aria-hidden="true">*</b></span>
+            <span class="patient-editor-control">
+              <UsersRound :size="18" aria-hidden="true" />
+              <input v-model="patientForm.age" placeholder="Auto-calculated" readonly />
+            </span>
+          </label>
+          <label class="patient-editor-field patient-editor-quarter">
+            <span>Sex <b aria-hidden="true">*</b></span>
+            <span class="patient-editor-control">
+              <UsersRound :size="18" aria-hidden="true" />
+              <select v-model="patientForm.sex" required>
+                <option value="" disabled>Select sex</option>
+                <option value="female">Female</option>
+                <option value="male">Male</option>
+                <option value="other">Other</option>
+                <option value="prefer not to say">Prefer not to say</option>
+              </select>
+            </span>
+          </label>
+          <label class="patient-editor-field patient-editor-quarter">
+            <span>Nationality <b aria-hidden="true">*</b></span>
+            <span class="patient-editor-control">
+              <Globe :size="18" aria-hidden="true" />
+              <input
+                v-model="patientForm.nationality"
+                minlength="2"
+                maxlength="80"
+                placeholder="Enter nationality"
+                required
+              />
+            </span>
+          </label>
+          <label class="patient-editor-field patient-editor-third">
+            <span>Occupation <b aria-hidden="true">*</b></span>
+            <span class="patient-editor-control">
+              <Briefcase :size="18" aria-hidden="true" />
+              <input
+                v-model="patientForm.occupation"
+                minlength="2"
+                maxlength="120"
+                placeholder="Enter occupation"
+                required
+              />
+            </span>
+          </label>
+          <label class="patient-editor-field patient-editor-third">
+            <span>Phone Number (optional)</span>
+            <span class="patient-editor-control">
+              <Phone :size="18" aria-hidden="true" />
+              <input
+                v-model="patientForm.phone_number"
+                autocomplete="tel"
+                maxlength="24"
+                placeholder="Enter phone number"
+              />
+            </span>
+          </label>
+          <label class="patient-editor-field patient-editor-third">
+            <span>Mobile Number <b aria-hidden="true">*</b></span>
+            <span class="patient-editor-control">
+              <Smartphone :size="18" aria-hidden="true" />
+              <input
+                v-model="patientForm.mobile_number"
+                autocomplete="tel"
+                maxlength="24"
+                placeholder="Enter mobile number"
+                required
+              />
+            </span>
+          </label>
+          <label class="patient-editor-field patient-editor-full">
+            <span>Email Address <b aria-hidden="true">*</b></span>
+            <span class="patient-editor-control">
+              <Mail :size="18" aria-hidden="true" />
+              <input
+                v-model="patientForm.email"
+                type="email"
+                autocomplete="email"
+                maxlength="254"
+                placeholder="Enter email address"
+                required
+              />
+            </span>
+          </label>
+          <label class="patient-editor-field patient-editor-full">
+            <span>Home Address <b aria-hidden="true">*</b></span>
+            <span class="patient-editor-control">
+              <MapPin :size="18" aria-hidden="true" />
+              <input
+                v-model="patientForm.address"
+                autocomplete="street-address"
+                minlength="5"
+                maxlength="300"
+                placeholder="Enter complete home address"
+                required
+              />
+            </span>
+          </label>
+          <label class="patient-editor-field patient-editor-full">
+            <span>Notes</span>
+            <span class="patient-editor-control patient-editor-notes">
+              <FileText :size="18" aria-hidden="true" />
+              <textarea
+                v-model="patientForm.notes"
+                rows="2"
+                maxlength="1000"
+                placeholder="Add any additional notes here..."
+              ></textarea>
+            </span>
+          </label>
+        </div>
+        <div class="crud-dialog-actions patient-editor-actions">
           <button class="secondary-button" type="button" @click="patientEditorOpen = false">
             Cancel
           </button>
           <button class="primary-button" type="submit" :disabled="busy">
+            <Save :size="17" aria-hidden="true" />
             {{
               busy ? "Saving..." : patientForm.id ? "Update Patient Record" : "Save Patient Record"
             }}
@@ -852,13 +979,13 @@ function viewTreatment(record) {
                       @click="openProfile(patient)"
                     />
                     <ActionIconButton
-                      v-if="patient.source === 'record'"
+                      v-if="patient.source === 'profile'"
                       action="edit"
                       :label="`Edit ${patient.name}`"
                       @click="editPatient(patient)"
                     />
                     <ActionIconButton
-                      v-if="patient.source === 'record'"
+                      v-if="patient.source === 'profile'"
                       action="delete"
                       :label="`Delete ${patient.name}`"
                       @click="deletePatient(patient)"

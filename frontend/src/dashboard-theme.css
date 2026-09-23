@@ -6141,3 +6141,349 @@ html[data-dashboard-theme="dark"]
     white-space: nowrap;
   }
 }
+
+/* Patient editor: keep the form scrollable and its actions visible. */
+.patient-editor-dialog {
+  --patient-editor-text: #142b52;
+  --patient-editor-muted: #617498;
+  --patient-editor-border: #cfddf2;
+  --patient-editor-control: #ffffff;
+  --patient-editor-footer: #f8fbff;
+  width: min(1000px, calc(100vw - 32px));
+  max-height: calc(100dvh - 48px);
+  border-color: #cfddf2;
+  border-radius: 14px;
+  color: var(--patient-editor-text);
+  box-shadow: 0 28px 80px rgba(13, 35, 72, 0.28);
+}
+
+.patient-editor-dialog .crud-dialog-shell {
+  display: flex;
+  max-height: calc(100dvh - 48px);
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.patient-editor-dialog .crud-dialog-header {
+  position: relative;
+  flex: 0 0 auto;
+  border-bottom-color: #dce6f5;
+  background: linear-gradient(120deg, #ffffff, #f8fbff);
+  padding: 19px 26px;
+}
+
+.patient-editor-header-icon {
+  display: inline-grid;
+  width: 62px;
+  height: 62px;
+  flex: 0 0 62px;
+  place-items: center;
+  border-radius: 50%;
+  background: #e5f1ff;
+  color: #1762df;
+}
+
+.patient-editor-dialog .section-kicker {
+  display: block;
+  margin: 0;
+  color: #49658f;
+  font-size: 0.76rem;
+  font-weight: 800;
+}
+
+.patient-editor-dialog .crud-dialog-header h2 {
+  margin: 2px 0 0;
+  color: var(--patient-editor-text);
+  font-size: 1.7rem;
+  line-height: 1.1;
+}
+
+.patient-editor-subtitle {
+  margin: 4px 0 0;
+  color: var(--patient-editor-muted);
+  font-size: 0.91rem;
+  font-weight: 450;
+}
+
+.patient-editor-dialog .icon-button {
+  width: 43px;
+  height: 43px;
+  flex-basis: 43px;
+  border-color: #d6e1f1;
+  border-radius: 8px;
+  color: var(--patient-editor-text);
+}
+
+.patient-editor-form {
+  display: flex;
+  min-height: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.patient-editor-fields.patient-form-grid {
+  display: grid;
+  min-height: 0;
+  flex: 1 1 auto;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  align-items: start;
+  gap: 13px 18px;
+  overflow-y: auto;
+  padding: 18px 26px 17px;
+}
+
+.patient-editor-third {
+  grid-column: span 4;
+}
+
+.patient-editor-quarter {
+  grid-column: span 3;
+}
+
+.patient-editor-full {
+  grid-column: 1 / -1;
+}
+
+.patient-editor-field {
+  display: grid;
+  min-width: 0;
+  gap: 6px;
+  color: var(--patient-editor-text);
+  font-size: 0.89rem;
+  font-weight: 650;
+  line-height: 1.2;
+}
+
+.patient-editor-field > span:first-child b {
+  color: #d52b45;
+  font-weight: 800;
+}
+
+.patient-editor-control {
+  display: flex;
+  min-width: 0;
+  min-height: 43px;
+  align-items: center;
+  border: 1px solid var(--patient-editor-border);
+  border-radius: 7px;
+  background: var(--patient-editor-control);
+  color: #506895;
+  box-shadow: 0 2px 5px rgba(25, 55, 100, 0.035);
+  transition:
+    border-color 150ms ease,
+    box-shadow 150ms ease;
+}
+
+.patient-editor-control:focus-within {
+  border-color: #4483e8;
+  box-shadow: 0 0 0 3px rgba(49, 117, 223, 0.12);
+}
+
+.patient-editor-control > svg {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
+  margin-left: 13px;
+}
+
+.patient-editor-control :is(input, select, textarea) {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--patient-editor-text);
+  padding: 10px 12px;
+  box-shadow: none;
+  font-size: 0.89rem;
+  font-weight: 450;
+}
+
+.patient-editor-control :is(input, select, textarea):focus {
+  border: 0;
+  box-shadow: none;
+}
+
+.patient-editor-control :is(input, textarea)::placeholder,
+.patient-editor-control select:invalid {
+  color: #697d9d;
+  opacity: 1;
+}
+
+.patient-editor-control input[readonly] {
+  color: var(--patient-editor-muted);
+  cursor: default;
+}
+
+.patient-editor-control select option {
+  color: var(--patient-editor-text);
+}
+
+.patient-editor-notes {
+  align-items: flex-start;
+}
+
+.patient-editor-notes > svg {
+  margin-top: 12px;
+}
+
+.patient-editor-notes textarea {
+  min-height: 54px;
+  resize: vertical;
+}
+
+.patient-editor-dialog .patient-editor-actions {
+  min-height: 65px;
+  flex: 0 0 auto;
+  align-items: center;
+  border-top: 1px solid #dce6f5;
+  background: var(--patient-editor-footer);
+  padding: 11px 26px;
+}
+
+.patient-editor-actions button {
+  display: inline-flex;
+  min-height: 41px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: 7px;
+  padding: 9px 17px;
+  font-size: 0.87rem;
+  font-weight: 750;
+}
+
+.patient-editor-actions .secondary-button {
+  border-color: #d2dff0;
+  background: transparent;
+  color: var(--patient-editor-text);
+}
+
+.patient-editor-actions .primary-button {
+  border-color: #1b5fda;
+  background: #1b5fda;
+  color: #ffffff;
+}
+
+.patient-editor-actions .primary-button:is(:hover, :focus-visible) {
+  border-color: #144db6;
+  background: #144db6;
+}
+
+html[data-dashboard-theme="dark"] body[data-page="doctor"] .patient-editor-dialog {
+  --patient-editor-text: #e5edfb;
+  --patient-editor-muted: #a8b9d1;
+  --patient-editor-border: #3a516f;
+  --patient-editor-control: #111821;
+  --patient-editor-footer: #162334;
+}
+
+html[data-dashboard-theme="dark"]
+  body[data-page="doctor"]
+  .patient-editor-dialog
+  .crud-dialog-header {
+  border-bottom-color: #3a516f;
+  background: #162334;
+}
+
+html[data-dashboard-theme="dark"] body[data-page="doctor"] .patient-editor-header-icon {
+  background: #193b67;
+  color: #9bc6ff;
+}
+
+html[data-dashboard-theme="dark"] body[data-page="doctor"] .patient-editor-dialog .section-kicker {
+  color: #9fb5d3;
+}
+
+html[data-dashboard-theme="dark"]
+  body[data-page="doctor"]
+  .patient-editor-dialog
+  .patient-editor-actions {
+  border-top-color: #3a516f;
+}
+
+html[data-dashboard-theme="dark"]
+  body[data-page="doctor"]
+  .patient-editor-control
+  :is(input, select, textarea) {
+  border: 0;
+  background: transparent;
+  color: var(--patient-editor-text);
+}
+
+html[data-dashboard-theme="dark"] body[data-page="doctor"] .patient-editor-control select option {
+  background: #111821;
+  color: #e5edfb;
+}
+
+@media (max-width: 760px) {
+  .patient-editor-fields.patient-form-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 13px;
+  }
+
+  .patient-editor-third,
+  .patient-editor-quarter {
+    grid-column: span 1;
+  }
+}
+
+@media (max-width: 560px) {
+  .patient-editor-dialog,
+  .patient-editor-dialog .crud-dialog-shell {
+    max-height: calc(100dvh - 48px);
+  }
+
+  .patient-editor-dialog {
+    width: calc(100vw - 32px);
+  }
+
+  .patient-editor-dialog .crud-dialog-header {
+    gap: 10px;
+    padding: 14px;
+  }
+
+  .patient-editor-header-icon {
+    width: 46px;
+    height: 46px;
+    flex-basis: 46px;
+  }
+
+  .patient-editor-dialog .crud-dialog-header h2 {
+    font-size: 1.32rem;
+  }
+
+  .patient-editor-subtitle {
+    font-size: 0.76rem;
+  }
+
+  .patient-editor-dialog .icon-button {
+    width: 36px;
+    height: 36px;
+    flex-basis: 36px;
+  }
+
+  .patient-editor-fields.patient-form-grid {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 15px;
+  }
+
+  .patient-editor-third,
+  .patient-editor-quarter,
+  .patient-editor-full {
+    grid-column: 1;
+  }
+
+  .patient-editor-dialog .patient-editor-actions {
+    gap: 8px;
+    padding: 10px 14px;
+  }
+
+  .patient-editor-actions button {
+    flex: 1 1 0;
+    min-width: 0;
+    padding-inline: 8px;
+    font-size: 0.78rem;
+  }
+}
