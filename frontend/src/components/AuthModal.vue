@@ -324,7 +324,7 @@ function handleRegisterInvalid(event) {
               </span>
             </label>
             <label class="register-field">
-              <span>Phone number</span>
+              <span>Mobile Number</span>
               <span class="register-input-wrap">
                 <Phone aria-hidden="true" />
                 <input

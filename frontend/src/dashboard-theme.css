@@ -6352,6 +6352,10 @@ html[data-dashboard-theme="dark"]
   grid-column: span 4;
 }
 
+.patient-editor-half {
+  grid-column: span 6;
+}
+
 .patient-editor-quarter {
   grid-column: span 3;
 }
@@ -6539,6 +6543,7 @@ html[data-dashboard-theme="dark"] body[data-page="doctor"] .patient-editor-contr
   }
 
   .patient-editor-third,
+  .patient-editor-half,
   .patient-editor-quarter {
     grid-column: span 1;
   }
@@ -6585,6 +6590,7 @@ html[data-dashboard-theme="dark"] body[data-page="doctor"] .patient-editor-contr
   }
 
   .patient-editor-third,
+  .patient-editor-half,
   .patient-editor-quarter,
   .patient-editor-full {
     grid-column: 1;

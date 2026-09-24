@@ -825,7 +825,7 @@ function viewTreatment(record) {
               />
             </span>
           </label>
-          <label class="patient-editor-field patient-editor-third">
+          <label class="patient-editor-field patient-editor-half">
             <span>Occupation <b aria-hidden="true">*</b></span>
             <span class="patient-editor-control">
               <Briefcase :size="18" aria-hidden="true" />
@@ -838,19 +838,7 @@ function viewTreatment(record) {
               />
             </span>
           </label>
-          <label class="patient-editor-field patient-editor-third">
-            <span>Phone Number (optional)</span>
-            <span class="patient-editor-control">
-              <Phone :size="18" aria-hidden="true" />
-              <input
-                v-model="patientForm.phone_number"
-                autocomplete="tel"
-                maxlength="24"
-                placeholder="Enter phone number"
-              />
-            </span>
-          </label>
-          <label class="patient-editor-field patient-editor-third">
+          <label class="patient-editor-field patient-editor-half">
             <span>Mobile Number <b aria-hidden="true">*</b></span>
             <span class="patient-editor-control">
               <Smartphone :size="18" aria-hidden="true" />
