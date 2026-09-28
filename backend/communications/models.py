@@ -28,6 +28,37 @@ class Notification(models.Model):
         return self.title
 
 
+DOCTOR_NOTIFICATION_KEYS = (
+    "new_appointment_booking",
+    "appointment_cancellation",
+    "appointment_confirmed",
+    "new_walk_in_appointment",
+    "upcoming_appointment_reminder",
+    "next_visit",
+    "payment_balance_reminder",
+    "sms_delivery_failure",
+)
+
+
+class DoctorNotificationPreference(models.Model):
+    """Dashboard notification choices; independent of patient SMS rules."""
+
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="doctor_notification_preferences",
+        primary_key=True,
+    )
+    new_appointment_booking = models.BooleanField(default=True)
+    appointment_cancellation = models.BooleanField(default=True)
+    appointment_confirmed = models.BooleanField(default=True)
+    new_walk_in_appointment = models.BooleanField(default=True)
+    upcoming_appointment_reminder = models.BooleanField(default=True)
+    next_visit = models.BooleanField(default=True)
+    payment_balance_reminder = models.BooleanField(default=True)
+    sms_delivery_failure = models.BooleanField(default=True)
+
+
 class Message(models.Model):
     id = models.CharField(primary_key=True, max_length=64)
     sender = models.ForeignKey(

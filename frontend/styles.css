@@ -1755,6 +1755,59 @@ td select {
   gap: 18px;
 }
 
+.auth-verify-form .auth-heading {
+  margin-bottom: 0;
+}
+
+.auth-verify-form .verification-icon {
+  width: 52px;
+  height: 52px;
+  padding: 11px;
+  border-radius: 50%;
+  background: #e5f7f6;
+  color: #0b7180;
+}
+
+.verification-intro,
+.verification-hint {
+  margin: 0;
+  color: #52627c;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.verification-intro strong {
+  display: block;
+  margin-top: 7px;
+  color: #17243d;
+  font-size: 1.15rem;
+  letter-spacing: 0.05em;
+}
+
+.verification-hint {
+  font-size: 0.85rem;
+}
+
+.verification-resend,
+.verification-back {
+  border: 0;
+  background: transparent;
+  color: #0c5c74;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+  text-align: center;
+}
+
+.verification-resend:disabled {
+  color: #78879e;
+  cursor: default;
+}
+
+.verification-back {
+  font-weight: 500;
+}
+
 .auth-register-form .auth-heading.compact {
   gap: 2px;
   margin: 0 0 3px;

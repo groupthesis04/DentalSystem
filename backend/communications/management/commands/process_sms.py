@@ -1,8 +1,11 @@
 import time
+import datetime as dt
 
 from django.core.management.base import BaseCommand
 from django.db import close_old_connections
+from django.utils import timezone
 
+from accounts.models import PatientAccountVerification
 from communications.sms import process_queue
 
 
@@ -16,6 +19,9 @@ class Command(BaseCommand):
         try:
             while True:
                 close_old_connections()
+                PatientAccountVerification.objects.filter(
+                    created_at__lt=timezone.now() - dt.timedelta(days=1)
+                ).delete()
                 count = process_queue()
                 self.stdout.write(f"SMS queue checked: {count} message(s) processed.")
                 if not options["loop"]:

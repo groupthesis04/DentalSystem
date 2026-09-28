@@ -14,6 +14,7 @@ from records.models import TreatmentRecord
 
 from . import sms_provider
 from .models import SmsBalanceSchedule, SmsMessage, SmsRule, SmsTemplate, SmsWorker
+from .services import notify_doctors, notify_due_next_visits, notify_upcoming_appointments
 
 
 RULES = {
@@ -84,14 +85,27 @@ def enqueue(key, patient, event_key, context, *, appointment=None, record=None, 
     except ValueError as exc:
         if state == "queued":
             state, error = "failed", str(exc)
-    item, _ = SmsMessage.objects.get_or_create(event_key=event_key, defaults={
+    item, created = SmsMessage.objects.get_or_create(event_key=event_key, defaults={
         "id": make_id("sms"), "rule": rule, "patient": patient, "appointment": appointment,
         "record": record, "patient_name": context["PatientName"], "phone": number,
         "body": rule.template.format_map(context), "context": context, "status": state,
         "error": error, "is_test": is_test, "scheduled_for": now + dt.timedelta(minutes=0 if is_test else rule.delay_minutes),
         "expires_at": now + dt.timedelta(hours=24),
     })
+    if created and item.status == "failed":
+        notify_sms_failure(item)
     return item
+
+
+def notify_sms_failure(item):
+    notify_doctors(
+        "sms_delivery_failure",
+        "SMS delivery failed",
+        f"An SMS for {item.patient_name} failed. Check the SMS message logs.",
+        "sms",
+        item.id,
+        preference_key="sms_delivery_failure",
+    )
 
 
 def appointment_event(item, key=None):
@@ -136,6 +150,11 @@ def queue_due_balances(now):
             if not schedule.next_due_at or schedule.next_due_at > now:
                 continue
             enqueue("balance", schedule.patient, f"balance:{schedule.pk}:{schedule.next_due_at.isoformat()}", message_context(schedule.patient))
+            notify_doctors(
+                "payment_balance_reminder", "Balance reminder due",
+                f"A payment reminder is due for {schedule.patient.name}.",
+                "patient", schedule.patient_id, preference_key="payment_balance_reminder",
+            )
             schedule.next_due_at = now + dt.timedelta(days=7)
             schedule.save(update_fields=["next_due_at"])
 
@@ -201,6 +220,8 @@ def dispatch(item_id, now):
             item.status = "queued"
             item.scheduled_for = now + dt.timedelta(minutes=1)
     item.save()
+    if item.status in {"failed", "refunded"}:
+        notify_sms_failure(item)
 
 
 def process_queue():
@@ -216,6 +237,8 @@ def process_queue():
         # A crashed send may have reached the provider; never automatically resend it.
         SmsMessage.objects.filter(status="processing", updated_at__lt=now - dt.timedelta(minutes=5)).update(status="unknown", error="Worker stopped during sending. Check Semaphore logs before resending.")
         queue_due_balances(now)
+        notify_upcoming_appointments(now)
+        notify_due_next_visits(now)
         SmsMessage.objects.filter(status="queued", expires_at__lte=now).update(status="expired", error="Unsent message expired after 24 hours.")
         if not sms_provider.ready():
             return 0
@@ -224,6 +247,7 @@ def process_queue():
             count += 1
         waiting = SmsMessage.objects.filter(status__in=["submitted", "pending"], provider_id__isnull=False).filter(Q(checked_at__isnull=True) | Q(checked_at__lte=now - dt.timedelta(minutes=1))).order_by("checked_at")[:5]
         for item in waiting:
+            previous_status = item.status
             try:
                 _, item.status = sms_provider.status(item.provider_id)
                 item.error = "Semaphore rejected the message. Check its message log." if item.status in {"failed", "refunded"} else ""
@@ -231,6 +255,8 @@ def process_queue():
                 item.error = "Status refresh unavailable; the message has not been resent."
             item.checked_at = now
             item.save(update_fields=["status", "error", "checked_at", "updated_at"])
+            if previous_status not in {"failed", "refunded"} and item.status in {"failed", "refunded"}:
+                notify_sms_failure(item)
         return count
     finally:
         SmsWorker.objects.filter(pk=1, lease_token=token).update(lease_until=None, lease_token="")

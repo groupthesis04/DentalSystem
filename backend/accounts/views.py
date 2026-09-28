@@ -1,14 +1,21 @@
 import datetime as dt
+import hashlib
+import re
+import secrets
 
+from django.contrib.auth.hashers import check_password, make_password
 from django.contrib.auth import login as auth_login
 from django.contrib.auth import logout as auth_logout
+from django.conf import settings
 from django.db import IntegrityError, transaction
 from django.db.models import Sum
 from django.http import JsonResponse
 from django.middleware.csrf import get_token
+from django.utils import timezone
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_http_methods, require_POST
 
+from communications import sms_provider
 from dental_backend.api import (
     api_error,
     calculate_age,
@@ -32,9 +39,16 @@ from .identity import (
     creation_conflict,
     identity_candidates,
     normalized_full_name,
-    profile_has_mobile,
 )
-from .models import PatientProfile, User
+from .models import PatientAccountVerification, PatientProfile, User
+from .security_views import record_login_activity
+
+
+OTP_LIFETIME = dt.timedelta(minutes=5)
+OTP_RESEND_COOLDOWN = dt.timedelta(seconds=60)
+OTP_HOURLY_LIMIT = 5
+OTP_MAX_ATTEMPTS = 5
+MATCH_REVIEW_MESSAGE = "A patient record may already exist. Contact the clinic to verify your details."
 
 
 def patient_payload(profile):
@@ -74,11 +88,9 @@ def profile_for_user(user):
         with transaction.atomic():
             same_id = PatientProfile.objects.select_for_update().filter(id=user.id).first()
             if same_id:
-                if same_id.user_id:
-                    return None
-                same_id.user = user
-                same_id.save(update_fields=["user", "updated_at"])
-                return same_id
+                # A pre-existing clinic record must never be claimed by merely
+                # signing in with an account that happens to have the same ID.
+                return None
             # Old accounts have no stored birthdate, so a plausible clinic record
             # must be reviewed instead of being claimed or duplicated automatically.
             if creation_conflict(user.email, user.phone, None, full_name):
@@ -121,18 +133,16 @@ def session(request):
 
 
 def registration_profile(email, mobile, birthdate, full_name):
-    """Return one verified unlinked profile, or refuse an uncertain match."""
-    verified = []
+    """Identify a clinic record; demographics never authorize linking on their own."""
+    matches = []
     possible_conflict = False
     for profile in identity_candidates(email, birthdate, full_name, for_update=True):
         same_email = bool(profile.email and profile.email.casefold() == email)
-        same_phone = profile_has_mobile(profile, mobile)
+        same_phone = canonical_mobile(profile.mobile_number or profile.phone_number) == mobile
         same_birthdate = profile.birthdate == birthdate
         same_name = profile.normalized_name == full_name
-        if same_email and same_phone and same_birthdate and not profile.user_id:
-            verified.append(profile)
-        elif not profile.email and same_phone and same_birthdate and same_name and not profile.user_id:
-            verified.append(profile)
+        if (same_email or not profile.email) and same_phone and same_birthdate and same_name:
+            matches.append(profile)
         elif (
             same_email
             or (same_phone and same_birthdate)
@@ -141,9 +151,96 @@ def registration_profile(email, mobile, birthdate, full_name):
             or (same_phone and not profile.birthdate)
         ):
             possible_conflict = True
-    if possible_conflict or len(verified) > 1:
-        raise ValueError("A patient record may already exist. Contact the clinic to verify your details.")
-    return verified[0] if verified else None
+    if possible_conflict or len(matches) > 1:
+        raise ValueError(MATCH_REVIEW_MESSAGE)
+    if matches and matches[0].user_id:
+        raise ValueError("This patient record is already linked to an account.")
+    return matches[0] if matches else None
+
+
+def verification_token_hash(token):
+    return hashlib.sha256(token.encode("ascii")).hexdigest()
+
+
+def masked_mobile(phone):
+    return "09******" + phone[-3:]
+
+
+def verification_response(token, phone):
+    return JsonResponse({
+        "verification_required": True,
+        "verification_token": token,
+        "masked_mobile": masked_mobile(phone),
+        "expires_in": int(OTP_LIFETIME.total_seconds()),
+        "resend_after": int(OTP_RESEND_COOLDOWN.total_seconds()),
+        "message": "If the information matches an existing patient record, a verification code has been sent to the registered mobile number.",
+    }, status=202)
+
+
+def create_verification(profile, *, email, first_name, middle_name, last_name,
+                        birthdate, password_hash, profile_image, remember, phone):
+    now = timezone.now()
+    recent = PatientAccountVerification.objects.filter(
+        patient=profile, created_at__gte=now - dt.timedelta(hours=1)
+    ).order_by("-created_at").first()
+    if recent and now - recent.created_at < OTP_RESEND_COOLDOWN:
+        wait = int((OTP_RESEND_COOLDOWN - (now - recent.created_at)).total_seconds()) + 1
+        raise VerificationCooldown(wait)
+    if PatientAccountVerification.objects.filter(
+        patient=profile, created_at__gte=now - dt.timedelta(hours=1)
+    ).count() >= OTP_HOURLY_LIMIT:
+        raise VerificationCooldown(3600)
+    PatientAccountVerification.objects.filter(patient=profile, is_used=False).update(
+        is_used=True, code_hash="", password_hash="", profile_image=""
+    )
+    token = secrets.token_urlsafe(32)
+    code = f"{secrets.randbelow(1_000_000):06d}"
+    PatientAccountVerification.objects.create(
+        patient=profile,
+        token_hash=verification_token_hash(token),
+        phone_number=phone,
+        code_hash=make_password(code),
+        email=email,
+        first_name=first_name,
+        middle_name=middle_name,
+        last_name=last_name,
+        birthdate=birthdate,
+        password_hash=password_hash,
+        profile_image=profile_image,
+        remember=remember,
+        expires_at=now + OTP_LIFETIME,
+    )
+    return token, code
+
+
+class VerificationCooldown(Exception):
+    def __init__(self, seconds):
+        self.seconds = seconds
+
+
+def send_verification_code(phone, token, code):
+    body = (
+        f"{settings.SMS_CLINIC_NAME}\n"
+        f"Your account verification code is {code}. It expires in 5 minutes. "
+        "Do not share this code with anyone."
+    )
+    try:
+        _, state = sms_provider.send(phone, body)
+    except sms_provider.SmsProviderError as error:
+        # An uncertain provider response may still have delivered the code. Keep
+        # that challenge valid, but never include the code or number in errors.
+        if error.uncertain:
+            return verification_response(token, phone)
+        PatientAccountVerification.objects.filter(token_hash=verification_token_hash(token)).update(
+            is_used=True, code_hash="", password_hash="", profile_image=""
+        )
+        return api_error("Verification SMS could not be sent. Please try again after a minute.", 503)
+    if state in {"failed", "refunded"}:
+        PatientAccountVerification.objects.filter(token_hash=verification_token_hash(token)).update(
+            is_used=True, code_hash="", password_hash="", profile_image=""
+        )
+        return api_error("Verification SMS could not be sent. Please try again after a minute.", 503)
+    return verification_response(token, phone)
 
 
 @require_POST
@@ -151,6 +248,11 @@ def register(request):
     limited = rate_limit(request, "register", 4, 60 * 60)
     if limited:
         return limited
+    # Expired registration credentials are short-lived even when the SMS worker
+    # is unavailable; its regular cleanup handles records without new signups.
+    PatientAccountVerification.objects.filter(
+        created_at__lt=timezone.now() - dt.timedelta(days=1)
+    ).delete()
     try:
         payload = read_json(request)
         email = validate_email(payload.get("email"))
@@ -159,7 +261,7 @@ def register(request):
     if str(payload.get("role", "patient")).strip().lower() != "patient":
         return api_error("New accounts must be patient accounts.", 403)
     if User.objects.filter(email__iexact=email).exists():
-        return api_error("An account already exists with this email. Please log in instead.", 409)
+        return api_error("An account already uses this email.", 409)
     try:
         if payload.get("first_name") or payload.get("last_name"):
             first_name = validate_name(payload.get("first_name"), "first name")
@@ -187,35 +289,43 @@ def register(request):
     if profile_image and not profile_image.startswith("data:image/"):
         return api_error("Choose a valid profile image.")
     full_name = normalized_full_name(first_name, middle_name, last_name)
+    remember = str(payload.get("remember", "")).lower() in {"1", "true", "yes", "on"}
+    verification = None
     try:
         with transaction.atomic():
+            if User.objects.filter(email__iexact=email).exists():
+                return api_error("An account already uses this email.", 409)
             profile = registration_profile(email, mobile, birthdate, full_name)
-            user = User.objects.create_user(
-                id=make_id("usr"),
-                email=email,
-                password=password,
-                name=name,
-                phone=phone,
-                role="patient",
-                profile_image=profile_image,
-            )
             if profile:
-                profile.user = user
-                changed = ["user", "updated_at"]
-                if not profile.email:
-                    profile.email = email
-                    changed.append("email")
-                if not profile.phone_number:
-                    profile.phone_number = phone
-                    changed.append("phone_number")
-                if not profile.mobile_number:
-                    profile.mobile_number = phone
-                    changed.append("mobile_number")
-                if profile.age is None:
-                    profile.age = calculate_age(profile.birthdate)
-                    changed.append("age")
-                profile.save(update_fields=changed)
+                if not sms_provider.ready():
+                    return api_error("Account verification is temporarily unavailable. Please contact the clinic.", 503)
+                try:
+                    stored_phone = sms_provider.normalize_phone(profile.mobile_number or profile.phone_number)
+                except ValueError:
+                    return api_error("The clinic must update the mobile number on this patient record.", 409)
+                token, code = create_verification(
+                    profile,
+                    email=email,
+                    first_name=first_name,
+                    middle_name=middle_name,
+                    last_name=last_name,
+                    birthdate=birthdate,
+                    password_hash=make_password(password),
+                    profile_image=profile_image,
+                    remember=remember,
+                    phone=stored_phone,
+                )
+                verification = (stored_phone, token, code)
             else:
+                user = User.objects.create_user(
+                    id=make_id("usr"),
+                    email=email,
+                    password=password,
+                    name=name,
+                    phone=phone,
+                    role="patient",
+                    profile_image=profile_image,
+                )
                 PatientProfile.objects.create(
                     id=user.id,
                     user=user,
@@ -230,17 +340,162 @@ def register(request):
                 )
     except IntegrityError:
         if User.objects.filter(email__iexact=email).exists():
-            return api_error("An account already exists with this email. Please log in instead.", 409)
-        return api_error("A patient record may already exist. Contact the clinic to verify your details.", 409)
+            return api_error("An account already uses this email.", 409)
+        return api_error(MATCH_REVIEW_MESSAGE, 409)
+    except VerificationCooldown as error:
+        return api_error("Please wait before requesting another verification code.", 429, retry_after=error.seconds)
     except ValueError as error:
         return api_error(str(error), 409)
 
+    if verification:
+        return send_verification_code(*verification)
+
     auth_login(request, user, backend="django.contrib.auth.backends.ModelBackend")
-    request.session.set_expiry(7 * 24 * 60 * 60 if str(payload.get("remember", "")).lower() in {"1", "true", "yes", "on"} else 12 * 60 * 60)
+    request.session.set_expiry(7 * 24 * 60 * 60 if remember else 12 * 60 * 60)
     return JsonResponse(
         {"user": authenticated_user_payload(user), "csrf_token": get_token(request)},
         status=201,
     )
+
+
+def requested_verification(payload):
+    token = str(payload.get("verification_token", ""))
+    if not re.fullmatch(r"[A-Za-z0-9_-]{43}", token):
+        raise ValueError("Invalid verification request.")
+    return token, verification_token_hash(token)
+
+
+def verification_profile_unchanged(profile, verification):
+    try:
+        current_phone = sms_provider.normalize_phone(profile.mobile_number or profile.phone_number)
+    except ValueError:
+        return False
+    return (
+        current_phone == verification.phone_number
+        and profile.birthdate == verification.birthdate
+        and profile.normalized_name == normalized_full_name(
+            verification.first_name, verification.middle_name, verification.last_name
+        )
+        and (not profile.email or profile.email.casefold() == verification.email)
+    )
+
+
+@require_POST
+def verify_account(request):
+    limited = rate_limit(request, "account_verify", 20, 60)
+    if limited:
+        return limited
+    try:
+        payload = read_json(request)
+        _, token_hash = requested_verification(payload)
+    except ValueError as error:
+        return api_error(str(error))
+    code = str(payload.get("code", "")).strip()
+    patient_id = PatientAccountVerification.objects.filter(
+        token_hash=token_hash
+    ).values_list("patient_id", flat=True).first()
+    if not patient_id:
+        return api_error("Invalid verification request.")
+
+    try:
+        with transaction.atomic():
+            profile = PatientProfile.objects.select_for_update().get(pk=patient_id)
+            verification = PatientAccountVerification.objects.select_for_update().get(token_hash=token_hash)
+            if verification.attempts >= OTP_MAX_ATTEMPTS:
+                return api_error("Too many incorrect attempts. Request a new code.", 429)
+            if verification.is_used:
+                return api_error("This verification code has already been used.", 409)
+            if verification.expires_at <= timezone.now():
+                return api_error("Verification code expired. Request a new code.", 410)
+            if not re.fullmatch(r"[0-9]{6}", code) or not check_password(code, verification.code_hash):
+                verification.attempts += 1
+                verification.save(update_fields=["attempts"])
+                if verification.attempts >= OTP_MAX_ATTEMPTS:
+                    return api_error("Too many incorrect attempts. Request a new code.", 429)
+                return api_error("Invalid verification code.")
+            if profile.user_id:
+                return api_error("This patient record is already linked to an account.", 409)
+            if User.objects.filter(email__iexact=verification.email).exists():
+                return api_error("An account already uses this email.", 409)
+            if not verification_profile_unchanged(profile, verification):
+                return api_error(MATCH_REVIEW_MESSAGE, 409)
+            user = User.objects.create(
+                id=make_id("usr"),
+                email=verification.email,
+                password=verification.password_hash,
+                name=" ".join(filter(None, (
+                    verification.first_name, verification.middle_name, verification.last_name
+                ))),
+                phone=verification.phone_number,
+                role="patient",
+                profile_image=verification.profile_image,
+            )
+            profile.user = user
+            changed = ["user", "updated_at"]
+            if not profile.email:
+                profile.email = verification.email
+                changed.append("email")
+            profile.save(update_fields=changed)
+            verification.is_used = True
+            verification.code_hash = ""
+            verification.password_hash = ""
+            verification.profile_image = ""
+            verification.save(update_fields=["is_used", "code_hash", "password_hash", "profile_image"])
+    except IntegrityError:
+        return api_error("This patient record is already linked to an account.", 409)
+
+    auth_login(request, user, backend="django.contrib.auth.backends.ModelBackend")
+    request.session.set_expiry(7 * 24 * 60 * 60 if verification.remember else 12 * 60 * 60)
+    return JsonResponse({"user": authenticated_user_payload(user), "csrf_token": get_token(request)}, status=201)
+
+
+@require_POST
+def resend_account_code(request):
+    limited = rate_limit(request, "account_resend", 8, 60 * 60)
+    if limited:
+        return limited
+    try:
+        payload = read_json(request)
+        _, token_hash = requested_verification(payload)
+    except ValueError as error:
+        return api_error(str(error))
+    patient_id = PatientAccountVerification.objects.filter(
+        token_hash=token_hash
+    ).values_list("patient_id", flat=True).first()
+    if not patient_id:
+        return api_error("Invalid verification request.")
+    if not sms_provider.ready():
+        return api_error("Account verification is temporarily unavailable. Please contact the clinic.", 503)
+    try:
+        with transaction.atomic():
+            profile = PatientProfile.objects.select_for_update().get(pk=patient_id)
+            previous = PatientAccountVerification.objects.select_for_update().get(token_hash=token_hash)
+            if previous.is_used:
+                return api_error("This verification code has already been used.", 409)
+            if previous.created_at < timezone.now() - dt.timedelta(days=1):
+                return api_error("Verification request expired. Please register again.", 410)
+            if profile.user_id:
+                return api_error("This patient record is already linked to an account.", 409)
+            if User.objects.filter(email__iexact=previous.email).exists():
+                return api_error("An account already uses this email.", 409)
+            if not verification_profile_unchanged(profile, previous):
+                return api_error(MATCH_REVIEW_MESSAGE, 409)
+            stored_phone = previous.phone_number
+            token, code = create_verification(
+                profile,
+                email=previous.email,
+                first_name=previous.first_name,
+                middle_name=previous.middle_name,
+                last_name=previous.last_name,
+                birthdate=previous.birthdate,
+                password_hash=previous.password_hash,
+                profile_image=previous.profile_image,
+                remember=previous.remember,
+                phone=stored_phone,
+            )
+    except VerificationCooldown as error:
+        return api_error("Resend available in 60 seconds." if error.seconds <= 60 else "Too many codes requested. Please try again later.", 429, retry_after=error.seconds)
+    return send_verification_code(stored_phone, token, code)
 
 
 @require_POST
@@ -270,6 +525,7 @@ def login(request):
 
     auth_login(request, user, backend="django.contrib.auth.backends.ModelBackend")
     request.session.set_expiry(7 * 24 * 60 * 60 if str(payload.get("remember", "")).lower() in {"1", "true", "yes", "on"} else 12 * 60 * 60)
+    record_login_activity(request, user)
     return JsonResponse({"user": authenticated_user_payload(user), "csrf_token": get_token(request)})
 
 

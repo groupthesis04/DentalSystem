@@ -217,7 +217,7 @@ onMounted(async () => {
             @open-appointment="openReportEntity('doctorAppointments', $event)"
             @open-patient="openReportEntity('doctorPatients', $event)"
           />
-          <DoctorAccount v-else mode="doctor" />
+          <DoctorAccount v-else-if="activePanel === 'doctorProfile'" mode="doctor" />
         </section>
       </div>
     </main>

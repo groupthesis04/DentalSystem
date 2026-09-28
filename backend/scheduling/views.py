@@ -79,6 +79,19 @@ def notify_appointment_status(item, label):
             "appointment",
             item.id,
         )
+    preference_key = {
+        "Accepted": "appointment_confirmed",
+        "Cancelled": "appointment_cancellation",
+    }.get(label)
+    if preference_key:
+        notify_doctors(
+            "appointment_status",
+            f"Appointment {label.lower()}",
+            f"{item.patient_name}'s {item.service_name} is now {label}.",
+            "appointment",
+            item.id,
+            preference_key=preference_key,
+        )
 
 
 def validate_future_slot(date_value, time_value):
@@ -259,9 +272,15 @@ def create_appointment(request, payload):
                 recipient = patient_user(patient)
                 if recipient:
                     create_notification(recipient, "appointment_created", "Appointment scheduled", f"{service_name} with {doctor_name} on {appointment_date.isoformat()} at {appointment_time.strftime('%H:%M')} was scheduled by the clinic.", "appointment", item.id)
+                if source == "manual":
+                    notify_doctors(
+                        "appointment_created", "New walk-in appointment",
+                        f"{patient.name} was booked for {service_name} on {appointment_date.isoformat()} at {appointment_time.strftime('%H:%M')}.",
+                        "appointment", item.id, preference_key="new_walk_in_appointment",
+                    )
             else:
                 create_notification(request.user, "appointment_created", "Appointment request submitted", f"{service_name} with {doctor_name} on {appointment_date.isoformat()} at {appointment_time.strftime('%H:%M')} is pending approval.", "appointment", item.id)
-                notify_doctors("appointment_created", "New appointment request", f"{request.user.name} requested {service_name} on {appointment_date.isoformat()} at {appointment_time.strftime('%H:%M')}.", "appointment", item.id)
+                notify_doctors("appointment_created", "New appointment request", f"{request.user.name} requested {service_name} on {appointment_date.isoformat()} at {appointment_time.strftime('%H:%M')}.", "appointment", item.id, preference_key="new_appointment_booking")
     except PatientIdentityConflict as error:
         return api_error(str(error), 409)
     except ValueError as error:
@@ -319,7 +338,8 @@ def update_appointment(request, payload):
             if status != previous_status:
                 label = {"pending": "Pending", "approved": "Accepted", "completed": "Completed", "cancelled": "Cancelled"}[status]
                 notify_appointment_status(item, label)
-                notify_doctors("appointment_status", "Appointment status updated", f"{item.patient_name}'s {item.service_name} is now {label}.", "appointment", item.id)
+                if label not in {"Accepted", "Cancelled"}:
+                    notify_doctors("appointment_status", "Appointment status updated", f"{item.patient_name}'s {item.service_name} is now {label}.", "appointment", item.id)
     except Appointment.DoesNotExist:
         return api_error("Appointment not found.", 404)
     return JsonResponse({"appointment": appointment_payload(item), "cancelled_appointment_ids": cancelled_ids})
@@ -349,6 +369,7 @@ def clear_appointments(request, payload):
                 message = message_template.replace("{date}", item.appointment_date.isoformat()).replace("{time}", item.appointment_time.strftime("%H:%M")).replace("{service}", item.service_name)
                 create_notification(item.patient.user, "appointment_status", "Appointment cancelled", message, "appointment", item.id)
             appointment_event(item, "cancellation")
+            notify_doctors("appointment_status", "Appointment cancelled", f"{item.patient_name}'s {item.service_name} was cancelled.", "appointment", item.id, preference_key="appointment_cancellation")
         slots = AvailabilitySlot.objects.filter(doctor=request.user, date__in=dates)
         removed_ids = list(slots.values_list("id", flat=True))
         slots.delete()

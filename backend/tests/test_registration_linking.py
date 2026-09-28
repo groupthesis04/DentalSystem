@@ -1,6 +1,7 @@
 """Registration regression tests for clinic-created patient records."""
 
 import datetime as dt
+import re
 from decimal import Decimal
 from io import StringIO
 from unittest import mock
@@ -8,21 +9,30 @@ from unittest import mock
 from django.core.cache import cache
 from django.core.management import call_command
 from django.db import IntegrityError
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.utils import timezone
 
-from accounts.models import PatientProfile, User
+from accounts.models import PatientAccountVerification, PatientProfile, User
 from accounts.management.commands.import_legacy_data import Command as LegacyImportCommand
 from clinic.models import Service
 from communications.models import SmsMessage, SmsRule
+from communications.sms_provider import SmsProviderError
 from records.models import TreatmentRecord
 from scheduling.models import Appointment, AvailabilitySlot
 
 
+@override_settings(
+    SMS_ENABLED=True,
+    SEMAPHORE_API_KEY="fake-key",
+    PASSWORD_HASHERS=["django.contrib.auth.hashers.MD5PasswordHasher"],
+)
 class RegistrationLinkingTests(TestCase):
     def setUp(self):
         cache.clear()
         self.birthdate = dt.date(2000, 1, 1)
+        sender = mock.patch("accounts.views.sms_provider.send", return_value=("123", "submitted"))
+        self.sms_send = sender.start()
+        self.addCleanup(sender.stop)
 
     def registration_payload(self, **overrides):
         payload = {
@@ -42,6 +52,26 @@ class RegistrationLinkingTests(TestCase):
         return self.client.post(
             "/api/register",
             data=self.registration_payload(**overrides),
+            content_type="application/json",
+        )
+
+    def latest_code(self):
+        return re.search(r"code is ([0-9]{6})", self.sms_send.call_args.args[1]).group(1)
+
+    def verify(self, response, code=None):
+        return self.client.post(
+            "/api/account-verification/verify",
+            data={
+                "verification_token": response.json()["verification_token"],
+                "code": code if code is not None else self.latest_code(),
+            },
+            content_type="application/json",
+        )
+
+    def resend(self, response):
+        return self.client.post(
+            "/api/account-verification/resend",
+            data={"verification_token": response.json()["verification_token"]},
             content_type="application/json",
         )
 
@@ -120,11 +150,28 @@ class RegistrationLinkingTests(TestCase):
 
         response = self.register(email="  JUAN@example.com  ")
 
-        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.status_code, 202)
+        self.assertTrue(response.json()["verification_required"])
+        self.assertEqual(response.json()["masked_mobile"], "09******789")
+        self.sms_send.assert_called_once()
+        self.assertEqual(self.sms_send.call_args.args[0], "639123456789")
+        self.assertNotIn(self.latest_code(), str(response.json()))
+        self.assertEqual(SmsMessage.objects.count(), 1)
+        self.assertFalse(User.objects.filter(email="juan@example.com").exists())
+        profile.refresh_from_db()
+        self.assertIsNone(profile.user_id)
+        verification = PatientAccountVerification.objects.get(patient=profile)
+        self.assertNotEqual(verification.code_hash, self.latest_code())
+        self.assertNotEqual(verification.password_hash, "NewPatient123!")
+
+        verified = self.verify(response)
+        self.assertEqual(verified.status_code, 201)
         profile.refresh_from_db()
         self.assertIsNotNone(profile.user_id)
         self.assertEqual(profile.user.email, "juan@example.com")
         self.assertEqual(profile.id, "pat_juan_existing")
+        self.assertEqual(profile.mobile_number, "09123456789")
+        self.assertEqual(profile.notes, "Existing clinic notes")
         self.assertEqual(PatientProfile.objects.count(), 1)
         self.assertEqual(User.objects.count(), 1)
         self.assertEqual(self.client.get("/api/session").json()["user"]["id"], profile.user_id)
@@ -134,6 +181,8 @@ class RegistrationLinkingTests(TestCase):
         self.assertEqual(appointment.patient_id, profile.id)
         self.assertEqual(record.patient_id, profile.id)
         self.assertEqual(sms.patient_id, profile.id)
+        self.assertEqual(sms.body, "Reminder")
+        self.assertEqual(record.amount_paid, Decimal("300.00"))
         self.assertEqual(record.balance, Decimal("900.00"))
         self.assertEqual(record.next_visit, dt.date.today() + dt.timedelta(days=30))
 
@@ -147,7 +196,9 @@ class RegistrationLinkingTests(TestCase):
             phone="09123456789",
         )
 
-        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.status_code, 202)
+        self.assertEqual(self.sms_send.call_args.args[0], "639123456789")
+        self.assertEqual(self.verify(response).status_code, 201)
         profile.refresh_from_db()
         self.assertIsNotNone(profile.user_id)
         self.assertEqual(profile.email, "juan@example.com")
@@ -158,11 +209,195 @@ class RegistrationLinkingTests(TestCase):
         response = self.register()
 
         self.assertEqual(response.status_code, 201)
+        self.sms_send.assert_not_called()
         user = User.objects.get(email="juan@example.com")
         profile = PatientProfile.objects.get(user=user)
         self.assertEqual(PatientProfile.objects.count(), 1)
         self.assertEqual(profile.birthdate, self.birthdate)
         self.assertEqual(profile.name, "Juan Dela Cruz")
+
+    def test_wrong_code_does_not_create_user_or_link_profile(self):
+        profile = self.clinic_profile()
+        response = self.register()
+        wrong = "000000" if self.latest_code() != "000000" else "000001"
+
+        result = self.verify(response, wrong)
+
+        self.assertEqual(result.status_code, 400)
+        self.assertEqual(result.json()["error"], "Invalid verification code.")
+        profile.refresh_from_db()
+        self.assertIsNone(profile.user_id)
+        self.assertFalse(User.objects.filter(email="juan@example.com").exists())
+
+    def test_expired_code_is_rejected(self):
+        profile = self.clinic_profile()
+        response = self.register()
+        PatientAccountVerification.objects.filter(patient=profile).update(
+            expires_at=timezone.now() - dt.timedelta(seconds=1)
+        )
+
+        result = self.verify(response)
+
+        self.assertEqual(result.status_code, 410)
+        self.assertEqual(result.json()["error"], "Verification code expired. Request a new code.")
+        self.assertIsNone(PatientProfile.objects.get(pk=profile.pk).user_id)
+
+    def test_successful_code_cannot_be_reused(self):
+        self.clinic_profile()
+        response = self.register()
+        code = self.latest_code()
+        self.assertEqual(self.verify(response, code).status_code, 201)
+
+        reused = self.verify(response, code)
+
+        self.assertEqual(reused.status_code, 409)
+        self.assertEqual(reused.json()["error"], "This verification code has already been used.")
+        self.assertEqual(User.objects.count(), 1)
+
+    def test_resend_cooldown_and_old_code_invalidation(self):
+        profile = self.clinic_profile()
+        response = self.register()
+        old_code = self.latest_code()
+
+        cooling = self.resend(response)
+        self.assertEqual(cooling.status_code, 429)
+        self.assertGreaterEqual(cooling.json()["retry_after"], 1)
+        self.assertEqual(self.sms_send.call_count, 1)
+
+        PatientAccountVerification.objects.filter(patient=profile).update(
+            created_at=timezone.now() - dt.timedelta(seconds=61)
+        )
+        resent = self.resend(response)
+        self.assertEqual(resent.status_code, 202)
+        self.assertEqual(self.sms_send.call_count, 2)
+        self.assertEqual(self.verify(response, old_code).status_code, 409)
+        new_code = self.latest_code()
+        self.assertEqual(self.verify(resent, new_code).status_code, 201)
+        self.assertEqual(User.objects.count(), 1)
+
+    def test_five_incorrect_attempts_lock_code(self):
+        profile = self.clinic_profile()
+        response = self.register()
+        wrong = "000000" if self.latest_code() != "000000" else "000001"
+        for attempt in range(5):
+            result = self.verify(response, wrong)
+            self.assertEqual(result.status_code, 429 if attempt == 4 else 400)
+        self.assertEqual(self.verify(response).status_code, 429)
+        self.assertIsNone(PatientProfile.objects.get(pk=profile.pk).user_id)
+
+    def test_malformed_codes_count_toward_five_attempt_limit(self):
+        profile = self.clinic_profile()
+        response = self.register()
+        for attempt in range(5):
+            result = self.verify(response, "abc")
+            self.assertEqual(result.status_code, 429 if attempt == 4 else 400)
+        self.assertEqual(PatientAccountVerification.objects.get(patient=profile).attempts, 5)
+
+    def test_phone_format_variations_match_without_changing_stored_number(self):
+        profile = self.clinic_profile(mobile_number="+639123456789")
+        response = self.register(phone="639123456789")
+
+        self.assertEqual(response.status_code, 202)
+        self.assertEqual(self.sms_send.call_args.args[0], "639123456789")
+        self.assertEqual(self.verify(response).status_code, 201)
+        profile.refresh_from_db()
+        self.assertEqual(profile.mobile_number, "+639123456789")
+        self.assertTrue(profile.user.check_password("NewPatient123!"))
+
+    def test_changed_submitted_phone_cannot_redirect_code(self):
+        profile = self.clinic_profile(mobile_number="09123456789")
+        response = self.register(phone="09998887777")
+
+        self.assert_registration_refused_without_changes(response)
+        self.sms_send.assert_not_called()
+        self.assertEqual(profile.mobile_number, "09123456789")
+
+    def test_linked_record_with_another_account_is_rejected(self):
+        user = User.objects.create_user(
+            id="usr_other_link", email="other@example.com", password="Existing123!",
+            name="Juan Dela Cruz", role="patient",
+        )
+        self.clinic_profile(user=user)
+
+        response = self.register()
+
+        self.assertEqual(response.status_code, 409)
+        self.assertEqual(response.json()["error"], "This patient record is already linked to an account.")
+        self.sms_send.assert_not_called()
+
+    def test_sms_disabled_does_not_create_account_or_challenge(self):
+        profile = self.clinic_profile()
+        with override_settings(SMS_ENABLED=False):
+            response = self.register()
+
+        self.assertEqual(response.status_code, 503)
+        self.assertIsNone(PatientProfile.objects.get(pk=profile.pk).user_id)
+        self.assertFalse(PatientAccountVerification.objects.exists())
+        self.sms_send.assert_not_called()
+
+    def test_profile_phone_change_after_code_issuance_prevents_link(self):
+        profile = self.clinic_profile()
+        response = self.register()
+        profile.mobile_number = "09998887777"
+        profile.save(update_fields=["mobile_number"])
+
+        result = self.verify(response)
+
+        self.assertEqual(result.status_code, 409)
+        self.assertFalse(User.objects.filter(email="juan@example.com").exists())
+
+    def test_middle_name_mismatch_does_not_start_verification(self):
+        self.clinic_profile()
+
+        response = self.register(middle_name="Different")
+
+        self.assert_registration_refused_without_changes(response)
+        self.sms_send.assert_not_called()
+
+    def test_generation_is_limited_per_patient_across_registration_requests(self):
+        profile = self.clinic_profile()
+        for _ in range(5):
+            cache.clear()  # Exercise the database limit independently of the IP limit.
+            response = self.register()
+            self.assertEqual(response.status_code, 202)
+            PatientAccountVerification.objects.filter(patient=profile).update(
+                created_at=timezone.now() - dt.timedelta(seconds=61)
+            )
+
+        cache.clear()
+        limited = self.register()
+
+        self.assertEqual(limited.status_code, 429)
+        self.assertEqual(self.sms_send.call_count, 5)
+        self.assertFalse(User.objects.filter(email="juan@example.com").exists())
+
+    def test_provider_failure_does_not_create_user(self):
+        profile = self.clinic_profile()
+        self.sms_send.side_effect = SmsProviderError("Provider rejected message")
+
+        response = self.register()
+
+        self.assertEqual(response.status_code, 503)
+        self.assertIsNone(PatientProfile.objects.get(pk=profile.pk).user_id)
+        self.assertFalse(User.objects.filter(email="juan@example.com").exists())
+        verification = PatientAccountVerification.objects.get(patient=profile)
+        self.assertTrue(verification.is_used)
+        self.assertEqual(verification.code_hash, "")
+
+    def test_next_registration_purges_day_old_pending_credentials(self):
+        profile = self.clinic_profile()
+        first = self.register()
+        PatientAccountVerification.objects.filter(patient=profile).update(
+            created_at=timezone.now() - dt.timedelta(days=2)
+        )
+        cache.clear()
+
+        second = self.register()
+
+        self.assertEqual(first.status_code, 202)
+        self.assertEqual(second.status_code, 202)
+        self.assertEqual(PatientAccountVerification.objects.filter(patient=profile).count(), 1)
+        self.assertEqual(self.verify(first).status_code, 400)
 
     def test_existing_account_email_is_rejected_without_creating_another_profile(self):
         user = User.objects.create_user(
@@ -178,7 +413,7 @@ class RegistrationLinkingTests(TestCase):
         response = self.register(email="JUAN@EXAMPLE.COM")
 
         self.assertEqual(response.status_code, 409)
-        self.assertIn("log in", response.json()["error"].lower())
+        self.assertEqual(response.json()["error"], "An account already uses this email.")
         self.assertEqual(User.objects.count(), 1)
         self.assertEqual(PatientProfile.objects.count(), 1)
         profile.refresh_from_db()
@@ -254,17 +489,18 @@ class RegistrationLinkingTests(TestCase):
 
     def test_failed_account_creation_rolls_back_insert(self):
         profile = self.clinic_profile()
-        create_user = User.objects.create_user
+        response = self.register()
+        create_user = User.objects.create
 
         def create_then_fail(**kwargs):
             create_user(**kwargs)
             raise IntegrityError("Simulated failure after user insert")
 
-        with mock.patch.object(User.objects, "create_user", side_effect=create_then_fail) as create_mock:
-            response = self.register()
+        with mock.patch.object(User.objects, "create", side_effect=create_then_fail) as create_mock:
+            failed = self.verify(response)
 
         create_mock.assert_called_once()
-        self.assert_registration_refused_without_changes(response)
+        self.assert_registration_refused_without_changes(failed)
         profile.refresh_from_db()
         self.assertIsNone(profile.user_id)
 
@@ -370,6 +606,28 @@ class RegistrationLinkingTests(TestCase):
         self.assertTrue(session_response.json()["user"]["profile_verification_required"])
         self.assertEqual(PatientProfile.objects.count(), 1)
         self.assertFalse(PatientProfile.objects.filter(user=user).exists())
+        profile.refresh_from_db()
+        self.assertIsNone(profile.user_id)
+
+    def test_legacy_account_with_same_profile_id_is_not_automatically_linked(self):
+        profile = self.clinic_profile(id="usr_legacy_same_id")
+        user = User.objects.create_user(
+            id=profile.id,
+            email="juan@example.com",
+            password="LegacyPatient123!",
+            name="Juan Dela Cruz",
+            phone="09123456789",
+            role="patient",
+        )
+
+        response = self.client.post(
+            "/api/login",
+            data={"email": user.email, "password": "LegacyPatient123!"},
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()["user"]["profile_verification_required"])
         profile.refresh_from_db()
         self.assertIsNone(profile.user_id)
 

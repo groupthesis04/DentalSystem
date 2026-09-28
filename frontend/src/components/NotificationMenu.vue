@@ -12,7 +12,7 @@ const notifications = ref([]);
 const root = ref(null);
 let pollTimer;
 
-const unreadCount = computed(() => notifications.value.filter((item) => !item.is_read).length);
+const unreadCount = computed(() => notifications.value.filter((item) => !item.read).length);
 
 async function refresh(showErrors = false) {
   try {
@@ -30,7 +30,7 @@ async function markRead(item = null) {
       body: item ? { id: item.id } : { mark_all: true },
     });
     for (const notification of notifications.value) {
-      if (!item || notification.id === item.id) notification.is_read = true;
+      if (!item || notification.id === item.id) notification.read = true;
     }
     if (item) {
       open.value = false;
@@ -99,7 +99,7 @@ onBeforeUnmount(() => {
           v-for="item in notifications"
           :key="item.id"
           class="notification-item"
-          :class="{ unread: !item.is_read }"
+          :class="{ unread: !item.read }"
           type="button"
           @click="markRead(item)"
         >

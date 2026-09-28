@@ -11,7 +11,7 @@ import {
   UserRound,
   X,
 } from "lucide-vue-next";
-import { onBeforeUnmount, onMounted, reactive, ref } from "vue";
+import { computed, onBeforeUnmount, onMounted, reactive, ref } from "vue";
 
 import { session, apiRequest } from "../services/api";
 import { validatedPayload } from "../services/validation";
@@ -41,6 +41,17 @@ const register = reactive({
 });
 const confirmPassword = ref("");
 const passwordInput = ref(null);
+const verificationToken = ref("");
+const maskedMobile = ref("");
+const verificationCode = ref("");
+const resendAt = ref(0);
+const expiresAt = ref(0);
+const now = ref(Date.now());
+const resendRemaining = computed(() => Math.max(0, Math.ceil((resendAt.value - now.value) / 1000)));
+const expiresRemaining = computed(() =>
+  Math.max(0, Math.ceil((expiresAt.value - now.value) / 1000)),
+);
+let countdownTimer;
 // Optional local credentials are read only in development and stay out of source control.
 const configuredTestAccounts = [
   {
@@ -60,13 +71,35 @@ const testAccounts = import.meta.env.DEV
   ? configuredTestAccounts.filter((account) => account.email && account.password)
   : [];
 
-onMounted(() => document.body.classList.add("modal-open"));
-onBeforeUnmount(() => document.body.classList.remove("modal-open"));
+onMounted(() => {
+  document.body.classList.add("modal-open");
+  countdownTimer = window.setInterval(() => (now.value = Date.now()), 1000);
+});
+onBeforeUnmount(() => {
+  document.body.classList.remove("modal-open");
+  window.clearInterval(countdownTimer);
+});
 
 function switchTab(next) {
   tab.value = next;
   errorMessage.value = "";
   showPassword.value = false;
+  if (next !== "verify") {
+    verificationToken.value = "";
+    verificationCode.value = "";
+  }
+}
+
+function showVerification(data) {
+  register.password = "";
+  confirmPassword.value = "";
+  verificationToken.value = data.verification_token;
+  maskedMobile.value = data.masked_mobile;
+  verificationCode.value = "";
+  now.value = Date.now();
+  resendAt.value = now.value + (data.resend_after || 60) * 1000;
+  expiresAt.value = now.value + (data.expires_in || 300) * 1000;
+  tab.value = "verify";
 }
 
 function selectTestAccount(account) {
@@ -131,11 +164,52 @@ async function submitRegister() {
       { registration: true },
     );
     const data = await apiRequest("/api/register", { method: "POST", body: payload });
+    if (data.verification_required) {
+      showVerification(data);
+      return;
+    }
     session.user = data.user;
     session.csrfToken = data.csrf_token || session.csrfToken;
     finishAuthentication(data.user, "Account created successfully.");
   } catch (error) {
     errorMessage.value = error.message;
+  } finally {
+    busy.value = false;
+  }
+}
+
+async function submitVerification() {
+  errorMessage.value = "";
+  busy.value = true;
+  try {
+    const data = await apiRequest("/api/account-verification/verify", {
+      method: "POST",
+      body: { verification_token: verificationToken.value, code: verificationCode.value.trim() },
+    });
+    session.user = data.user;
+    session.csrfToken = data.csrf_token || session.csrfToken;
+    finishAuthentication(data.user, "Account verified and created successfully.");
+  } catch (error) {
+    errorMessage.value = error.message;
+  } finally {
+    busy.value = false;
+  }
+}
+
+async function resendVerification() {
+  errorMessage.value = "";
+  busy.value = true;
+  try {
+    const data = await apiRequest("/api/account-verification/resend", {
+      method: "POST",
+      body: { verification_token: verificationToken.value },
+    });
+    showVerification(data);
+  } catch (error) {
+    errorMessage.value = error.message;
+    if (error.data?.retry_after) {
+      resendAt.value = Date.now() + error.data.retry_after * 1000;
+    }
   } finally {
     busy.value = false;
   }
@@ -248,6 +322,66 @@ function handleRegisterInvalid(event) {
           <p class="auth-switch">
             New here? <button type="button" @click="switchTab('register')">Sign Up</button>
           </p>
+        </form>
+
+        <form
+          v-else-if="tab === 'verify'"
+          class="auth-form auth-verify-form"
+          @submit.prevent="submitVerification"
+        >
+          <div class="auth-heading">
+            <ShieldCheck class="verification-icon" aria-hidden="true" />
+            <h2>Verify your identity</h2>
+            <p>We found an existing BORJA Dental Clinic patient record.</p>
+          </div>
+          <p class="verification-intro">
+            A 6-digit verification code was sent to the mobile number registered with the clinic:
+            <strong>{{ maskedMobile }}</strong>
+          </p>
+          <label class="auth-field">
+            <span>Verification code</span>
+            <span class="auth-input-wrap">
+              <LockKeyhole aria-hidden="true" />
+              <input
+                v-model="verificationCode"
+                name="verification_code"
+                type="text"
+                inputmode="numeric"
+                autocomplete="one-time-code"
+                pattern="[0-9]{6}"
+                maxlength="6"
+                placeholder="Enter 6-digit code"
+                required
+              />
+            </span>
+          </label>
+          <p class="verification-hint">
+            Code expires in 5 minutes.
+            <span v-if="!expiresRemaining">The code has expired. Request a new code.</span>
+            <span v-if="expiresRemaining"
+              >{{ Math.floor(expiresRemaining / 60) }}:{{
+                String(expiresRemaining % 60).padStart(2, "0")
+              }}
+              remaining.</span
+            >
+          </p>
+          <p v-if="errorMessage" class="form-error" role="alert">{{ errorMessage }}</p>
+          <button class="primary-button login-button full" type="submit" :disabled="busy">
+            {{ busy ? "Verifying..." : "Verify Code" }}
+          </button>
+          <button
+            class="verification-resend"
+            type="button"
+            :disabled="busy || resendRemaining > 0"
+            @click="resendVerification"
+          >
+            {{
+              resendRemaining > 0 ? `Resend available in ${resendRemaining} seconds` : "Resend Code"
+            }}
+          </button>
+          <button class="verification-back" type="button" @click="switchTab('register')">
+            Back to registration
+          </button>
         </form>
 
         <form

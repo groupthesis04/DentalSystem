@@ -33,6 +33,8 @@ class User(AbstractBaseUser, PermissionsMixin):
     email = models.EmailField(unique=True)
     name = models.CharField(max_length=120)
     phone = models.CharField(max_length=24, blank=True)
+    recovery_email = models.EmailField(blank=True)
+    recovery_mobile_number = models.CharField(max_length=24, blank=True)
     role = models.CharField(max_length=16, choices=ROLE_CHOICES, db_index=True)
     profile_image = models.TextField(blank=True)
     is_active = models.BooleanField(default=True)
@@ -102,3 +104,42 @@ class PatientProfile(models.Model):
 
     def __str__(self):
         return self.name
+
+
+class PatientAccountVerification(models.Model):
+    """A short-lived, single-use claim of a clinic-created patient record."""
+
+    patient = models.ForeignKey(PatientProfile, on_delete=models.CASCADE, related_name="account_verifications")
+    token_hash = models.CharField(max_length=64, unique=True)
+    phone_number = models.CharField(max_length=24)
+    code_hash = models.CharField(max_length=128, blank=True)
+    email = models.EmailField()
+    first_name = models.CharField(max_length=80)
+    middle_name = models.CharField(max_length=80, blank=True)
+    last_name = models.CharField(max_length=80)
+    birthdate = models.DateField()
+    password_hash = models.CharField(max_length=128, blank=True)
+    profile_image = models.TextField(blank=True)
+    remember = models.BooleanField(default=False)
+    expires_at = models.DateTimeField()
+    attempts = models.PositiveSmallIntegerField(default=0)
+    is_used = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["patient", "created_at"], name="patient_otp_created_idx"),
+            models.Index(fields=["created_at"], name="patient_otp_old_idx"),
+        ]
+
+
+class AccountLoginActivity(models.Model):
+    """A durable record of successful account sign-ins."""
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="login_activity")
+    user_agent = models.CharField(max_length=255, blank=True)
+    session_key_hash = models.CharField(max_length=64, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [models.Index(fields=["user", "-created_at"], name="account_login_user_idx")]
