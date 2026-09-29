@@ -198,7 +198,6 @@ onMounted(async () => {
           ref="portalHeader"
           mode="patient"
           :navigation-open="mobileNavigationOpen"
-          @navigate-overview="selectPanel('patientOverview')"
           @toggle-navigation="mobileNavigationOpen = !mobileNavigationOpen"
           @open-notification="openNotification"
         />

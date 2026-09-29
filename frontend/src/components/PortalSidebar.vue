@@ -2,6 +2,7 @@
 import { ChevronDown, ChevronRight, LogOut, X } from "lucide-vue-next";
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 
+import { navigate } from "../router";
 import AvatarBadge from "./AvatarBadge.vue";
 
 const props = defineProps({
@@ -181,9 +182,9 @@ function selectDrawerChild(child) {
     <button
       class="sidebar-brand"
       type="button"
-      title="Dashboard"
-      aria-label="Open dashboard"
-      @click="selectItem(items[0])"
+      title="Go to public homepage"
+      aria-label="Go to public homepage"
+      @click="navigate('/')"
     >
       <img src="/assets/logo.png" alt="" />
       <span class="sidebar-brand-copy">

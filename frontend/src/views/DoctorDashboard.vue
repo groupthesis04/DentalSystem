@@ -179,7 +179,6 @@ onMounted(async () => {
           ref="portalHeader"
           mode="doctor"
           :navigation-open="mobileNavigationOpen"
-          @navigate-overview="selectPanel('doctorOverview')"
           @toggle-navigation="mobileNavigationOpen = !mobileNavigationOpen"
           @open-notification="openNotification"
         />

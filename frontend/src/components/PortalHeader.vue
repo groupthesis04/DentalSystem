@@ -2,6 +2,7 @@
 import { Menu, Moon, Sun } from "lucide-vue-next";
 import { computed, ref } from "vue";
 
+import { navigate } from "../router";
 import { session } from "../services/api";
 import { dashboardTheme, toggleDashboardTheme } from "../services/theme";
 import NotificationMenu from "./NotificationMenu.vue";
@@ -10,7 +11,7 @@ const props = defineProps({
   mode: { type: String, required: true },
   navigationOpen: { type: Boolean, default: false },
 });
-const emit = defineEmits(["open-notification", "toggle-navigation", "navigate-overview"]);
+const emit = defineEmits(["open-notification", "toggle-navigation"]);
 const navigationButton = ref(null);
 defineExpose({ focusNavigationButton: () => navigationButton.value?.focus() });
 
@@ -44,8 +45,8 @@ const currentDate = computed(() =>
     <button
       class="dashboard-mobile-brand"
       type="button"
-      aria-label="Go to dashboard overview"
-      @click="emit('navigate-overview')"
+      aria-label="Go to public homepage"
+      @click="navigate('/')"
     >
       <img src="/assets/logo.png" alt="" />
       <span><strong>BORJA</strong><small>DENTAL CLINIC</small></span>
