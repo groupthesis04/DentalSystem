@@ -23,13 +23,13 @@ import ServiceRecords from "../components/doctor/ServiceRecords.vue";
 import SmsManagement from "../components/doctor/SmsManagement.vue";
 import PortalHeader from "../components/PortalHeader.vue";
 import PortalSidebar from "../components/PortalSidebar.vue";
+import { useDashboardPanel } from "../composables/useDashboardPanel";
 import { useDoctorStore } from "../composables/useDoctorStore";
 import { apiRequest, refreshSession, session, signOut } from "../services/api";
 import { dashboardPath, navigate } from "../router";
 import { consumeQueuedToast, queueToast, showToast } from "../services/toast";
 
 const { state, load } = useDoctorStore();
-const activePanel = ref("doctorOverview");
 const highlightedId = ref("");
 const mobileNavigationOpen = ref(false);
 const portalHeader = ref(null);
@@ -68,6 +68,12 @@ const navItems = [
   },
   { id: "doctorStatistics", label: "Reports", icon: ChartNoAxesColumnIncreasing },
 ];
+const activePanel = useDashboardPanel(dashboardPath("doctor"), "doctorOverview", [
+  ...navItems.flatMap((item) =>
+    item.children?.length ? item.children.map((child) => child.id) : [item.id],
+  ),
+  "doctorProfile",
+]);
 
 async function refreshData() {
   try {

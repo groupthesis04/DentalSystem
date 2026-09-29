@@ -7,6 +7,7 @@ import BaseModal from "../components/BaseModal.vue";
 import DoctorAccount from "../components/doctor/DoctorAccount.vue";
 import PortalHeader from "../components/PortalHeader.vue";
 import PortalSidebar from "../components/PortalSidebar.vue";
+import { useDashboardPanel } from "../composables/useDashboardPanel";
 import PatientOverview from "../components/patient/PatientOverview.vue";
 import PatientRecords from "../components/patient/PatientRecords.vue";
 import PatientVisits from "../components/patient/PatientVisits.vue";
@@ -16,7 +17,6 @@ import { dashboardPath, navigate } from "../router";
 import { consumeQueuedToast, queueToast, showToast } from "../services/toast";
 
 const loading = ref(true);
-const activePanel = ref("patientOverview");
 const appointments = ref([]);
 const records = ref([]);
 const services = ref([]);
@@ -75,6 +75,10 @@ const navItems = [
   { id: "patientSchedule", label: "Appointments", shortLabel: "Visits", icon: CalendarDays },
   { id: "patientRecords", label: "Records", icon: FileText },
 ];
+const activePanel = useDashboardPanel(dashboardPath("patient"), "patientOverview", [
+  ...navItems.map((item) => item.id),
+  "patientProfile",
+]);
 
 // Fetch dashboard information together so the page has one loading state.
 async function loadData() {
