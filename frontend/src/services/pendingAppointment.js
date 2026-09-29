@@ -20,15 +20,29 @@ function cleanText(value, limit, multiline = false) {
 
 function normalizeAppointment(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const submittedServices = Array.isArray(value.services) ? value.services : [value.service];
+  if (
+    !submittedServices.length ||
+    submittedServices.some((name) => typeof name !== "string" || name.length > 120)
+  ) {
+    return null;
+  }
+  const services = submittedServices.map((name) => cleanText(name, 120));
+  if (
+    services.some((name) => !name) ||
+    new Set(services.map((name) => name.toLocaleLowerCase())).size !== services.length
+  ) {
+    return null;
+  }
   const appointment = {
-    service: cleanText(value.service, 120),
+    services,
+    service: services[0],
     doctor: cleanText(value.doctor, 120),
     date: cleanText(value.date, 10),
     time: cleanText(value.time, 8),
     notes: cleanText(value.notes, 1000, true),
   };
   if (
-    !appointment.service ||
     !appointment.doctor ||
     !/^\d{4}-\d{2}-\d{2}$/.test(appointment.date) ||
     !/^\d{2}:\d{2}$/.test(appointment.time)

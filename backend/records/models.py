@@ -31,6 +31,7 @@ class TreatmentRecord(models.Model):
     treatment_date = models.DateField()
     tooth_numbers = models.CharField(max_length=120, blank=True)
     procedure = models.CharField(max_length=120)
+    procedures = models.JSONField(default=list, blank=True)
     amount_charged = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     amount_paid = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     balance = models.DecimalField(max_digits=10, decimal_places=2, default=0)

@@ -27,7 +27,39 @@ from dental_backend.api import (
 from .models import Appointment, AvailabilitySlot
 
 
+def appointment_services(item):
+    """Support historical rows created before the services list was introduced."""
+    names = item.services if isinstance(item.services, list) else []
+    names = [name for name in names if isinstance(name, str) and name.strip()]
+    return names or ([item.service_name] if item.service_name else [])
+
+
+def appointment_service_summary(item):
+    return ", ".join(appointment_services(item))
+
+
+def validate_appointment_services(payload):
+    selected = payload.get("services", [payload.get("service", "")])
+    if not isinstance(selected, list) or not selected:
+        raise ValueError("Choose at least one dental service.")
+    names = []
+    seen = set()
+    for value in selected:
+        if not isinstance(value, str) or not value.strip() or len(value.strip()) > 120:
+            raise ValueError("Choose a valid dental service.")
+        name = value.strip()
+        if name.casefold() in seen:
+            raise ValueError("Choose each dental service only once.")
+        seen.add(name.casefold())
+        service = Service.objects.filter(name__iexact=name).first()
+        if service is None:
+            raise ValueError("Choose a valid dental service.")
+        names.append(service.name)
+    return names
+
+
 def appointment_payload(item):
+    services = appointment_services(item)
     return {
         "id": item.id,
         "patient_id": item.patient_id,
@@ -35,7 +67,8 @@ def appointment_payload(item):
         "patient_email": item.patient_email,
         "patient_phone": item.patient_phone,
         "doctor": item.doctor_name,
-        "service": item.service_name,
+        "service": services[0] if services else "",
+        "services": services,
         "date": item.appointment_date.isoformat(),
         "time": item.appointment_time.strftime("%H:%M"),
         "notes": item.notes,
@@ -75,7 +108,7 @@ def notify_appointment_status(item, label):
             recipient,
             "appointment_status",
             f"Appointment {label.lower()}",
-            f"{item.service_name} with {item.doctor_name} on {item.appointment_date.isoformat()} at {item.appointment_time.strftime('%H:%M')} is now {label}.",
+            f"{appointment_service_summary(item)} with {item.doctor_name} on {item.appointment_date.isoformat()} at {item.appointment_time.strftime('%H:%M')} is now {label}.",
             "appointment",
             item.id,
         )
@@ -87,7 +120,7 @@ def notify_appointment_status(item, label):
         notify_doctors(
             "appointment_status",
             f"Appointment {label.lower()}",
-            f"{item.patient_name}'s {item.service_name} is now {label}.",
+            f"{item.patient_name}'s {appointment_service_summary(item)} is now {label}.",
             "appointment",
             item.id,
             preference_key=preference_key,
@@ -166,16 +199,16 @@ def create_manual_patient(payload):
 
 def create_appointment(request, payload):
     doctor_name = str(payload.get("doctor", "")).strip()
-    service_name = str(payload.get("service", "")).strip()
     notes = str(payload.get("notes", "")).strip()[:1000]
     booking_token = str(payload.get("booking_token", "")).strip() or None
     try:
         doctor_name = validate_name(doctor_name, "dentist", 3)
         appointment_date, appointment_time = validate_future_slot(payload.get("date"), payload.get("time"))
+        services = validate_appointment_services(payload)
     except ValueError as error:
         return api_error(str(error))
-    if not Service.objects.filter(name__iexact=service_name).exists():
-        return api_error("Choose a valid dental service.")
+    service_name = services[0]
+    service_summary = ", ".join(services)
 
     is_manual = request.user.role == "doctor"
     if request.user.role not in {"doctor", "patient"}:
@@ -248,6 +281,7 @@ def create_appointment(request, payload):
                 patient_phone=patient.phone,
                 doctor_name=doctor_name,
                 service_name=service_name,
+                services=services,
                 appointment_date=appointment_date,
                 appointment_time=appointment_time,
                 notes=notes,
@@ -271,16 +305,16 @@ def create_appointment(request, payload):
                     notify_appointment_status(other, "Cancelled")
                 recipient = patient_user(patient)
                 if recipient:
-                    create_notification(recipient, "appointment_created", "Appointment scheduled", f"{service_name} with {doctor_name} on {appointment_date.isoformat()} at {appointment_time.strftime('%H:%M')} was scheduled by the clinic.", "appointment", item.id)
+                    create_notification(recipient, "appointment_created", "Appointment scheduled", f"{service_summary} with {doctor_name} on {appointment_date.isoformat()} at {appointment_time.strftime('%H:%M')} was scheduled by the clinic.", "appointment", item.id)
                 if source == "manual":
                     notify_doctors(
                         "appointment_created", "New walk-in appointment",
-                        f"{patient.name} was booked for {service_name} on {appointment_date.isoformat()} at {appointment_time.strftime('%H:%M')}.",
+                        f"{patient.name} was booked for {service_summary} on {appointment_date.isoformat()} at {appointment_time.strftime('%H:%M')}.",
                         "appointment", item.id, preference_key="new_walk_in_appointment",
                     )
             else:
-                create_notification(request.user, "appointment_created", "Appointment request submitted", f"{service_name} with {doctor_name} on {appointment_date.isoformat()} at {appointment_time.strftime('%H:%M')} is pending approval.", "appointment", item.id)
-                notify_doctors("appointment_created", "New appointment request", f"{request.user.name} requested {service_name} on {appointment_date.isoformat()} at {appointment_time.strftime('%H:%M')}.", "appointment", item.id, preference_key="new_appointment_booking")
+                create_notification(request.user, "appointment_created", "Appointment request submitted", f"{service_summary} with {doctor_name} on {appointment_date.isoformat()} at {appointment_time.strftime('%H:%M')} is pending approval.", "appointment", item.id)
+                notify_doctors("appointment_created", "New appointment request", f"{request.user.name} requested {service_summary} on {appointment_date.isoformat()} at {appointment_time.strftime('%H:%M')}.", "appointment", item.id, preference_key="new_appointment_booking")
     except PatientIdentityConflict as error:
         return api_error(str(error), 409)
     except ValueError as error:
@@ -339,7 +373,7 @@ def update_appointment(request, payload):
                 label = {"pending": "Pending", "approved": "Accepted", "completed": "Completed", "cancelled": "Cancelled"}[status]
                 notify_appointment_status(item, label)
                 if label not in {"Accepted", "Cancelled"}:
-                    notify_doctors("appointment_status", "Appointment status updated", f"{item.patient_name}'s {item.service_name} is now {label}.", "appointment", item.id)
+                    notify_doctors("appointment_status", "Appointment status updated", f"{item.patient_name}'s {appointment_service_summary(item)} is now {label}.", "appointment", item.id)
     except Appointment.DoesNotExist:
         return api_error("Appointment not found.", 404)
     return JsonResponse({"appointment": appointment_payload(item), "cancelled_appointment_ids": cancelled_ids})
@@ -366,10 +400,10 @@ def clear_appointments(request, payload):
             item.status = "cancelled"
             item.save(update_fields=["status", "updated_at"])
             if notify_patients and item.patient.user_id:
-                message = message_template.replace("{date}", item.appointment_date.isoformat()).replace("{time}", item.appointment_time.strftime("%H:%M")).replace("{service}", item.service_name)
+                message = message_template.replace("{date}", item.appointment_date.isoformat()).replace("{time}", item.appointment_time.strftime("%H:%M")).replace("{service}", appointment_service_summary(item))
                 create_notification(item.patient.user, "appointment_status", "Appointment cancelled", message, "appointment", item.id)
             appointment_event(item, "cancellation")
-            notify_doctors("appointment_status", "Appointment cancelled", f"{item.patient_name}'s {item.service_name} was cancelled.", "appointment", item.id, preference_key="appointment_cancellation")
+            notify_doctors("appointment_status", "Appointment cancelled", f"{item.patient_name}'s {appointment_service_summary(item)} was cancelled.", "appointment", item.id, preference_key="appointment_cancellation")
         slots = AvailabilitySlot.objects.filter(doctor=request.user, date__in=dates)
         removed_ids = list(slots.values_list("id", flat=True))
         slots.delete()

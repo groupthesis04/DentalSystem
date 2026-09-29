@@ -10,12 +10,16 @@ const props = defineProps({
   items: { type: Array, required: true },
   active: { type: String, required: true },
   profilePanelId: { type: String, required: true },
+  mobileDrawer: { type: Boolean, default: false },
+  mobileOpen: { type: Boolean, default: false },
 });
-const emit = defineEmits(["select", "logout"]);
+const emit = defineEmits(["select", "logout", "close-navigation"]);
 const expandedGroup = ref("");
 const mobileExpandedGroup = ref("");
 const isMobile = ref(false);
 const mobileSubmenu = ref(null);
+const sidebar = ref(null);
+const drawerCloseButton = ref(null);
 const mobileGroup = computed(() =>
   props.items.find((item) => item.id === mobileExpandedGroup.value && item.children?.length),
 );
@@ -35,6 +39,28 @@ function closeMobileSubmenu(restoreFocus = false) {
 }
 
 function handleEscape(event) {
+  if (props.mobileDrawer && isMobile.value && props.mobileOpen) {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      emit("close-navigation");
+    } else if (event.key === "Tab") {
+      const focusable = [...sidebar.value.querySelectorAll("button:not([disabled])")];
+      if (!focusable.length) return;
+      const first = focusable[0];
+      const last = focusable.at(-1);
+      if (!sidebar.value.contains(document.activeElement)) {
+        event.preventDefault();
+        (event.shiftKey ? last : first).focus();
+      } else if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    }
+    return;
+  }
   if (event.key === "Escape" && mobileExpandedGroup.value) {
     event.preventDefault();
     closeMobileSubmenu(true);
@@ -52,6 +78,15 @@ onBeforeUnmount(() => {
   mobileBreakpoint?.removeEventListener("change", syncMobileBreakpoint);
   window.removeEventListener("keydown", handleEscape);
 });
+
+watch(
+  () => props.mobileOpen,
+  (open) => {
+    if (open && props.mobileDrawer && isMobile.value) {
+      nextTick(() => window.setTimeout(() => drawerCloseButton.value?.focus(), 0));
+    }
+  },
+);
 
 watch(
   () => props.active,
@@ -73,6 +108,12 @@ function selectItem(item) {
   if (!item.children?.length) {
     closeMobileSubmenu();
     emit("select", item.id);
+    if (props.mobileDrawer && isMobile.value) emit("close-navigation");
+    return;
+  }
+
+  if (isMobile.value && props.mobileDrawer) {
+    expandedGroup.value = expandedGroup.value === item.id ? "" : item.id;
     return;
   }
 
@@ -99,16 +140,50 @@ function selectMobileChild(child) {
   emit("select", child.id);
   closeMobileSubmenu(true);
 }
+
+function selectDrawerChild(child) {
+  emit("select", child.id);
+  emit("close-navigation");
+}
 </script>
 
 <template>
-  <aside class="profile-sidebar overview-navigation" :aria-label="`${roleLabel} navigation`">
+  <Teleport to="body">
+    <button
+      v-if="mobileDrawer && isMobile && mobileOpen"
+      class="doctor-mobile-navigation-backdrop"
+      type="button"
+      aria-label="Close dashboard menu"
+      @click="emit('close-navigation')"
+    ></button>
+  </Teleport>
+  <aside
+    :id="mobileDrawer ? 'doctor-mobile-navigation' : undefined"
+    ref="sidebar"
+    class="profile-sidebar overview-navigation"
+    :class="{ 'doctor-navigation-drawer': mobileDrawer, 'mobile-open': mobileOpen }"
+    :role="mobileDrawer && isMobile && mobileOpen ? 'dialog' : undefined"
+    :aria-modal="mobileDrawer && isMobile && mobileOpen ? 'true' : undefined"
+    :aria-hidden="mobileDrawer && isMobile && !mobileOpen ? 'true' : undefined"
+    :inert="mobileDrawer && isMobile && !mobileOpen"
+    :aria-label="`${roleLabel} navigation`"
+  >
+    <button
+      v-if="mobileDrawer"
+      ref="drawerCloseButton"
+      class="sidebar-drawer-close"
+      type="button"
+      aria-label="Close dashboard menu"
+      @click="emit('close-navigation')"
+    >
+      <X :size="20" aria-hidden="true" />
+    </button>
     <button
       class="sidebar-brand"
       type="button"
       title="Dashboard"
       aria-label="Open dashboard"
-      @click="emit('select', items[0]?.id)"
+      @click="selectItem(items[0])"
     >
       <img src="/assets/logo.png" alt="" />
       <span class="sidebar-brand-copy">
@@ -127,20 +202,22 @@ function selectMobileChild(child) {
           :aria-current="props.active === item.id ? 'page' : undefined"
           :aria-expanded="
             item.children?.length
-              ? isMobile
+              ? isMobile && !mobileDrawer
                 ? mobileExpandedGroup === item.id
                 : expandedGroup === item.id
               : undefined
           "
           :aria-controls="
             item.children?.length &&
-            (isMobile ? mobileExpandedGroup === item.id : expandedGroup === item.id)
-              ? isMobile
+            (isMobile && !mobileDrawer
+              ? mobileExpandedGroup === item.id
+              : expandedGroup === item.id)
+              ? isMobile && !mobileDrawer
                 ? `mobile-sidebar-submenu-${item.id}`
                 : `sidebar-submenu-${item.id}`
               : undefined
           "
-          :aria-haspopup="item.children?.length && isMobile ? 'dialog' : undefined"
+          :aria-haspopup="item.children?.length && isMobile && !mobileDrawer ? 'dialog' : undefined"
           @click="selectItem(item)"
         >
           <span class="sidebar-icon-wrap">
@@ -166,7 +243,7 @@ function selectMobileChild(child) {
             type="button"
             :class="{ active: active === child.id }"
             :aria-current="active === child.id ? 'page' : undefined"
-            @click="emit('select', child.id)"
+            @click="mobileDrawer && isMobile ? selectDrawerChild(child) : emit('select', child.id)"
           >
             <component :is="child.icon" :size="15" aria-hidden="true" />
             <span class="sidebar-nav-label">{{ child.label }}</span>
@@ -180,7 +257,10 @@ function selectMobileChild(child) {
       :class="{ active: active === profilePanelId }"
       :title="`View ${user.name}'s profile`"
       :aria-current="active === profilePanelId ? 'page' : undefined"
-      @click="emit('select', profilePanelId)"
+      @click="
+        emit('select', profilePanelId);
+        mobileDrawer && isMobile && emit('close-navigation');
+      "
     >
       <AvatarBadge :name="user.name" :image="user.profile_image" />
       <span class="sidebar-profile-copy">
@@ -193,7 +273,10 @@ function selectMobileChild(child) {
       type="button"
       title="Log out"
       aria-label="Log out"
-      @click="emit('logout')"
+      @click="
+        emit('logout');
+        mobileDrawer && isMobile && emit('close-navigation');
+      "
     >
       <LogOut :size="20" aria-hidden="true" />
       <span>Logout</span>

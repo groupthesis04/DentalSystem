@@ -250,6 +250,65 @@ class DentalApiTests(TestCase):
         self.assertTrue(replay.json()["replayed"])
         self.assertEqual(Appointment.objects.filter(booking_token="booking_test_token").count(), 1)
 
+    def test_patient_booking_saves_multiple_services_in_order(self):
+        second_service = Service.objects.create(
+            id="svc_booking_fluoride",
+            name="Fluoride Treatment",
+            description="Protective fluoride application.",
+        )
+        client, token = self.csrf_client()
+        client.force_login(self.patient)
+        response = self.post_json(client, token, "/api/appointments", {
+            "doctor": self.doctor.name,
+            "services": [self.service.name, second_service.name],
+            "date": self.visit_date.isoformat(),
+            "time": "09:00",
+        })
+        self.assertEqual(response.status_code, 201)
+        appointment = response.json()["appointment"]
+        self.assertEqual(appointment["services"], [self.service.name, second_service.name])
+        self.assertEqual(appointment["service"], self.service.name)
+        saved = Appointment.objects.get(pk=appointment["id"])
+        self.assertEqual(saved.services, [self.service.name, second_service.name])
+        self.assertEqual(saved.service_name, self.service.name)
+        listed = client.get("/api/appointments").json()["appointments"]
+        self.assertEqual(listed[0]["services"], [self.service.name, second_service.name])
+        self.assertTrue(Notification.objects.filter(
+            recipient=self.doctor,
+            message__contains=f"{self.service.name}, {second_service.name}",
+        ).exists())
+
+    def test_booking_rejects_invalid_or_duplicate_service_selection(self):
+        client, token = self.csrf_client()
+        client.force_login(self.patient)
+        base = {
+            "doctor": self.doctor.name,
+            "date": self.visit_date.isoformat(),
+            "time": "09:00",
+        }
+        for selection in ([], [self.service.name, self.service.name.lower()], [self.service.name, "Unknown service"], "Oral Prophylaxis"):
+            response = self.post_json(client, token, "/api/appointments", {**base, "services": selection})
+            self.assertEqual(response.status_code, 400)
+        self.assertFalse(Appointment.objects.exists())
+
+    def test_legacy_appointment_returns_single_service_list(self):
+        legacy = Appointment.objects.create(
+            id="apt_old_single_service",
+            patient=self.profile,
+            doctor=self.doctor,
+            patient_name=self.profile.name,
+            doctor_name=self.doctor.name,
+            service_name=self.service.name,
+            appointment_date=self.visit_date,
+            appointment_time=dt.time(9, 0),
+        )
+        client = Client()
+        client.force_login(self.patient)
+        appointment = client.get("/api/appointments").json()["appointments"][0]
+        self.assertEqual(appointment["id"], legacy.id)
+        self.assertEqual(appointment["services"], [self.service.name])
+        self.assertEqual(appointment["service"], self.service.name)
+
     def test_booking_revalidates_service_and_availability(self):
         client, token = self.csrf_client()
         client.force_login(self.patient)
@@ -369,6 +428,201 @@ class DentalApiTests(TestCase):
         item.refresh_from_db()
         self.assertEqual(item.status, "completed")
         self.assertTrue(Notification.objects.filter(recipient=self.patient, notification_type="treatment_created").exists())
+
+    def test_treatment_can_use_services_saved_on_appointment_after_catalog_changes(self):
+        removed_service = Service.objects.create(
+            id="svc_booking_removed",
+            name="Ceramic Braces",
+            description="A historical booked service.",
+        )
+        booked_names = [self.service.name, removed_service.name]
+        appointment = Appointment.objects.create(
+            id="apt_multi_historical",
+            patient=self.profile,
+            doctor=self.doctor,
+            patient_name=self.profile.name,
+            doctor_name=self.doctor.name,
+            service_name=booked_names[0],
+            services=booked_names,
+            appointment_date=dt.date.today(),
+            appointment_time=dt.time(8, 0),
+            status="approved",
+        )
+        self.service.name = "Renamed Prophylaxis"
+        self.service.save(update_fields=["name", "updated_at"])
+        removed_service.delete()
+
+        client, token = self.csrf_client()
+        client.force_login(self.doctor)
+        values = {
+            "appointment_id": appointment.id,
+            "patient_id": self.profile.id,
+            "treatment_date": dt.date.today().isoformat(),
+            "diagnosis": "Treatment performed as booked",
+        }
+        invalid = self.post_json(client, token, "/api/records", {
+            **values, "procedures": booked_names + ["Never booked service"],
+        })
+        self.assertEqual(invalid.status_code, 400)
+        saved = self.post_json(client, token, "/api/records", {
+            **values, "procedures": booked_names,
+        })
+        self.assertEqual(saved.status_code, 201)
+        self.assertEqual(saved.json()["record"]["procedures"], booked_names)
+        edited = self.patch_json(client, token, "/api/records", {
+            "id": saved.json()["record"]["id"],
+            "patient_id": self.profile.id,
+            "treatment_date": dt.date.today().isoformat(),
+            "diagnosis": "Updated findings",
+            "procedures": booked_names,
+        })
+        self.assertEqual(edited.status_code, 200)
+        self.assertEqual(
+            TreatmentRecord.objects.get(id=saved.json()["record"]["id"]).appointment_id,
+            appointment.id,
+        )
+        appointment.refresh_from_db()
+        self.assertEqual(appointment.status, "completed")
+
+    def test_treatment_record_saves_multiple_services_and_keeps_primary_procedure(self):
+        second_service = Service.objects.create(
+            id="svc_test_fluoride",
+            name="Fluoride Treatment",
+            description="Topical fluoride treatment for teeth.",
+        )
+        client, token = self.csrf_client()
+        client.force_login(self.doctor)
+        values = {
+            "patient_id": self.profile.id,
+            "treatment_date": dt.date.today().isoformat(),
+            "procedures": [self.service.name, second_service.name],
+            "procedure": "Ignored when procedures is provided",
+            "diagnosis": "Plaque accumulation",
+            "amount_charged": "1500",
+            "amount_paid": "1000",
+        }
+        created = self.post_json(client, token, "/api/records", values)
+        self.assertEqual(created.status_code, 201)
+        record = created.json()["record"]
+        self.assertEqual(record["procedure"], self.service.name)
+        self.assertEqual(record["procedures"], [self.service.name, second_service.name])
+        self.assertEqual(TreatmentRecord.objects.get(id=record["id"]).procedures, record["procedures"])
+
+        updated = self.patch_json(client, token, "/api/records", {
+            **values,
+            "id": record["id"],
+            "procedures": [second_service.name],
+        })
+        self.assertEqual(updated.status_code, 200)
+        self.assertEqual(updated.json()["record"]["procedure"], second_service.name)
+        self.assertEqual(updated.json()["record"]["procedures"], [second_service.name])
+        self.assertEqual(TreatmentRecord.objects.filter(id=record["id"]).count(), 1)
+
+        client.force_login(self.patient)
+        listed = client.get("/api/records")
+        self.assertEqual(listed.status_code, 200)
+        self.assertEqual(listed.json()["records"][0]["procedures"], [second_service.name])
+
+    def test_treatment_record_validates_each_service_in_multiple_selection(self):
+        client, token = self.csrf_client()
+        client.force_login(self.doctor)
+        values = {
+            "patient_id": self.profile.id,
+            "treatment_date": dt.date.today().isoformat(),
+            "diagnosis": "Routine examination",
+        }
+        invalid_selections = [
+            [],
+            "Oral Prophylaxis",
+            [self.service.name, "Unknown Service"],
+            [self.service.name, " "],
+            [self.service.name, self.service.name.lower()],
+        ]
+        for procedures in invalid_selections:
+            with self.subTest(procedures=procedures):
+                response = self.post_json(client, token, "/api/records", {
+                    **values, "procedures": procedures,
+                })
+                self.assertEqual(response.status_code, 400)
+        self.assertFalse(TreatmentRecord.objects.exists())
+
+    def test_treatment_edit_keeps_historical_services_after_catalog_changes(self):
+        deleted_service = Service.objects.create(
+            id="svc_test_removed",
+            name="Ceramic Braces",
+            description="Ceramic orthodontic braces treatment.",
+        )
+        added_service = Service.objects.create(
+            id="svc_test_added",
+            name="Fluoride Treatment",
+            description="Topical fluoride treatment for teeth.",
+        )
+        client, token = self.csrf_client()
+        client.force_login(self.doctor)
+        values = {
+            "patient_id": self.profile.id,
+            "treatment_date": dt.date.today().isoformat(),
+            "procedures": [self.service.name, deleted_service.name],
+            "diagnosis": "Orthodontic assessment",
+        }
+        created = self.post_json(client, token, "/api/records", values)
+        self.assertEqual(created.status_code, 201)
+        record_id = created.json()["record"]["id"]
+
+        original_name = self.service.name
+        removed_name = deleted_service.name
+        self.service.name = "Renamed Cleaning Service"
+        self.service.save(update_fields=["name", "updated_at"])
+        deleted_service.delete()
+
+        edited = self.patch_json(client, token, "/api/records", {
+            **values,
+            "id": record_id,
+            "procedures": [original_name, removed_name, added_service.name],
+            "diagnosis": "Updated clinical findings",
+        })
+        self.assertEqual(edited.status_code, 200)
+        self.assertEqual(
+            edited.json()["record"]["procedures"],
+            [original_name, removed_name, added_service.name],
+        )
+
+        for procedures in (
+            [original_name, removed_name, "Unknown new service"],
+            [original_name, original_name.lower()],
+        ):
+            with self.subTest(procedures=procedures):
+                rejected = self.patch_json(client, token, "/api/records", {
+                    **values, "id": record_id, "procedures": procedures,
+                })
+                self.assertEqual(rejected.status_code, 400)
+        stored = TreatmentRecord.objects.get(id=record_id)
+        self.assertEqual(stored.procedures, [original_name, removed_name, added_service.name])
+
+    def test_treatment_record_legacy_procedure_serializes_as_one_service(self):
+        client, token = self.csrf_client()
+        client.force_login(self.doctor)
+        response = self.post_json(client, token, "/api/records", {
+            "patient_id": self.profile.id,
+            "treatment_date": dt.date.today().isoformat(),
+            "procedure": self.service.name,
+            "diagnosis": "Routine examination",
+        })
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.json()["record"]["procedures"], [self.service.name])
+
+        legacy_record = TreatmentRecord.objects.create(
+            id="rec_legacy_without_list",
+            patient=self.profile,
+            patient_name=self.profile.name,
+            doctor_name=self.doctor.name,
+            treatment_date=dt.date.today(),
+            procedure="Historical service name",
+        )
+        self.assertEqual(legacy_record.procedures, [])
+        records = client.get("/api/records").json()["records"]
+        historical = next(item for item in records if item["id"] == legacy_record.id)
+        self.assertEqual(historical["procedures"], ["Historical service name"])
 
     def test_doctor_service_crud_and_reports(self):
         client, token = self.csrf_client()

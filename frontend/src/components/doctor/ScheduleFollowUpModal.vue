@@ -4,7 +4,6 @@ import {
   CalendarDays,
   CalendarPlus,
   CheckCircle2,
-  ChevronDown,
   Clock3,
   Info,
   Stethoscope,
@@ -13,8 +12,14 @@ import {
 import { computed, reactive, ref, watch } from "vue";
 
 import BaseModal from "../BaseModal.vue";
+import ServiceMultiSelect from "../ServiceMultiSelect.vue";
 import { apiRequest } from "../../services/api";
-import { formatDate, localDateIso } from "../../services/format";
+import {
+  appointmentService,
+  appointmentServices,
+  formatDate,
+  localDateIso,
+} from "../../services/format";
 import { validatedPayload } from "../../services/validation";
 
 const props = defineProps({
@@ -33,7 +38,7 @@ const busy = ref(false);
 const errorMessage = ref("");
 const scheduledAppointment = ref(null);
 const form = reactive({
-  service: "",
+  services: [],
   time: "",
   _website: "",
 });
@@ -67,10 +72,22 @@ const modalEyebrow = computed(() =>
 watch(
   serviceOptions,
   (services) => {
-    if (services.some((service) => service.name === form.service)) return;
-    form.service = services.some((service) => service.name === props.appointment.service)
-      ? props.appointment.service
-      : services[0]?.name || "";
+    const offered = new Map(services.map((service) => [service.name.toLowerCase(), service.name]));
+    const current = form.services
+      .map((name) => offered.get(String(name).toLowerCase()))
+      .filter(Boolean);
+    if (current.length) {
+      form.services = [...new Set(current)];
+      return;
+    }
+    const previous = appointmentServices(props.appointment)
+      .map((name) => offered.get(String(name).toLowerCase()))
+      .filter(Boolean);
+    form.services = previous.length
+      ? [...new Set(previous)]
+      : services[0]?.name
+        ? [services[0].name]
+        : [];
   },
   { immediate: true },
 );
@@ -97,8 +114,8 @@ function formatLongDate(value) {
 
 async function scheduleFollowUp() {
   errorMessage.value = "";
-  if (!form.service) {
-    errorMessage.value = "Choose the service or purpose for the next visit.";
+  if (!form.services.length) {
+    errorMessage.value = "Choose at least one service or purpose for the next visit.";
     return;
   }
   if (!selectedSlot.value) {
@@ -111,10 +128,11 @@ async function scheduleFollowUp() {
     const payload = validatedPayload({
       patient_id: props.appointment.patient_id,
       doctor: props.doctor,
-      service: form.service,
+      services: form.services,
+      service: form.services[0],
       date: props.preferredDate,
       time: form.time,
-      notes: `Follow-up visit after ${props.appointment.service}.`,
+      notes: `Follow-up visit after ${appointmentService(props.appointment)}.`,
       source: "follow_up",
       _website: form._website,
     });
@@ -150,7 +168,7 @@ async function scheduleFollowUp() {
         </div>
         <div>
           <dt><Stethoscope :size="17" aria-hidden="true" /> Service</dt>
-          <dd>{{ scheduledAppointment.service }}</dd>
+          <dd>{{ appointmentService(scheduledAppointment) }}</dd>
         </div>
         <div>
           <dt><CalendarDays :size="17" aria-hidden="true" /> Next Visit</dt>
@@ -215,22 +233,15 @@ async function scheduleFollowUp() {
         </header>
 
         <div class="follow-up-fields">
-          <label>
+          <div class="follow-up-service-field">
             <span>Service / Purpose <b aria-hidden="true">*</b></span>
-            <span class="follow-up-select">
-              <select v-model="form.service" required>
-                <option value="">Select a service</option>
-                <option
-                  v-for="service in serviceOptions"
-                  :key="service.id || service.name"
-                  :value="service.name"
-                >
-                  {{ service.name }}
-                </option>
-              </select>
-              <ChevronDown :size="16" aria-hidden="true" />
-            </span>
-          </label>
+            <ServiceMultiSelect
+              v-model="form.services"
+              :services="serviceOptions"
+              label="Follow-up services"
+              placeholder="Select one or more services"
+            />
+          </div>
           <label>
             <span>Appointment Date</span>
             <span class="follow-up-date-display">
@@ -436,7 +447,8 @@ async function scheduleFollowUp() {
   gap: 12px;
 }
 
-.follow-up-fields label {
+.follow-up-fields label,
+.follow-up-service-field {
   display: grid;
   gap: 6px;
   color: #263e60;
@@ -448,7 +460,17 @@ async function scheduleFollowUp() {
   color: #e33b55;
 }
 
-.follow-up-select,
+.follow-up-service-field :deep(.service-multi-trigger) {
+  min-height: 42px;
+  border-color: #d3e0ec;
+  border-radius: 6px;
+  font-size: 0.68rem;
+}
+
+.follow-up-service-field :deep(.service-multi-option) {
+  font-size: 0.68rem;
+}
+
 .follow-up-date-display {
   position: relative;
   display: flex;
@@ -457,26 +479,6 @@ async function scheduleFollowUp() {
   border: 1px solid #d3e0ec;
   border-radius: 6px;
   background: #fff;
-}
-
-.follow-up-select select {
-  width: 100%;
-  height: 42px;
-  appearance: none;
-  border: 0;
-  outline: 0;
-  background: transparent;
-  color: #233b5d;
-  padding: 0 36px 0 12px;
-  font: inherit;
-  cursor: pointer;
-}
-
-.follow-up-select svg {
-  position: absolute;
-  right: 11px;
-  color: #5f7896;
-  pointer-events: none;
 }
 
 .follow-up-date-display {

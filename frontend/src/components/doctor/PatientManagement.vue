@@ -25,9 +25,11 @@ import ActionIconButton from "../ActionIconButton.vue";
 import AvatarBadge from "../AvatarBadge.vue";
 import BaseModal from "../BaseModal.vue";
 import StatusBadge from "../StatusBadge.vue";
+import TreatmentDetailsModal from "../TreatmentDetailsModal.vue";
 import TreatmentEditorModal from "./TreatmentEditorModal.vue";
 import { apiRequest } from "../../services/api";
 import {
+  appointmentService,
   calculateAge,
   formatDate,
   formatMoney,
@@ -85,6 +87,7 @@ const emptyTreatment = () => ({
   patient_id: "",
   treatment_date: localDateIso(),
   tooth_numbers: "",
+  procedures: [],
   procedure: "",
   diagnosis: "",
   prescription: "",
@@ -292,7 +295,14 @@ async function deletePatient(patient) {
   }
 }
 
+function recordProcedures(record) {
+  const stored = Array.isArray(record.procedures) ? record.procedures : [];
+  const values = stored.length ? stored : [record.procedure || record.treatment];
+  return [...new Set(values.map((value) => String(value || "").trim()).filter(Boolean))];
+}
+
 function resetTreatmentForm(record = null) {
+  const selectedProcedures = record ? recordProcedures(record) : [];
   Object.assign(
     treatmentForm,
     emptyTreatment(),
@@ -302,9 +312,8 @@ function resetTreatmentForm(record = null) {
           patient_id: record.patient_id,
           treatment_date: record.treatment_date || localDateIso(),
           tooth_numbers: record.tooth_numbers || "",
-          procedure: procedures.value.includes(treatmentProcedure(record))
-            ? treatmentProcedure(record)
-            : "",
+          procedures: selectedProcedures,
+          procedure: selectedProcedures[0] || "",
           diagnosis: record.diagnosis || "",
           prescription: record.prescription || "",
           amount_charged: Number(record.amount_charged || 0).toFixed(2),
@@ -313,7 +322,6 @@ function resetTreatmentForm(record = null) {
         }
       : {
           patient_id: selectedPatientId.value,
-          procedure: procedures.value[0] || "",
         },
   );
   treatmentPromptOpen.value = false;
@@ -324,7 +332,19 @@ function resetTreatmentForm(record = null) {
 async function saveTreatment() {
   busy.value = true;
   try {
-    const payload = validatedPayload({ ...treatmentForm });
+    const selectedProcedures = [
+      ...new Set(
+        (Array.isArray(treatmentForm.procedures) ? treatmentForm.procedures : [])
+          .map((value) => String(value || "").trim())
+          .filter(Boolean),
+      ),
+    ];
+    if (!selectedProcedures.length) throw new Error("Select at least one service.");
+    const payload = validatedPayload({
+      ...treatmentForm,
+      procedures: selectedProcedures,
+      procedure: selectedProcedures[0],
+    });
     payload.treatment = payload.procedure;
     const editing = Boolean(payload.id);
     const data = await apiRequest("/api/records", {
@@ -574,7 +594,7 @@ function viewTreatment(record) {
                     >
                   </div>
                   <div class="patient-appointment-copy">
-                    <strong>{{ appointment.service || "Dental appointment" }}</strong>
+                    <strong>{{ appointmentService(appointment) }}</strong>
                     <span>{{ appointment.doctor || state.clinicDoctor || "Clinic dentist" }}</span>
                   </div>
                   <StatusBadge :status="appointment.status" />
@@ -1005,54 +1025,10 @@ function viewTreatment(record) {
       @submit="saveTreatment"
     />
 
-    <BaseModal
+    <TreatmentDetailsModal
       v-if="treatmentDetailOpen && detailRecord"
-      title="Treatment Details"
-      eyebrow="Patient record"
+      :record="detailRecord"
       @close="treatmentDetailOpen = false"
-    >
-      <div class="detail-grid">
-        <span
-          ><strong>{{ detailRecord.patient_name }}</strong
-          >Patient</span
-        >
-        <span
-          ><strong>{{ formatDate(detailRecord.treatment_date) }}</strong
-          >Date</span
-        >
-        <span
-          ><strong>{{ detailRecord.tooth_numbers || "-" }}</strong
-          >Tooth No./s</span
-        >
-        <span
-          ><strong>{{ treatmentProcedure(detailRecord) }}</strong
-          >Procedure</span
-        >
-        <span
-          ><strong>{{ detailRecord.diagnosis || "-" }}</strong
-          >Diagnosis</span
-        >
-        <span
-          ><strong>{{ detailRecord.prescription || "-" }}</strong
-          >Medical Instruction</span
-        >
-        <span
-          ><strong>{{ formatMoney(detailRecord.amount_charged) }}</strong
-          >Charged</span
-        >
-        <span
-          ><strong>{{ formatMoney(detailRecord.amount_paid) }}</strong
-          >Paid</span
-        >
-        <span
-          ><strong>{{ formatMoney(treatmentBalance(detailRecord)) }}</strong
-          >Balance</span
-        >
-        <span
-          ><strong>{{ detailRecord.remarks || "-" }}</strong
-          >Remarks</span
-        >
-      </div>
-    </BaseModal>
+    />
   </section>
 </template>

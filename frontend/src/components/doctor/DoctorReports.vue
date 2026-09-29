@@ -23,11 +23,13 @@ import { computed, ref } from "vue";
 import ActionIconButton from "../ActionIconButton.vue";
 import StatusBadge from "../StatusBadge.vue";
 import {
+  appointmentService,
   formatDate,
   formatMoney,
   localDateIso,
   treatmentBalance,
   treatmentProcedure,
+  treatmentProcedures,
 } from "../../services/format";
 import { showToast } from "../../services/toast";
 
@@ -176,24 +178,25 @@ const servicePerformance = computed(() => {
     ]),
   );
   for (const record of filteredRecords.value) {
-    const name = treatmentProcedure(record);
-    const key = name.toLowerCase();
-    if (!rows.has(key)) {
-      rows.set(key, {
-        name,
-        treatments: 0,
-        patientIds: new Set(),
-        charged: 0,
-        paid: 0,
-        balance: 0,
-      });
+    for (const name of treatmentProcedures(record)) {
+      const key = name.toLowerCase();
+      if (!rows.has(key)) {
+        rows.set(key, {
+          name,
+          treatments: 0,
+          patientIds: new Set(),
+          charged: 0,
+          paid: 0,
+          balance: 0,
+        });
+      }
+      const row = rows.get(key);
+      row.treatments += 1;
+      if (record.patient_id) row.patientIds.add(record.patient_id);
+      row.charged += Number(record.amount_charged || 0);
+      row.paid += Number(record.amount_paid || 0);
+      row.balance += treatmentBalance(record);
     }
-    const row = rows.get(key);
-    row.treatments += 1;
-    if (record.patient_id) row.patientIds.add(record.patient_id);
-    row.charged += Number(record.amount_charged || 0);
-    row.paid += Number(record.amount_paid || 0);
-    row.balance += treatmentBalance(record);
   }
   return [...rows.values()]
     .map((row) => ({ ...row, patients: row.patientIds.size }))
@@ -264,7 +267,7 @@ const servicesUsed = computed(
   () => servicePerformance.value.filter((service) => service.treatments > 0).length,
 );
 const previousServicesUsed = computed(
-  () => new Set(previousRecords.value.map((record) => treatmentProcedure(record))).size,
+  () => new Set(previousRecords.value.flatMap((record) => treatmentProcedures(record))).size,
 );
 
 const monthlyCollections = computed(() => {
@@ -498,7 +501,9 @@ const tableDescription = computed(() => {
     overview: "Latest treatments and their payment status",
     financial: "Charges, payments, and balances for the selected period",
     appointments: "Clinic appointments within the selected period",
-    services: "Treatment and collection totals grouped by service",
+    services: filteredRecords.value.some((record) => treatmentProcedures(record).length > 1)
+      ? "Multi-service visits appear under each selected service; their amounts overlap."
+      : "Treatment and collection totals grouped by service",
     patients: "Patient activity and balances within the selected period",
   };
   return descriptions[activeTab.value];
@@ -539,7 +544,7 @@ function exportRows() {
       Date: item.date,
       Time: item.time,
       Patient: item.patient_name,
-      Service: item.service,
+      Service: appointmentService(item),
       Status: item.status === "approved" ? "Accepted" : item.status,
     }));
   }
@@ -822,7 +827,7 @@ function printReport() {
                 </td>
                 <td>{{ formatDate(appointment.date) }}</td>
                 <td>{{ appointment.time }}</td>
-                <td>{{ appointment.service }}</td>
+                <td>{{ appointmentService(appointment) }}</td>
                 <td><StatusBadge :status="appointment.status" /></td>
                 <td>
                   <ActionIconButton

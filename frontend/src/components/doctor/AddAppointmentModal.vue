@@ -4,6 +4,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } 
 
 import BaseModal from "../BaseModal.vue";
 import AvailabilityDatePicker from "../AvailabilityDatePicker.vue";
+import ServiceMultiSelect from "../ServiceMultiSelect.vue";
 import { availableSlotDates, futureOpenSlots } from "../../services/availability";
 import { apiRequest } from "../../services/api";
 import { formatDate, localDateIso } from "../../services/format";
@@ -27,7 +28,7 @@ const today = localDateIso();
 let pickerCloseTimer = 0;
 
 const appointment = reactive({
-  service: "",
+  services: [],
   date: "",
   time: "",
   notes: "",
@@ -148,8 +149,8 @@ async function submitAppointment() {
     errorMessage.value = "Enter the new patient's full name and contact number.";
     return;
   }
-  if (!appointment.service || !appointment.date || !appointment.time) {
-    errorMessage.value = "Choose a service, available date, and time.";
+  if (!appointment.services.length || !appointment.date || !appointment.time) {
+    errorMessage.value = "Choose at least one service, an available date, and time.";
     return;
   }
 
@@ -163,7 +164,8 @@ async function submitAppointment() {
       birthdate: patientType.value === "new" ? newPatient.birthdate : "",
       sex: patientType.value === "new" ? newPatient.sex : "",
       doctor: props.doctor,
-      service: appointment.service,
+      services: appointment.services,
+      service: appointment.services[0],
       date: appointment.date,
       time: appointment.time,
       notes: appointment.notes,
@@ -390,22 +392,15 @@ async function submitAppointment() {
         </header>
 
         <div class="manual-form-grid">
-          <label class="manual-field">
-            <span>Service <b>*</b></span>
-            <span class="manual-control select-control">
-              <select v-model="appointment.service" required>
-                <option value="">Select a service</option>
-                <option
-                  v-for="service in state.services"
-                  :key="service.id || service.name"
-                  :value="service.name"
-                >
-                  {{ service.name }}
-                </option>
-              </select>
-              <ChevronDown :size="16" aria-hidden="true" />
-            </span>
-          </label>
+          <div class="manual-field">
+            <span id="manual-appointment-services-label">Dental Services <b>*</b></span>
+            <ServiceMultiSelect
+              v-model="appointment.services"
+              :services="state.services"
+              label="Dental services"
+              placeholder="Select one or more services"
+            />
+          </div>
 
           <label class="manual-field">
             <span>Dentist <b>*</b></span>
@@ -657,6 +652,17 @@ async function submitAppointment() {
 
 .manual-control input:read-only {
   color: #5c6f87;
+}
+
+.manual-field :deep(.service-multi-trigger) {
+  min-height: 43px;
+  border-color: #d6e1ec;
+  border-radius: 6px;
+  font-size: 0.75rem;
+}
+
+.manual-field :deep(.service-multi-option) {
+  font-size: 0.75rem;
 }
 
 .select-control select {

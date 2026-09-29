@@ -92,7 +92,7 @@ def notify_upcoming_appointments(now=None):
                     "notification_type": "upcoming_appointment_reminder",
                     "title": "Upcoming appointment reminder",
                     "message": (
-                        f"{appointment.patient_name}'s {appointment.service_name} appointment "
+                        f"{appointment.patient_name}'s {', '.join(appointment.services or [appointment.service_name])} appointment "
                         f"is scheduled for {when}."
                     ),
                     "entity_type": "appointment",

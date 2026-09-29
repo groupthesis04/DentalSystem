@@ -4951,6 +4951,139 @@ html[data-dashboard-theme="dark"]
   }
 }
 
+/* Doctor dashboard mobile navigation uses the header menu instead of the bottom bar. */
+.sidebar-drawer-close,
+.doctor-mobile-navigation-backdrop {
+  display: none;
+}
+
+@media (max-width: 720px) {
+  body[data-page="doctor"] {
+    padding-bottom: 0;
+  }
+
+  .doctor-portal.portal-page,
+  .doctor-portal .portal-workspace {
+    min-height: 100vh;
+  }
+
+  .doctor-mobile-navigation-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 98;
+    display: block;
+    width: 100%;
+    border: 0;
+    background: rgba(11, 25, 45, 0.48);
+    cursor: default;
+  }
+
+  .doctor-portal.portal-page > .doctor-navigation-drawer {
+    position: fixed;
+    inset: 0 auto 0 0;
+    z-index: 99;
+    display: flex;
+    width: min(320px, calc(100vw - 42px));
+    height: 100dvh;
+    flex-direction: column;
+    gap: 8px;
+    overflow: hidden;
+    visibility: hidden;
+    border-top: 0;
+    border-right: 1px solid var(--dashboard-border);
+    padding: 14px 12px max(14px, env(safe-area-inset-bottom));
+    box-shadow: 14px 0 38px rgba(15, 23, 42, 0.17);
+    transform: translateX(-105%);
+    transition:
+      transform 200ms ease,
+      visibility 200ms ease;
+  }
+
+  .doctor-portal.portal-page > .doctor-navigation-drawer.mobile-open {
+    visibility: visible;
+    transform: translateX(0);
+  }
+
+  .doctor-navigation-drawer .sidebar-drawer-close {
+    position: absolute;
+    top: 14px;
+    right: 12px;
+    display: grid;
+    width: 38px;
+    height: 38px;
+    place-items: center;
+    border: 1px solid var(--dashboard-border);
+    border-radius: 50%;
+    background: var(--dashboard-surface);
+    color: var(--dashboard-text);
+    cursor: pointer;
+  }
+
+  .doctor-navigation-drawer .sidebar-drawer-close:focus-visible,
+  .doctor-navigation-drawer .sidebar-drawer-close:hover {
+    outline: 2px solid #bdd2f7;
+  }
+
+  .doctor-navigation-drawer .sidebar-brand {
+    display: grid;
+    width: calc(100% - 45px);
+    min-height: 100px;
+  }
+
+  .doctor-navigation-drawer .side-nav {
+    display: flex;
+    width: 100%;
+    height: auto;
+    flex: 1 1 auto;
+    flex-direction: column;
+    gap: 4px;
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+
+  .doctor-navigation-drawer .side-nav-item {
+    display: grid;
+    min-width: 0;
+  }
+
+  .doctor-navigation-drawer .side-nav .sidebar-nav-button {
+    min-height: 46px;
+    flex-direction: row;
+    justify-content: flex-start;
+    gap: 10px;
+    padding: 7px 11px;
+  }
+
+  .doctor-navigation-drawer .side-nav .sidebar-nav-label {
+    font-size: 0.78rem;
+    line-height: 1.2;
+  }
+
+  .doctor-navigation-drawer .sidebar-nav-chevron,
+  .doctor-navigation-drawer .side-nav-submenu {
+    display: grid;
+  }
+
+  .doctor-navigation-drawer .side-nav-submenu {
+    margin: 0 0 4px 30px;
+    padding: 4px;
+  }
+
+  .doctor-navigation-drawer .side-nav-submenu button {
+    min-height: 36px;
+    flex-direction: row;
+    padding: 7px 9px;
+  }
+
+  .doctor-navigation-drawer .sidebar-account {
+    display: flex;
+  }
+
+  .doctor-navigation-drawer .sidebar-logout {
+    display: flex;
+  }
+}
+
 /* Shared doctor and patient account workspace */
 .doctor-account-page {
   display: grid;

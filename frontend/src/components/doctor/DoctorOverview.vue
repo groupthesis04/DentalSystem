@@ -12,7 +12,7 @@ import {
 import { computed, ref } from "vue";
 
 import AvatarBadge from "../AvatarBadge.vue";
-import { formatDate, formatMoney, localDateIso } from "../../services/format";
+import { appointmentService, formatDate, formatMoney, localDateIso } from "../../services/format";
 
 const props = defineProps({
   state: { type: Object, required: true },
@@ -261,6 +261,12 @@ const chartTicks = computed(() =>
     y: 20 + ((4 - step) / 4) * 150,
   })),
 );
+const mobileChartTicks = computed(() =>
+  [4, 3, 2, 1, 0].map((step) => ({
+    value: (chartMaximum.value * step) / 4,
+    y: 40 + ((4 - step) / 4) * 65,
+  })),
+);
 
 const chartPoints = computed(() => {
   const periods = collectionSeries.value;
@@ -272,6 +278,16 @@ const chartPoints = computed(() => {
   }));
 });
 
+const mobileChartPoints = computed(() => {
+  const periods = collectionSeries.value;
+  const availableWidth = 274;
+  return periods.map((period, index) => ({
+    ...period,
+    x: periods.length === 1 ? 172 : 38 + (index * availableWidth) / (periods.length - 1),
+    y: 105 - (period.value / chartMaximum.value) * 65,
+  }));
+});
+
 const collectionLinePath = computed(() =>
   chartPoints.value.map((point, index) => `${index ? "L" : "M"} ${point.x} ${point.y}`).join(" "),
 );
@@ -279,6 +295,16 @@ const collectionAreaPath = computed(() => {
   const points = chartPoints.value;
   if (!points.length) return "";
   return `${collectionLinePath.value} L ${points.at(-1).x} 170 L ${points[0].x} 170 Z`;
+});
+const mobileCollectionLinePath = computed(() =>
+  mobileChartPoints.value
+    .map((point, index) => `${index ? "L" : "M"} ${point.x} ${point.y}`)
+    .join(" "),
+);
+const mobileCollectionAreaPath = computed(() => {
+  const points = mobileChartPoints.value;
+  if (!points.length) return "";
+  return `${mobileCollectionLinePath.value} L ${points.at(-1).x} 105 L ${points[0].x} 105 Z`;
 });
 
 const appointmentsForOverview = computed(() =>
@@ -384,6 +410,29 @@ function trendIcon(direction) {
               </text>
             </g>
           </svg>
+          <svg
+            class="collection-chart-mobile"
+            viewBox="0 0 330 140"
+            role="img"
+            :aria-label="`Treatment payments for ${collectionRangeLabel}: ${formatMoney(selectedCollectionTotal)}`"
+          >
+            <g v-for="tick in mobileChartTicks" :key="tick.y">
+              <line x1="34" x2="318" :y1="tick.y" :y2="tick.y" class="chart-grid-line" />
+              <text x="29" :y="tick.y + 4" text-anchor="end" class="chart-axis-label">
+                {{ formatCompactMoney(tick.value) }}
+              </text>
+            </g>
+            <path :d="mobileCollectionAreaPath" class="chart-area" />
+            <path :d="mobileCollectionLinePath" class="chart-line" />
+            <g v-for="point in mobileChartPoints" :key="point.key">
+              <circle :cx="point.x" :cy="point.y" r="3.5" class="chart-point">
+                <title>{{ point.label }}: {{ formatMoney(point.value) }}</title>
+              </circle>
+              <text :x="point.x" y="130" text-anchor="middle" class="chart-month-label">
+                {{ point.label }}
+              </text>
+            </g>
+          </svg>
           <div class="collection-current-value">
             <small>{{ collectionRangeLabel }}</small>
             <strong>{{ formatMoney(selectedCollectionTotal) }}</strong>
@@ -474,7 +523,7 @@ function trendIcon(direction) {
                   <strong>{{ formatTime(item.time) }}</strong>
                 </td>
                 <td>{{ item.patient_name }}</td>
-                <td>{{ item.service }}</td>
+                <td>{{ appointmentService(item) }}</td>
                 <td>
                   <span class="home-status" :class="item.status">{{
                     statusLabel(item.status)
@@ -487,6 +536,19 @@ function trendIcon(direction) {
             </tbody>
           </table>
         </div>
+        <ul class="home-mobile-preview" aria-label="Today's appointments">
+          <li v-for="item in todayAppointments" :key="item.id">
+            <time class="home-mobile-appointment-time">{{ formatTime(item.time) }}</time>
+            <span class="home-mobile-item-main">
+              <strong>{{ item.patient_name }}</strong>
+              <small>{{ appointmentService(item) }}</small>
+            </span>
+            <span class="home-status" :class="item.status">{{ statusLabel(item.status) }}</span>
+          </li>
+          <li v-if="!todayAppointments.length" class="home-mobile-empty">
+            No appointments scheduled for today.
+          </li>
+        </ul>
       </article>
 
       <article class="home-dashboard-panel home-table-panel">
@@ -539,6 +601,19 @@ function trendIcon(direction) {
             </tbody>
           </table>
         </div>
+        <ul class="home-mobile-preview" aria-label="Recent patients">
+          <li v-for="patient in recentPatients" :key="patient.id">
+            <AvatarBadge :name="patientName(patient)" :image="patient.profile_image" />
+            <span class="home-mobile-item-main">
+              <strong>{{ patientName(patient) }}</strong>
+              <small>{{ patientContact(patient) }}</small>
+              <small>{{ formatDate(patientRegisteredAt(patient)) }}</small>
+            </span>
+          </li>
+          <li v-if="!recentPatients.length" class="home-mobile-empty">
+            No patient records have been added yet.
+          </li>
+        </ul>
       </article>
     </section>
   </section>
@@ -763,6 +838,11 @@ function trendIcon(direction) {
   width: 100%;
   height: 225px;
   overflow: visible;
+}
+
+.collection-chart-mobile,
+.home-mobile-preview {
+  display: none;
 }
 
 .chart-grid-line {
@@ -1081,87 +1161,345 @@ function trendIcon(direction) {
 }
 
 @media (max-width: 720px) {
+  .clinic-home-dashboard {
+    gap: 10px;
+  }
+
   .home-metric-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
   }
 
   .home-metric-card {
-    min-height: 100px;
+    grid-template-columns: 42px minmax(0, 1fr);
+    min-height: 98px;
+    gap: 9px;
+    padding: 10px;
+    border-radius: 10px;
+  }
+
+  .home-metric-icon {
+    width: 42px;
+    height: 42px;
+  }
+
+  .home-metric-icon :deep(svg) {
+    width: 22px;
+    height: 22px;
+  }
+
+  .home-metric-copy > small {
+    font-size: 0.68rem;
+  }
+
+  .home-metric-copy > strong {
+    overflow: visible;
+    font-size: clamp(0.94rem, 4vw, 1.25rem);
+    line-height: 1.14;
+    text-overflow: initial;
+    white-space: normal;
+  }
+
+  .home-tone-collections .home-metric-copy > strong {
+    font-size: clamp(0.78rem, 3.35vw, 1.06rem);
+    overflow-wrap: anywhere;
+  }
+
+  .home-metric-trend {
+    align-items: flex-start;
+    gap: 3px;
+    margin-top: 4px;
+    font-size: 0.6rem;
+    line-height: 1.25;
+  }
+
+  .home-metric-trend :deep(svg) {
+    width: 12px;
+    height: 12px;
+    flex: 0 0 12px;
+  }
+
+  .home-analytics-grid {
+    gap: 10px;
+  }
+
+  .home-table-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .home-dashboard-panel {
+    border-radius: 10px;
   }
 
   .home-panel-heading {
-    align-items: flex-start;
-    flex-direction: column;
+    min-height: 65px;
+    align-items: center;
+    flex-direction: row;
+    gap: 6px;
+    padding: 11px 12px;
+  }
+
+  .home-panel-title {
+    gap: 8px;
+  }
+
+  .home-panel-title > span {
+    width: 38px;
+    height: 38px;
+    flex-basis: 38px;
+  }
+
+  .home-panel-title > span :deep(svg) {
+    width: 20px;
+    height: 20px;
+  }
+
+  .home-panel-title h2 {
+    font-size: 0.82rem;
+    line-height: 1.2;
+  }
+
+  .home-panel-title p {
+    font-size: 0.64rem;
+    line-height: 1.3;
   }
 
   .home-period-select,
   .home-period-select.compact {
+    width: auto;
+    min-width: 98px;
+    flex: 0 0 auto;
+    padding-inline: 5px;
+  }
+
+  .home-period-select select {
+    min-height: 34px;
+    font-size: 0.65rem;
+  }
+
+  .collection-chart-wrap {
+    min-height: 0;
+    padding: 0 12px 6px;
+  }
+
+  .collection-chart {
+    display: none;
+  }
+
+  .collection-chart-mobile {
+    display: block;
     width: 100%;
-  }
-
-  .appointment-overview-body {
-    grid-template-columns: 1fr;
-  }
-
-  .appointment-donut {
-    width: 150px;
+    height: auto;
+    max-height: 140px;
   }
 
   .collection-current-value {
-    position: static;
-    width: fit-content;
-    margin: -8px 0 8px 34px;
+    top: 4px;
+    right: 14px;
+    padding: 5px 7px;
+  }
+
+  .collection-current-value strong {
+    font-size: 0.66rem;
+  }
+
+  .appointment-overview-body {
+    grid-template-columns: minmax(100px, 0.88fr) minmax(0, 1.12fr);
+    min-height: 0;
+    gap: 9px;
+    padding: 4px 13px 17px;
+  }
+
+  .appointment-donut {
+    width: min(135px, 100%);
+  }
+
+  .appointment-legend > div {
+    min-height: 37px;
+    gap: 4px;
+  }
+
+  .appointment-legend dt {
+    gap: 5px;
+    font-size: 0.65rem;
+  }
+
+  .appointment-legend dt span {
+    width: 8px;
+    height: 8px;
+    flex-basis: 8px;
+  }
+
+  .appointment-legend dd {
+    min-width: 44px;
+    gap: 5px;
+    font-size: 0.64rem;
+  }
+
+  .appointment-legend dd small {
+    min-width: 25px;
+  }
+
+  .home-table-panel .home-panel-heading {
+    align-items: flex-start;
+    gap: 3px;
+    padding: 10px 8px 6px;
+  }
+
+  .home-table-panel .home-panel-title {
+    align-items: flex-start;
+    gap: 5px;
+  }
+
+  .home-table-panel .home-panel-title > span {
+    width: 27px;
+    height: 27px;
+    flex-basis: 27px;
+  }
+
+  .home-table-panel .home-panel-title > span :deep(svg) {
+    width: 16px;
+    height: 16px;
+  }
+
+  .home-table-panel .home-panel-title h2 {
+    font-size: 0.67rem;
+    line-height: 1.2;
+  }
+
+  .home-table-panel .home-panel-title p {
+    margin-top: 2px;
+    font-size: 0.57rem;
+  }
+
+  .home-view-all {
+    min-height: 25px;
+    padding: 3px 5px;
+    font-size: 0.57rem;
+    white-space: nowrap;
+  }
+
+  .home-table-scroll {
+    display: none;
+  }
+
+  .home-mobile-preview {
+    display: grid;
+    gap: 0;
+    margin: 0;
+    padding: 0 9px 10px;
+    list-style: none;
+  }
+
+  .home-mobile-preview li {
+    display: flex;
+    min-width: 0;
+    align-items: flex-start;
+    gap: 5px;
+    padding: 7px 0;
+    border-top: 1px solid #e7edf3;
+  }
+
+  .home-mobile-appointment-time {
+    width: 30px;
+    flex: 0 0 30px;
+    color: #14284a;
+    font-size: 0.61rem;
+    font-weight: 750;
+    line-height: 1.2;
+  }
+
+  .home-mobile-item-main {
+    display: grid;
+    min-width: 0;
+    gap: 2px;
+    flex: 1 1 auto;
+  }
+
+  .home-mobile-item-main strong,
+  .home-mobile-item-main small {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .home-mobile-item-main strong {
+    color: #14284a;
+    font-size: 0.62rem;
+  }
+
+  .home-mobile-item-main small {
+    color: #6d7e96;
+    font-size: 0.56rem;
+  }
+
+  .home-mobile-preview .home-status {
+    min-width: 0;
+    min-height: 20px;
+    padding: 2px 4px;
+    font-size: 0.52rem;
+  }
+
+  .home-mobile-preview :deep(.profile-avatar) {
+    width: 25px;
+    height: 25px;
+    flex: 0 0 25px;
+    font-size: 0.55rem;
+  }
+
+  .home-mobile-preview .home-mobile-empty {
+    color: #6d7e96;
+    font-size: 0.65rem;
   }
 }
 
 @media (max-width: 480px) {
   .home-metric-card {
-    grid-template-columns: 50px minmax(0, 1fr);
-    padding: 14px;
+    grid-template-columns: 34px minmax(0, 1fr);
+    gap: 6px;
+    padding: 8px;
   }
 
   .home-metric-icon {
-    width: 50px;
-    height: 50px;
+    width: 34px;
+    height: 34px;
   }
 
-  .home-panel-heading {
-    padding: 14px;
+  .home-metric-icon :deep(svg) {
+    width: 19px;
+    height: 19px;
   }
 
-  .home-panel-title > span {
-    width: 42px;
-    height: 42px;
-    flex-basis: 42px;
+  .home-panel-title h2 {
+    font-size: 0.76rem;
   }
 
-  .home-data-table {
-    min-width: 0;
-    table-layout: fixed;
+  .home-panel-title p {
+    font-size: 0.61rem;
   }
 
-  .appointments-table :is(th, td):nth-child(3),
-  .recent-patient-table :is(th, td):nth-child(2) {
-    display: none;
+  .home-period-select,
+  .home-period-select.compact {
+    min-width: 90px;
   }
 
-  .appointments-table :is(th, td):first-child {
-    width: 27%;
+  .home-period-select select {
+    font-size: 0.61rem;
+  }
+}
+
+@media (max-width: 359px) {
+  .home-table-grid {
+    grid-template-columns: 1fr;
   }
 
-  .appointments-table :is(th, td):nth-child(4),
-  .recent-patient-table :is(th, td):nth-child(3) {
-    width: 34%;
+  .home-table-panel .home-panel-title h2 {
+    font-size: 0.78rem;
   }
 
-  .home-data-table th,
-  .home-data-table td {
-    padding-inline: 7px;
-  }
-
-  .home-status {
-    min-width: 66px;
-    padding-inline: 7px;
+  .home-mobile-preview .home-status {
+    font-size: 0.6rem;
   }
 }
 </style>

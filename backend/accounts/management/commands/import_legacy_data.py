@@ -368,6 +368,17 @@ class Command(BaseCommand):
             source = "manual" if manual else "patient"
             if manual and safe_text(row.get("notes")).lower().startswith("follow-up"):
                 source = "follow_up"
+            raw_services = row.get("services")
+            services = []
+            if isinstance(raw_services, list):
+                services = [
+                    safe_text(name)[:120]
+                    for name in raw_services
+                    if isinstance(name, str) and safe_text(name)
+                ]
+            if not services:
+                service_name = safe_text(row.get("service"))[:120]
+                services = [service_name] if service_name else []
             item, created = Appointment.objects.get_or_create(
                 id=appointment_id,
                 defaults={
@@ -378,7 +389,8 @@ class Command(BaseCommand):
                     "patient_email": safe_text(row.get("patient_email")),
                     "patient_phone": safe_text(row.get("patient_phone"))[:24],
                     "doctor_name": doctor_name,
-                    "service_name": safe_text(row.get("service"))[:120],
+                    "service_name": services[0] if services else "",
+                    "services": services,
                     "appointment_date": date_value,
                     "appointment_time": time_value,
                     "status": safe_text(row.get("status")).lower() or "pending",
@@ -420,6 +432,7 @@ class Command(BaseCommand):
                     "treatment_date": treatment_date,
                     "tooth_numbers": safe_text(row.get("tooth_numbers"))[:120],
                     "procedure": procedure[:120],
+                    "procedures": [procedure[:120]] if procedure else [],
                     "amount_charged": charged,
                     "amount_paid": paid,
                     "balance": balance,

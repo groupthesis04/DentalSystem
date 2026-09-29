@@ -1010,6 +1010,10 @@ textarea:focus {
   margin-top: 14px;
 }
 
+.treatment-detail-grid > .wide {
+  grid-column: 1 / -1;
+}
+
 .doctor-action-row {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

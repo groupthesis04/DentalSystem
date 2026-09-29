@@ -15,14 +15,14 @@ import { computed, ref, watch } from "vue";
 
 import ActionIconButton from "../ActionIconButton.vue";
 import AvatarBadge from "../AvatarBadge.vue";
-import BaseModal from "../BaseModal.vue";
 import StatusBadge from "../StatusBadge.vue";
+import TreatmentDetailsModal from "../TreatmentDetailsModal.vue";
 import {
   formatDate,
-  formatMoney,
   localDateIso,
   treatmentBalance,
   treatmentProcedure,
+  treatmentProcedures,
 } from "../../services/format";
 
 const props = defineProps({
@@ -66,7 +66,9 @@ const selectedRecords = computed(() => {
   return props.state.records
     .filter((record) => {
       const date = String(record.treatment_date || "").slice(0, 10);
-      const matchesService = normalize(treatmentProcedure(record)) === serviceName;
+      const matchesService = treatmentProcedures(record).some(
+        (procedure) => normalize(procedure) === serviceName,
+      );
       const afterStart = !startDate.value || (date && date >= startDate.value);
       const beforeEnd = !endDate.value || (date && date <= endDate.value);
       return matchesService && afterStart && beforeEnd;
@@ -149,8 +151,10 @@ watch(
     if (!recordId) return;
     const record = props.state.records.find((item) => item.id === recordId);
     if (!record) return;
-    const service = props.state.services.find(
-      (item) => normalize(item.name) === normalize(treatmentProcedure(record)),
+    const service = props.state.services.find((item) =>
+      treatmentProcedures(record).some(
+        (procedure) => normalize(item.name) === normalize(procedure),
+      ),
     );
     if (service) selectedServiceId.value = service.id;
   },
@@ -397,47 +401,13 @@ function selectPage(page) {
       <p>Add a clinic service in Services &amp; Content to begin organizing its records.</p>
     </section>
 
-    <BaseModal
+    <TreatmentDetailsModal
       v-if="detailRecord"
-      title="Service Record Details"
-      :eyebrow="treatmentProcedure(detailRecord)"
+      :record="detailRecord"
+      show-dentist
+      :doctor-fallback="state.clinicDoctor || 'Clinic dentist'"
       @close="detailRecord = null"
-    >
-      <div class="detail-grid">
-        <span
-          ><strong>{{ detailRecord.patient_name || "Patient" }}</strong
-          >Patient</span
-        >
-        <span
-          ><strong>{{ formatDate(detailRecord.treatment_date) }}</strong
-          >Date</span
-        >
-        <span
-          ><strong>{{ detailRecord.doctor_name || state.clinicDoctor || "-" }}</strong
-          >Dentist</span
-        >
-        <span
-          ><strong>{{ detailRecord.tooth_numbers || "-" }}</strong
-          >Tooth No./s</span
-        >
-        <span
-          ><strong>{{ formatMoney(detailRecord.amount_charged) }}</strong
-          >Charged</span
-        >
-        <span
-          ><strong>{{ formatMoney(detailRecord.amount_paid) }}</strong
-          >Paid</span
-        >
-        <span
-          ><strong>{{ formatMoney(treatmentBalance(detailRecord)) }}</strong
-          >Balance</span
-        >
-        <span
-          ><strong>{{ detailRecord.remarks || detailRecord.notes || "-" }}</strong
-          >Remarks</span
-        >
-      </div>
-    </BaseModal>
+    />
   </section>
 </template>
 

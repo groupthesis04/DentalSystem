@@ -15,7 +15,7 @@ import {
 } from "lucide-vue-next";
 import { computed, ref } from "vue";
 
-import { formatDate, localDateIso } from "../../services/format";
+import { appointmentService, formatDate, localDateIso } from "../../services/format";
 import StatusBadge from "../StatusBadge.vue";
 
 const props = defineProps({
@@ -248,7 +248,7 @@ function openAppointment(item) {
                 >
                   <td data-label="#">{{ index + 1 }}</td>
                   <td data-label="Service">
-                    <strong>{{ item.service }}</strong>
+                    <strong>{{ appointmentService(item) }}</strong>
                   </td>
                   <td data-label="Dentist">{{ item.doctor || "Clinic dentist" }}</td>
                   <td data-label="Date & Time">

@@ -50,8 +50,29 @@ export function calculateAge(birthdate) {
   return Math.max(age, 0);
 }
 
+export function appointmentServices(appointment) {
+  const selected = Array.isArray(appointment?.services)
+    ? appointment.services.map((name) => String(name || "").trim()).filter(Boolean)
+    : [];
+  if (selected.length) return selected;
+  const primary = appointment?.service || appointment?.service_name;
+  return primary ? [String(primary).trim()] : [];
+}
+
+export function appointmentService(appointment) {
+  return appointmentServices(appointment).join(", ") || "Dental appointment";
+}
+
+export function treatmentProcedures(record) {
+  const selected = Array.isArray(record?.procedures)
+    ? record.procedures.map((name) => String(name || "").trim()).filter(Boolean)
+    : [];
+  if (selected.length) return selected;
+  return [record?.procedure || record?.treatment || record?.diagnosis || "Treatment"];
+}
+
 export function treatmentProcedure(record) {
-  return record?.procedure || record?.treatment || record?.diagnosis || "Treatment";
+  return treatmentProcedures(record).join(", ");
 }
 
 export function treatmentBalance(record) {

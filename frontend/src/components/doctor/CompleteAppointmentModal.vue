@@ -1,25 +1,34 @@
 <script setup>
 import {
   CalendarCheck2,
+  Check,
+  ChevronDown,
   CircleDollarSign,
   ClipboardPlus,
   FileText,
   Stethoscope,
   UserRound,
 } from "lucide-vue-next";
-import { computed, reactive, ref, watch } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, useId, watch } from "vue";
 
 import AvailabilityDatePicker from "../AvailabilityDatePicker.vue";
 import BaseModal from "../BaseModal.vue";
 import { availableSlotDates, futureOpenSlots } from "../../services/availability";
 import { apiRequest } from "../../services/api";
-import { formatDate, formatMoney, localDateIso } from "../../services/format";
+import {
+  appointmentService,
+  appointmentServices,
+  formatDate,
+  formatMoney,
+  localDateIso,
+} from "../../services/format";
 import { validatedPayload } from "../../services/validation";
 
 const props = defineProps({
   appointment: { type: Object, required: true },
   existingRecord: { type: Object, default: null },
   availability: { type: Array, default: () => [] },
+  services: { type: Array, default: () => [] },
   doctor: { type: String, default: "" },
 });
 const emit = defineEmits(["close", "completed", "follow-up"]);
@@ -27,11 +36,17 @@ const emit = defineEmits(["close", "completed", "follow-up"]);
 const today = localDateIso();
 const busy = ref(false);
 const errorMessage = ref("");
+const serviceError = ref("");
+const servicePicker = ref(null);
+const serviceTrigger = ref(null);
+const servicePickerOpen = ref(false);
+const serviceListId = `completion-services-${useId().replaceAll(":", "")}`;
 const form = reactive({
   appointment_id: "",
   patient_id: "",
   treatment_date: today,
   tooth_numbers: "",
+  procedures: [],
   procedure: "",
   diagnosis: "",
   prescription: "",
@@ -61,6 +76,89 @@ const followUpSlots = computed(() =>
   futureOpenSlots(props.availability, props.doctor || props.appointment.doctor),
 );
 const availableFollowUpDates = computed(() => availableSlotDates(followUpSlots.value));
+const selectedServices = computed(() => (Array.isArray(form.procedures) ? form.procedures : []));
+const availableServices = computed(() => [
+  ...new Set([...props.services, ...selectedServices.value].filter(Boolean)),
+]);
+const serviceSummary = computed(() => {
+  if (!selectedServices.value.length) {
+    return availableServices.value.length ? "Select services" : "No services available";
+  }
+  if (selectedServices.value.length === 1) return selectedServices.value[0];
+  return `${selectedServices.value[0]} +${selectedServices.value.length - 1} more`;
+});
+
+function initialServices(record) {
+  const stored = Array.isArray(record?.procedures) ? record.procedures : [];
+  const names = stored.length
+    ? stored
+    : record?.procedure || record?.treatment
+      ? [record.procedure || record.treatment]
+      : appointmentServices(props.appointment);
+  return [...new Set(names.map((name) => String(name || "").trim()).filter(Boolean))];
+}
+
+function toggleService(service) {
+  form.procedures = selectedServices.value.includes(service)
+    ? selectedServices.value.filter((name) => name !== service)
+    : [...selectedServices.value, service];
+  if (form.procedures.length) serviceError.value = "";
+}
+
+function focusServiceOption(index) {
+  servicePicker.value?.querySelectorAll('[role="checkbox"]')?.[index]?.focus();
+}
+
+function onServiceTriggerKeydown(event) {
+  if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+  event.preventDefault();
+  servicePickerOpen.value = true;
+  nextTick(() =>
+    focusServiceOption(event.key === "ArrowDown" ? 0 : availableServices.value.length - 1),
+  );
+}
+
+function onServicePickerKeydown(event) {
+  if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
+  const options = [...(servicePicker.value?.querySelectorAll('[role="checkbox"]') || [])];
+  const current = options.indexOf(document.activeElement);
+  if (current < 0 || !options.length) return;
+  event.preventDefault();
+  const next =
+    event.key === "Home"
+      ? 0
+      : event.key === "End"
+        ? options.length - 1
+        : (current + (event.key === "ArrowDown" ? 1 : -1) + options.length) % options.length;
+  options[next].focus();
+}
+
+function onServiceFocusOut(event) {
+  if (!servicePicker.value?.contains(event.relatedTarget)) servicePickerOpen.value = false;
+}
+
+function onOutsidePointerDown(event) {
+  if (servicePickerOpen.value && !servicePicker.value?.contains(event.target)) {
+    servicePickerOpen.value = false;
+  }
+}
+
+function onDocumentKeydown(event) {
+  if (event.key !== "Escape" || !servicePickerOpen.value) return;
+  event.preventDefault();
+  event.stopPropagation();
+  servicePickerOpen.value = false;
+  serviceTrigger.value?.focus();
+}
+
+onMounted(() => {
+  document.addEventListener("pointerdown", onOutsidePointerDown);
+  document.addEventListener("keydown", onDocumentKeydown, true);
+});
+onBeforeUnmount(() => {
+  document.removeEventListener("pointerdown", onOutsidePointerDown);
+  document.removeEventListener("keydown", onDocumentKeydown, true);
+});
 
 function moneyInput(value) {
   const amount = Number(value || 0);
@@ -69,6 +167,7 @@ function moneyInput(value) {
 
 function hydrateForm() {
   const record = props.existingRecord;
+  const procedures = initialServices(record);
   Object.assign(form, {
     appointment_id: props.appointment.id || "",
     patient_id: props.appointment.patient_id || record?.patient_id || "",
@@ -76,7 +175,8 @@ function hydrateForm() {
       record?.treatment_date ||
       (props.appointment.date && props.appointment.date <= today ? props.appointment.date : today),
     tooth_numbers: record?.tooth_numbers || "",
-    procedure: props.appointment.service || record?.procedure || record?.treatment || "",
+    procedures,
+    procedure: procedures[0] || "",
     diagnosis: record?.diagnosis || "",
     prescription: record?.prescription || "",
     amount_charged: moneyInput(record?.amount_charged),
@@ -86,12 +186,24 @@ function hydrateForm() {
     _website: "",
   });
   errorMessage.value = "";
+  serviceError.value = "";
+  servicePickerOpen.value = false;
 }
 
 watch([() => props.appointment, () => props.existingRecord], hydrateForm, { immediate: true });
 
 async function submitTreatmentRecord() {
   errorMessage.value = "";
+  serviceError.value = "";
+  const procedures = [
+    ...new Set(selectedServices.value.map((name) => String(name || "").trim()).filter(Boolean)),
+  ];
+  if (!procedures.length) {
+    serviceError.value = "Select at least one service.";
+    servicePickerOpen.value = true;
+    nextTick(() => serviceTrigger.value?.focus());
+    return;
+  }
   if (!form.diagnosis.trim()) {
     errorMessage.value = "Enter the diagnosis or clinical findings before completing the visit.";
     return;
@@ -105,8 +217,10 @@ async function submitTreatmentRecord() {
   try {
     const payload = validatedPayload({
       ...form,
+      procedures,
+      procedure: procedures[0],
       id: props.existingRecord?.id || undefined,
-      treatment: form.procedure,
+      treatment: procedures[0],
       schedule_follow_up: Boolean(form.next_visit),
     });
     const data = await apiRequest("/api/records", {
@@ -154,7 +268,7 @@ async function submitTreatmentRecord() {
         </div>
         <div>
           <dt><Stethoscope :size="16" aria-hidden="true" /> Service</dt>
-          <dd>{{ appointment.service }}</dd>
+          <dd>{{ appointmentService(appointment) }}</dd>
         </div>
         <div>
           <dt><CalendarCheck2 :size="16" aria-hidden="true" /> Appointment</dt>
@@ -180,6 +294,64 @@ async function submitTreatmentRecord() {
             <span>Tooth Number(s) <small>Optional</small></span>
             <input v-model="form.tooth_numbers" maxlength="120" placeholder="Example: 11, 12, 13" />
           </label>
+          <div class="completion-service-field wide-field">
+            <span>Procedure / Services <b aria-hidden="true">*</b></span>
+            <div
+              ref="servicePicker"
+              class="completion-service-picker"
+              @keydown="onServicePickerKeydown"
+              @focusout="onServiceFocusOut"
+            >
+              <button
+                ref="serviceTrigger"
+                class="completion-service-trigger"
+                type="button"
+                :aria-controls="serviceListId"
+                :aria-expanded="servicePickerOpen"
+                :aria-invalid="Boolean(serviceError)"
+                :aria-describedby="serviceError ? `${serviceListId}-error` : undefined"
+                :aria-label="`Procedure or services: ${serviceSummary}. Select one or more services`"
+                @click="servicePickerOpen = !servicePickerOpen"
+                @keydown="onServiceTriggerKeydown"
+              >
+                <span class="completion-service-summary">{{ serviceSummary }}</span>
+                <ChevronDown :size="17" aria-hidden="true" />
+              </button>
+              <div
+                v-show="servicePickerOpen"
+                :id="serviceListId"
+                class="completion-service-options"
+                role="group"
+                aria-label="Available services"
+              >
+                <button
+                  v-for="service in availableServices"
+                  :key="service"
+                  class="completion-service-option"
+                  type="button"
+                  role="checkbox"
+                  :aria-checked="selectedServices.includes(service)"
+                  @click="toggleService(service)"
+                >
+                  <span class="completion-service-checkbox" aria-hidden="true">
+                    <Check v-if="selectedServices.includes(service)" :size="13" />
+                  </span>
+                  <span>{{ service }}</span>
+                </button>
+                <p v-if="!availableServices.length" class="completion-service-empty">
+                  No active services available.
+                </p>
+              </div>
+            </div>
+            <small
+              v-if="serviceError"
+              :id="`${serviceListId}-error`"
+              class="completion-service-error"
+              role="alert"
+            >
+              {{ serviceError }}
+            </small>
+          </div>
           <label class="wide-field">
             <span>Diagnosis / Clinical Findings <b aria-hidden="true">*</b></span>
             <textarea
@@ -396,7 +568,7 @@ async function submitTreatmentRecord() {
   gap: 12px;
 }
 
-.completion-field-grid :is(label, .next-visit-field) {
+.completion-field-grid :is(label, .next-visit-field, .completion-service-field) {
   display: grid;
   min-width: 0;
   gap: 6px;
@@ -405,15 +577,15 @@ async function submitTreatmentRecord() {
   font-weight: 800;
 }
 
-.completion-field-grid :is(label, .next-visit-field) > span:first-child {
+.completion-field-grid :is(label, .next-visit-field, .completion-service-field) > span:first-child {
   min-height: 16px;
 }
 
-.completion-field-grid :is(label, .next-visit-field) b {
+.completion-field-grid :is(label, .next-visit-field, .completion-service-field) b {
   color: #e33b55;
 }
 
-.completion-field-grid :is(label, .next-visit-field) small {
+.completion-field-grid :is(label, .next-visit-field, .completion-service-field) small {
   color: #7e8da0;
   font-size: 0.58rem;
   font-weight: 650;
@@ -456,6 +628,114 @@ async function submitTreatmentRecord() {
 
 .completion-field-grid .wide-field {
   grid-column: 1 / -1;
+}
+
+.completion-service-picker {
+  position: relative;
+  min-width: 0;
+}
+
+.completion-service-trigger {
+  display: flex;
+  width: 100%;
+  min-height: 42px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border: 1px solid #d3e0ec;
+  border-radius: 6px;
+  background: #fff;
+  padding: 0 12px;
+  color: #233b5d;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 650;
+  text-align: left;
+}
+
+.completion-service-trigger:focus-visible,
+.completion-service-trigger[aria-expanded="true"] {
+  border-color: #1683da;
+  outline: 0;
+  box-shadow: 0 0 0 3px rgb(22 131 218 / 12%);
+}
+
+.completion-service-trigger svg {
+  flex: 0 0 auto;
+}
+
+.completion-service-summary {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.completion-service-options {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  left: 0;
+  z-index: 5;
+  max-height: 240px;
+  overflow-y: auto;
+  border: 1px solid #d3e0ec;
+  border-radius: 6px;
+  background: #fff;
+  padding: 5px;
+  box-shadow: 0 12px 30px rgb(16 38 84 / 16%);
+}
+
+.completion-service-option {
+  display: flex;
+  width: 100%;
+  min-height: 38px;
+  align-items: center;
+  gap: 9px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  padding: 7px 8px;
+  color: #233b5d;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 650;
+  overflow-wrap: anywhere;
+  text-align: left;
+}
+
+.completion-service-option:hover,
+.completion-service-option:focus-visible {
+  outline: 0;
+  background: #eaf3ff;
+}
+
+.completion-service-checkbox {
+  display: grid;
+  width: 17px;
+  height: 17px;
+  flex: 0 0 17px;
+  place-items: center;
+  border: 1px solid #8ca2bf;
+  border-radius: 4px;
+  background: #fff;
+  color: #fff;
+}
+
+.completion-service-option[aria-checked="true"] .completion-service-checkbox {
+  border-color: #0874e8;
+  background: #0874e8;
+}
+
+.completion-service-empty {
+  margin: 0;
+  padding: 10px;
+  color: #617394;
+  font-weight: 500;
+}
+
+.completion-field-grid .completion-service-error {
+  color: #b4233d;
+  font-size: 0.65rem;
 }
 
 .completion-field-grid .next-visit-field {
@@ -566,6 +846,25 @@ async function submitTreatmentRecord() {
 :global(html[data-dashboard-theme="dark"]) .completion-field-grid .next-visit-field {
   border-color: var(--dashboard-border);
   background: #1b2b3e;
+}
+
+:global(html[data-dashboard-theme="dark"]) .completion-service-field {
+  color: var(--dashboard-text);
+}
+
+:global(html[data-dashboard-theme="dark"])
+  :is(.completion-service-trigger, .completion-service-options) {
+  border-color: var(--dashboard-border);
+  background: #172334;
+  color: var(--dashboard-text);
+}
+
+:global(html[data-dashboard-theme="dark"]) .completion-service-option {
+  color: var(--dashboard-text);
+}
+
+:global(html[data-dashboard-theme="dark"]) .completion-service-option:is(:hover, :focus-visible) {
+  background: #244267;
 }
 
 @media (max-width: 760px) {

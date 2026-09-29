@@ -13,7 +13,13 @@ import {
 } from "lucide-vue-next";
 import { computed, ref, watch } from "vue";
 
-import { formatDate, localDateIso, statusLabel } from "../../services/format";
+import {
+  appointmentService,
+  appointmentServices,
+  formatDate,
+  localDateIso,
+  statusLabel,
+} from "../../services/format";
 import StatusBadge from "../StatusBadge.vue";
 
 const props = defineProps({
@@ -114,8 +120,8 @@ function matchesSearch(item) {
   const query = searchQuery.value.trim().toLowerCase();
   if (!query) return true;
   return [
-    item?.service,
-    serviceCategory(item?.service),
+    appointmentService(item),
+    ...appointmentServices(item).map(serviceCategory),
     item?.doctor,
     item?.date,
     formatDate(item?.date),
@@ -278,12 +284,19 @@ watch(
               <td class="patient-visit-number" data-label="#">{{ pageStart + index }}</td>
               <td class="patient-visit-service" data-label="Service">
                 <div class="patient-service-content">
-                  <span class="patient-service-icon" :class="`tone-${serviceTone(item.service)}`">
+                  <span
+                    class="patient-service-icon"
+                    :class="`tone-${serviceTone(appointmentServices(item)[0])}`"
+                  >
                     <Stethoscope :size="21" aria-hidden="true" />
                   </span>
                   <span>
-                    <strong>{{ item.service }}</strong>
-                    <small>{{ serviceCategory(item.service) }}</small>
+                    <strong>{{ appointmentService(item) }}</strong>
+                    <small>{{
+                      appointmentServices(item).length > 1
+                        ? "Multiple services"
+                        : serviceCategory(appointmentServices(item)[0])
+                    }}</small>
                   </span>
                 </div>
               </td>
@@ -308,7 +321,7 @@ watch(
                 <button
                   v-if="canCancel(item)"
                   type="button"
-                  :aria-label="`Cancel ${item.service} appointment`"
+                  :aria-label="`Cancel ${appointmentService(item)} appointment`"
                   @click="emit('cancel', item)"
                 >
                   <Trash2 :size="16" aria-hidden="true" />

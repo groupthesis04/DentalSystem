@@ -24,7 +24,12 @@ import ClearAppointmentsModal from "./ClearAppointmentsModal.vue";
 import CompleteAppointmentModal from "./CompleteAppointmentModal.vue";
 import ScheduleFollowUpModal from "./ScheduleFollowUpModal.vue";
 import { apiRequest, session } from "../../services/api";
-import { formatDate, localDateIso } from "../../services/format";
+import {
+  appointmentService,
+  appointmentServices,
+  formatDate,
+  localDateIso,
+} from "../../services/format";
 import { showToast } from "../../services/toast";
 import { validatedPayload } from "../../services/validation";
 
@@ -113,10 +118,11 @@ const filteredAppointments = computed(() => {
   return sortedAppointments.value.filter((item) => {
     const matchesQuery =
       !query ||
-      `${item.patient_name || ""} ${item.patient_email || ""} ${item.service || ""}`
+      `${item.patient_name || ""} ${item.patient_email || ""} ${appointmentService(item)}`
         .toLowerCase()
         .includes(query);
-    const matchesService = !serviceFilter.value || item.service === serviceFilter.value;
+    const matchesService =
+      !serviceFilter.value || appointmentServices(item).includes(serviceFilter.value);
     const matchesStatus = !statusFilter.value || item.status === statusFilter.value;
     return matchesQuery && matchesService && matchesStatus;
   });
@@ -655,7 +661,7 @@ function closeFollowUp() {
                   </span>
                 </div>
               </td>
-              <td data-label="Service">{{ item.service }}</td>
+              <td data-label="Service">{{ appointmentService(item) }}</td>
               <td data-label="Date">{{ formatDate(item.date) }}</td>
               <td data-label="Time">{{ formatClock(item.time) }}</td>
               <td data-label="Status">
@@ -746,6 +752,7 @@ function closeFollowUp() {
       :appointment="completionAppointment"
       :existing-record="completionRecord"
       :availability="state.availability"
+      :services="serviceOptions"
       :doctor="selectedDoctor"
       @close="closeCompletionRecord"
       @completed="appointmentCompleted"

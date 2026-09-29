@@ -128,6 +128,39 @@ export function validatedPayload(rawPayload, options = {}) {
   for (const [name, value] of Object.entries(rawPayload)) {
     payload[name] = typeof value === "string" ? cleanText(name, value) : value;
   }
+  if (Object.hasOwn(payload, "procedures")) {
+    if (!Array.isArray(payload.procedures) || !payload.procedures.length) {
+      throw new Error("Select at least one procedure or service.");
+    }
+    payload.procedures = payload.procedures.map((value) => {
+      if (typeof value !== "string") throw new Error("Choose valid procedures or services.");
+      return cleanText("procedure", value);
+    });
+    if (
+      payload.procedures.some((value) => !value) ||
+      new Set(payload.procedures.map((value) => value.toLocaleLowerCase())).size !==
+        payload.procedures.length
+    ) {
+      throw new Error("Choose distinct procedures or services.");
+    }
+  }
+  if (Object.hasOwn(payload, "services")) {
+    if (!Array.isArray(payload.services) || !payload.services.length) {
+      throw new Error("Select at least one dental service.");
+    }
+    payload.services = payload.services.map((value) => {
+      if (typeof value !== "string") throw new Error("Choose valid dental services.");
+      return cleanText("service", value);
+    });
+    if (
+      payload.services.some((value) => !value) ||
+      new Set(payload.services.map((value) => value.toLocaleLowerCase())).size !==
+        payload.services.length
+    ) {
+      throw new Error("Choose distinct dental services.");
+    }
+    payload.service = payload.services[0];
+  }
   if (String(payload._website || "").trim()) {
     throw new Error("Unable to process this request.");
   }

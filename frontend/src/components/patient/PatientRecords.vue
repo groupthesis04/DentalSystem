@@ -19,8 +19,8 @@ import {
   treatmentBalance,
   treatmentProcedure,
 } from "../../services/format";
-import BaseModal from "../BaseModal.vue";
 import StatusBadge from "../StatusBadge.vue";
+import TreatmentDetailsModal from "../TreatmentDetailsModal.vue";
 
 const props = defineProps({
   records: { type: Array, default: () => [] },
@@ -338,57 +338,14 @@ watch(pageCount, (count) => {
       </aside>
     </div>
 
-    <BaseModal
+    <TreatmentDetailsModal
       v-if="detailRecord"
-      title="Treatment Details"
-      :eyebrow="treatmentProcedure(detailRecord)"
-      size-class="patient-record-dialog"
+      :record="detailRecord"
+      show-dentist
+      show-status
+      show-next-visit
       @close="detailRecord = null"
-    >
-      <div class="patient-record-detail-grid">
-        <span
-          ><small>Date</small
-          ><strong>{{ formatLongDate(detailRecord.treatment_date) }}</strong></span
-        >
-        <span
-          ><small>Dentist</small
-          ><strong>{{ detailRecord.doctor_name || "Clinic dentist" }}</strong></span
-        >
-        <span
-          ><small>Tooth No./s</small><strong>{{ detailRecord.tooth_numbers || "-" }}</strong></span
-        >
-        <span><small>Status</small><StatusBadge :status="recordStatus(detailRecord)" /></span>
-        <span class="wide"
-          ><small>Diagnosis</small><strong>{{ detailRecord.diagnosis || "-" }}</strong></span
-        >
-        <span class="wide"
-          ><small>Remarks</small
-          ><strong>{{ detailRecord.remarks || detailRecord.notes || "-" }}</strong></span
-        >
-        <span class="wide"
-          ><small>Prescription</small><strong>{{ detailRecord.prescription || "-" }}</strong></span
-        >
-        <span
-          ><small>Amount Charged</small
-          ><strong>{{ formatMoney(detailRecord.amount_charged) }}</strong></span
-        >
-        <span
-          ><small>Amount Paid</small
-          ><strong>{{ formatMoney(detailRecord.amount_paid) }}</strong></span
-        >
-        <span
-          ><small>Balance</small
-          ><strong>{{ formatMoney(treatmentBalance(detailRecord)) }}</strong></span
-        >
-        <span
-          ><small>Next Visit</small
-          ><strong>{{ formatLongDate(detailRecord.next_visit) }}</strong></span
-        >
-      </div>
-      <div class="patient-record-modal-actions">
-        <button type="button" class="secondary-button" @click="detailRecord = null">Close</button>
-      </div>
-    </BaseModal>
+    />
   </section>
 </template>
 
@@ -861,51 +818,6 @@ watch(pageCount, (count) => {
   font-size: 0.69rem;
 }
 
-.patient-record-detail-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-  padding: 18px;
-}
-
-.patient-record-detail-grid > span {
-  display: grid;
-  min-width: 0;
-  gap: 4px;
-  padding: 12px;
-  border: 1px solid #e0e8f1;
-  border-radius: 7px;
-  background: #f8fbfe;
-}
-
-.patient-record-detail-grid > span.wide {
-  grid-column: 1 / -1;
-}
-
-.patient-record-detail-grid small {
-  color: #71839a;
-  font-size: 0.62rem;
-  font-weight: 750;
-  text-transform: uppercase;
-}
-
-.patient-record-detail-grid strong {
-  overflow-wrap: anywhere;
-  color: #172d50;
-  font-size: 0.74rem;
-}
-
-.patient-record-modal-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 9px;
-  padding: 0 18px 18px;
-}
-
-:global(.patient-record-dialog) {
-  width: min(94vw, 680px);
-}
-
 :global(html[data-dashboard-theme="dark"]) .patient-records-page {
   color: var(--dashboard-text);
 }
@@ -930,8 +842,7 @@ watch(pageCount, (count) => {
     .patient-record-summary h2,
     .patient-record-summary-list strong,
     .patient-record-balance strong,
-    .patient-record-treatment strong,
-    .patient-record-detail-grid strong
+    .patient-record-treatment strong
   ) {
   color: var(--dashboard-text);
 }
@@ -952,12 +863,6 @@ watch(pageCount, (count) => {
 
 :global(html[data-dashboard-theme="dark"]) .patient-records-table tbody tr:hover {
   background: #1b293a;
-}
-
-:global(html[data-dashboard-theme="dark"]) .patient-record-detail-grid > span {
-  color: var(--dashboard-muted);
-  border-color: var(--dashboard-border);
-  background: #1b2635;
 }
 
 :global(html[data-dashboard-theme="dark"]) :is(.patient-record-balance, .patient-record-care-note) {
@@ -1131,14 +1036,6 @@ watch(pageCount, (count) => {
   .patient-records-footer nav {
     justify-content: center;
     text-align: center;
-  }
-
-  .patient-record-detail-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .patient-record-detail-grid > span.wide {
-    grid-column: auto;
   }
 
   :global(html[data-dashboard-theme="dark"])

@@ -42,6 +42,7 @@ class Appointment(models.Model):
     patient_phone = models.CharField(max_length=24, blank=True)
     doctor_name = models.CharField(max_length=120)
     service_name = models.CharField(max_length=120)
+    services = models.JSONField(default=list, blank=True)
     appointment_date = models.DateField()
     appointment_time = models.TimeField()
     status = models.CharField(max_length=24, choices=STATUS_CHOICES, default="pending")

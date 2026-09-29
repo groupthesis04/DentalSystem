@@ -1,6 +1,8 @@
 <script setup>
 import {
   CalendarDays,
+  Check,
+  ChevronDown,
   CircleDollarSign,
   ClipboardPlus,
   FileText,
@@ -9,7 +11,7 @@ import {
   Stethoscope,
   UserRound,
 } from "lucide-vue-next";
-import { computed } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, useId } from "vue";
 
 import { calculateAge, formatDate } from "../../services/format";
 import AvatarBadge from "../AvatarBadge.vue";
@@ -25,6 +27,99 @@ const props = defineProps({
   maxDate: { type: String, default: "" },
 });
 const emit = defineEmits(["close", "submit"]);
+const servicePicker = ref(null);
+const serviceTrigger = ref(null);
+const servicePickerOpen = ref(false);
+const serviceError = ref("");
+const serviceListId = `treatment-services-${useId().replaceAll(":", "")}`;
+
+const selectedServices = computed(() =>
+  Array.isArray(props.form.procedures) ? props.form.procedures : [],
+);
+const availableServices = computed(() => [
+  ...new Set([...props.procedures, ...selectedServices.value].filter(Boolean)),
+]);
+const serviceSummary = computed(() => {
+  if (!selectedServices.value.length) {
+    return availableServices.value.length ? "Select services" : "No services available";
+  }
+  if (selectedServices.value.length === 1) return selectedServices.value[0];
+  return `${selectedServices.value[0]} +${selectedServices.value.length - 1} more`;
+});
+
+function toggleService(service) {
+  const selected = selectedServices.value;
+  props.form.procedures = selected.includes(service)
+    ? selected.filter((item) => item !== service)
+    : [...selected, service];
+  if (props.form.procedures.length) serviceError.value = "";
+}
+
+function focusServiceOption(index) {
+  const options = servicePicker.value?.querySelectorAll('[role="checkbox"]');
+  options?.[index]?.focus();
+}
+
+function onServiceTriggerKeydown(event) {
+  if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+  event.preventDefault();
+  servicePickerOpen.value = true;
+  nextTick(() =>
+    focusServiceOption(event.key === "ArrowDown" ? 0 : availableServices.value.length - 1),
+  );
+}
+
+function onServicePickerKeydown(event) {
+  if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
+  const options = [...(servicePicker.value?.querySelectorAll('[role="checkbox"]') || [])];
+  const current = options.indexOf(document.activeElement);
+  if (current < 0 || !options.length) return;
+  event.preventDefault();
+  const next =
+    event.key === "Home"
+      ? 0
+      : event.key === "End"
+        ? options.length - 1
+        : (current + (event.key === "ArrowDown" ? 1 : -1) + options.length) % options.length;
+  options[next].focus();
+}
+
+function onOutsidePointerDown(event) {
+  if (servicePickerOpen.value && !servicePicker.value?.contains(event.target)) {
+    servicePickerOpen.value = false;
+  }
+}
+
+function onServiceFocusOut(event) {
+  if (!servicePicker.value?.contains(event.relatedTarget)) servicePickerOpen.value = false;
+}
+
+function onDocumentKeydown(event) {
+  if (event.key !== "Escape" || !servicePickerOpen.value) return;
+  event.preventDefault();
+  event.stopPropagation();
+  servicePickerOpen.value = false;
+  serviceTrigger.value?.focus();
+}
+
+function submitForm() {
+  if (!selectedServices.value.length) {
+    serviceError.value = "Select at least one service.";
+    servicePickerOpen.value = true;
+    nextTick(() => serviceTrigger.value?.focus());
+    return;
+  }
+  emit("submit");
+}
+
+onMounted(() => {
+  document.addEventListener("pointerdown", onOutsidePointerDown);
+  document.addEventListener("keydown", onDocumentKeydown, true);
+});
+onBeforeUnmount(() => {
+  document.removeEventListener("pointerdown", onOutsidePointerDown);
+  document.removeEventListener("keydown", onDocumentKeydown, true);
+});
 
 const patientAge = computed(() => {
   const age = props.patient.age ?? calculateAge(props.patient.birthdate);
@@ -72,7 +167,7 @@ const remainingBalance = computed(() => {
       </p>
     </template>
 
-    <form class="treatment-editor-form" @submit.prevent="emit('submit')">
+    <form class="treatment-editor-form" @submit.prevent="submitForm">
       <label class="hp-field" aria-hidden="true">
         Website
         <input v-model="form._website" tabindex="-1" autocomplete="off" />
@@ -117,17 +212,64 @@ const remainingBalance = computed(() => {
             <span>Treatment Date <b aria-hidden="true">*</b></span>
             <input v-model="form.treatment_date" type="date" :max="maxDate" required />
           </label>
-          <label>
-            <span>Procedure / Service <b aria-hidden="true">*</b></span>
-            <select v-model="form.procedure" required>
-              <option disabled value="">
-                {{ procedures.length ? "Select a service" : "No active services available" }}
-              </option>
-              <option v-for="procedure in procedures" :key="procedure" :value="procedure">
-                {{ procedure }}
-              </option>
-            </select>
-          </label>
+          <div class="treatment-service-field">
+            <span>Procedure / Services <b aria-hidden="true">*</b></span>
+            <div
+              ref="servicePicker"
+              class="treatment-service-picker"
+              @keydown="onServicePickerKeydown"
+              @focusout="onServiceFocusOut"
+            >
+              <button
+                ref="serviceTrigger"
+                class="treatment-service-trigger"
+                type="button"
+                :aria-controls="serviceListId"
+                :aria-expanded="servicePickerOpen"
+                :aria-invalid="Boolean(serviceError)"
+                :aria-describedby="serviceError ? `${serviceListId}-error` : undefined"
+                :aria-label="`Procedure or services: ${serviceSummary}. Select one or more services`"
+                @click="servicePickerOpen = !servicePickerOpen"
+                @keydown="onServiceTriggerKeydown"
+              >
+                <span class="treatment-service-summary">{{ serviceSummary }}</span>
+                <ChevronDown :size="17" aria-hidden="true" />
+              </button>
+              <div
+                v-show="servicePickerOpen"
+                :id="serviceListId"
+                class="treatment-service-options"
+                role="group"
+                aria-label="Available services"
+              >
+                <button
+                  v-for="service in availableServices"
+                  :key="service"
+                  class="treatment-service-option"
+                  type="button"
+                  role="checkbox"
+                  :aria-checked="selectedServices.includes(service)"
+                  @click="toggleService(service)"
+                >
+                  <span class="treatment-service-checkbox" aria-hidden="true">
+                    <Check v-if="selectedServices.includes(service)" :size="13" />
+                  </span>
+                  <span>{{ service }}</span>
+                </button>
+                <p v-if="!availableServices.length" class="treatment-service-empty">
+                  No active services available.
+                </p>
+              </div>
+            </div>
+            <small
+              v-if="serviceError"
+              :id="`${serviceListId}-error`"
+              class="treatment-service-error"
+              role="alert"
+            >
+              {{ serviceError }}
+            </small>
+          </div>
           <label>
             <span>Tooth Number(s)</span>
             <input v-model="form.tooth_numbers" maxlength="120" placeholder="e.g. 11, 12, 13" />
@@ -384,6 +526,136 @@ const remainingBalance = computed(() => {
   gap: 18px;
 }
 
+.treatment-service-field {
+  display: grid;
+  min-width: 0;
+  align-content: start;
+  gap: 7px;
+  color: #142954;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.treatment-service-field > span {
+  min-height: 18px;
+}
+
+.treatment-service-field b {
+  color: #e43955;
+}
+
+.treatment-service-picker {
+  position: relative;
+  min-width: 0;
+}
+
+.treatment-service-trigger {
+  display: flex;
+  width: 100%;
+  min-height: 44px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border: 1px solid #cdd9e8;
+  border-radius: 7px;
+  background: #fff;
+  padding: 0 13px;
+  color: #152b53;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 650;
+  text-align: left;
+}
+
+.treatment-service-trigger:focus-visible,
+.treatment-service-trigger[aria-expanded="true"] {
+  border-color: #1683da;
+  outline: 0;
+  box-shadow: 0 0 0 3px rgb(22 131 218 / 12%);
+}
+
+.treatment-service-trigger svg {
+  flex: 0 0 auto;
+}
+
+.treatment-service-summary {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.treatment-service-options {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  left: 0;
+  z-index: 5;
+  max-height: 240px;
+  overflow-y: auto;
+  border: 1px solid #cdd9e8;
+  border-radius: 7px;
+  background: #fff;
+  padding: 5px;
+  box-shadow: 0 12px 30px rgb(16 38 84 / 16%);
+}
+
+.treatment-service-option {
+  display: flex;
+  width: 100%;
+  min-height: 38px;
+  align-items: center;
+  gap: 9px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  padding: 7px 8px;
+  color: #152b53;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+  text-align: left;
+}
+
+.treatment-service-option:hover,
+.treatment-service-option:focus-visible {
+  outline: 0;
+  background: #eaf3ff;
+}
+
+.treatment-service-checkbox {
+  display: grid;
+  width: 17px;
+  height: 17px;
+  flex: 0 0 17px;
+  place-items: center;
+  border: 1px solid #8ca2bf;
+  border-radius: 4px;
+  background: #fff;
+  color: #fff;
+}
+
+.treatment-service-option[aria-checked="true"] .treatment-service-checkbox {
+  border-color: #0874e8;
+  background: #0874e8;
+}
+
+.treatment-service-empty {
+  margin: 0;
+  padding: 10px;
+  color: #617394;
+  font-size: 0.78rem;
+  font-weight: 500;
+}
+
+.treatment-service-error {
+  color: #b4233d;
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
 .treatment-clinical-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -555,6 +827,25 @@ const remainingBalance = computed(() => {
   border-color: var(--dashboard-border);
   background: #172334;
   color: var(--dashboard-text);
+}
+
+:global(html[data-dashboard-theme="dark"]) .treatment-service-field {
+  color: var(--dashboard-text);
+}
+
+:global(html[data-dashboard-theme="dark"])
+  :is(.treatment-service-trigger, .treatment-service-options) {
+  border-color: var(--dashboard-border);
+  background: #172334;
+  color: var(--dashboard-text);
+}
+
+:global(html[data-dashboard-theme="dark"]) .treatment-service-option {
+  color: var(--dashboard-text);
+}
+
+:global(html[data-dashboard-theme="dark"]) .treatment-service-option:is(:hover, :focus-visible) {
+  background: #244267;
 }
 
 :global(html[data-dashboard-theme="dark"]) .treatment-editor-actions {

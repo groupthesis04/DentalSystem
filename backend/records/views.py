@@ -21,6 +21,10 @@ from scheduling.models import Appointment
 from .models import TreatmentRecord
 
 
+def record_procedures(item):
+    return item.procedures or ([item.procedure] if item.procedure else [])
+
+
 def record_payload(item):
     return {
         "id": item.id,
@@ -32,6 +36,7 @@ def record_payload(item):
         "treatment_date": item.treatment_date.isoformat(),
         "tooth_numbers": item.tooth_numbers,
         "procedure": item.procedure,
+        "procedures": record_procedures(item),
         "amount_charged": float(item.amount_charged),
         "amount_paid": float(item.amount_paid),
         "balance": float(item.balance),
@@ -49,11 +54,24 @@ def record_payload(item):
 
 
 def validate_record_payload(payload):
-    procedure = str(payload.get("procedure", payload.get("treatment", ""))).strip()
+    if "procedures" in payload:
+        raw_procedures = payload["procedures"]
+        if not isinstance(raw_procedures, list):
+            raise ValueError("Choose at least one dental service.")
+        if not raw_procedures or any(not isinstance(value, str) or not value.strip() for value in raw_procedures):
+            raise ValueError("Choose at least one dental service.")
+        procedures = [value.strip() for value in raw_procedures]
+    else:
+        procedure = str(payload.get("procedure", payload.get("treatment", ""))).strip()
+        procedures = [procedure] if procedure else []
     diagnosis = str(payload.get("diagnosis", "")).strip()
     tooth_numbers = str(payload.get("tooth_numbers", "")).strip()
-    if not procedure:
+    if not procedures:
         raise ValueError("Procedure or service is required.")
+    if any(len(procedure) > 120 for procedure in procedures):
+        raise ValueError("Choose a valid dental service.")
+    if len({procedure.casefold() for procedure in procedures}) != len(procedures):
+        raise ValueError("Choose each dental service only once.")
     if not diagnosis:
         raise ValueError("Diagnosis or clinical findings are required.")
     if len(tooth_numbers) > 120 or any(char not in "0123456789#,.- /" for char in tooth_numbers):
@@ -69,7 +87,7 @@ def validate_record_payload(payload):
     if amount_paid > amount_charged:
         raise ValueError("Amount paid cannot exceed amount charged.")
     return {
-        "procedure": procedure[:120],
+        "procedures": procedures,
         "diagnosis": diagnosis[:700],
         "tooth_numbers": tooth_numbers,
         "treatment_date": treatment_date,
@@ -110,8 +128,6 @@ def save_record(request, payload, editing=False):
         values = validate_record_payload(payload)
     except ValueError as error:
         return api_error(str(error))
-    if not Service.objects.filter(name__iexact=values["procedure"]).exists():
-        return api_error("Choose a valid dental service.")
     appointment_id = str(payload.get("appointment_id", "")).strip()
     patient_id = str(payload.get("patient_id", "")).strip()
     with transaction.atomic():
@@ -125,6 +141,9 @@ def save_record(request, payload, editing=False):
             appointment = Appointment.objects.select_for_update().filter(id=appointment_id).first()
             if not appointment:
                 return api_error("Appointment not found.", 404)
+        elif item and item.appointment_id:
+            appointment = Appointment.objects.select_for_update().filter(id=item.appointment_id).first()
+        if appointment:
             patient = appointment.patient
         else:
             patient = PatientProfile.objects.filter(id=patient_id or (item.patient_id if item else "")).first()
@@ -132,6 +151,27 @@ def save_record(request, payload, editing=False):
             return api_error("Choose a valid patient.")
         if appointment and item is None and TreatmentRecord.objects.filter(appointment=appointment).exists():
             return api_error("This appointment already has a treatment record.", 409)
+
+        previous_services = {name.casefold(): name for name in record_procedures(item)} if item else {}
+        booked_names = []
+        if appointment:
+            booked_names = appointment.services if isinstance(appointment.services, list) else []
+            if not booked_names and appointment.service_name:
+                booked_names = [appointment.service_name]
+        booked_services = {name.casefold(): name for name in booked_names if isinstance(name, str) and name.strip()}
+        services = []
+        for name in values["procedures"]:
+            if name.casefold() in previous_services:
+                services.append(previous_services[name.casefold()])
+                continue
+            service = Service.objects.filter(name__iexact=name).first()
+            if service is not None:
+                services.append(service.name)
+            elif name.casefold() in booked_services:
+                services.append(booked_services[name.casefold()])
+            else:
+                return api_error("Choose a valid dental service.")
+        values["procedures"] = services
 
         previous_next_visit = item.next_visit if item else None
         if item is None:
@@ -143,18 +183,20 @@ def save_record(request, payload, editing=False):
         item.doctor_name = request.user.name
         item.treatment_date = values["treatment_date"]
         item.tooth_numbers = values["tooth_numbers"]
-        item.procedure = values["procedure"]
+        item.procedure = values["procedures"][0]
+        item.procedures = values["procedures"]
         item.amount_charged = values["amount_charged"]
         item.amount_paid = values["amount_paid"]
         item.balance = values["balance"]
         item.payment_status = values["payment_status"]
         item.diagnosis = values["diagnosis"]
-        item.treatment = values["procedure"]
+        item.treatment = item.procedure
         item.prescription = values["prescription"]
         item.notes = values["remarks"]
         item.remarks = values["remarks"]
         item.next_visit = values["next_visit"]
         item.save()
+        procedure_summary = ", ".join(item.procedures)
         sync_balance(patient)
         record_next_visit(item, previous_next_visit, defer=payload.get("schedule_follow_up") is True)
         if appointment:
@@ -168,14 +210,14 @@ def save_record(request, payload, editing=False):
                 patient.user,
                 notification_type,
                 title,
-                f"{item.procedure} was recorded with PHP {item.amount_paid:,.2f} paid and PHP {item.balance:,.2f} remaining.",
+                f"{procedure_summary} was recorded with PHP {item.amount_paid:,.2f} paid and PHP {item.balance:,.2f} remaining.",
                 "treatment",
                 item.id,
             )
         notify_doctors(
             "treatment_updated" if editing else "treatment_created",
             "Treatment transaction updated" if editing else "Treatment transaction recorded",
-            f"{item.procedure} was recorded for {patient.name} with a balance of PHP {item.balance:,.2f}.",
+            f"{procedure_summary} was recorded for {patient.name} with a balance of PHP {item.balance:,.2f}.",
             "treatment",
             item.id,
         )
@@ -187,7 +229,7 @@ def delete_record(request, payload):
     if not item:
         return api_error("Treatment record not found.", 404)
     patient_user = item.patient.user if item.patient.user_id else None
-    procedure = item.procedure
+    procedure = ", ".join(record_procedures(item))
     patient_name = item.patient_name
     item_id = item.id
     patient = item.patient

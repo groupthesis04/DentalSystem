@@ -11,7 +11,7 @@ import PatientOverview from "../components/patient/PatientOverview.vue";
 import PatientRecords from "../components/patient/PatientRecords.vue";
 import PatientVisits from "../components/patient/PatientVisits.vue";
 import { apiRequest, refreshSession, session, signOut } from "../services/api";
-import { calculateAge } from "../services/format";
+import { appointmentService, calculateAge } from "../services/format";
 import { dashboardPath, navigate } from "../router";
 import { consumeQueuedToast, queueToast, showToast } from "../services/toast";
 
@@ -90,7 +90,7 @@ async function logout() {
 }
 
 async function cancelAppointment(item) {
-  if (!window.confirm(`Cancel the ${item.service} appointment?`)) return;
+  if (!window.confirm(`Cancel the ${appointmentService(item)} appointment?`)) return;
   try {
     const data = await apiRequest("/api/appointments", {
       method: "PATCH",

@@ -4,6 +4,7 @@ import { CalendarDays, Clock3, FileText, Info, Stethoscope, UserRound } from "lu
 
 import AvailabilityDatePicker from "./AvailabilityDatePicker.vue";
 import AvatarBadge from "./AvatarBadge.vue";
+import ServiceMultiSelect from "./ServiceMultiSelect.vue";
 import { availableSlotDates, futureOpenSlots } from "../services/availability";
 import { apiRequest, session } from "../services/api";
 import { pendingAppointmentForUser, savePendingAppointment } from "../services/pendingAppointment";
@@ -22,12 +23,13 @@ const props = defineProps({
 });
 const emit = defineEmits(["created", "authentication-required", "confirmation-required", "cancel"]);
 
-const form = reactive({ service: "", doctor: "", date: "", time: "", notes: "", _website: "" });
+const form = reactive({ services: [], doctor: "", date: "", time: "", notes: "", _website: "" });
 const busy = defineModel("busy", { type: Boolean, default: false });
 const currentAvailability = ref(props.availability);
 const currentClinicDoctor = ref(props.clinicDoctor);
 const refreshingAvailability = ref(false);
 let restoringDraft = false;
+let initialServiceObserved = false;
 const bookableSlots = computed(() =>
   futureOpenSlots(currentAvailability.value, form.doctor || currentClinicDoctor.value),
 );
@@ -36,7 +38,7 @@ const slots = computed(() => bookableSlots.value.filter((slot) => slot.date === 
 
 function resetForm() {
   Object.assign(form, {
-    service: "",
+    services: [],
     date: "",
     time: "",
     notes: "",
@@ -66,7 +68,10 @@ function restorePendingDraft() {
   const draft = pendingAppointmentForUser(session.user?.id || "");
   if (!draft) return;
   restoringDraft = true;
-  Object.assign(form, draft.appointment, { _website: "" });
+  Object.assign(form, draft.appointment, {
+    services: [...draft.appointment.services],
+    _website: "",
+  });
   restoringDraft = false;
 }
 
@@ -90,7 +95,8 @@ watch(
 watch(
   () => props.initialService,
   (service) => {
-    if (service) form.service = service;
+    if (service && (initialServiceObserved || !form.services.length)) form.services = [service];
+    initialServiceObserved = true;
   },
   { immediate: true },
 );
@@ -123,7 +129,8 @@ watch(
 async function submit() {
   busy.value = true;
   try {
-    const payload = validatedPayload({ ...form });
+    const payload = validatedPayload({ ...form, service: form.services[0] || "" });
+    if (!payload.services.length) throw new Error("Select at least one dental service.");
     if (!payload.date || !payload.time) throw new Error("Choose an available date and time.");
     if (props.retainForAuthentication) {
       if (session.user?.role === "doctor") {
@@ -198,21 +205,16 @@ async function submit() {
       </section>
 
       <div class="patient-booking-fields">
-        <label class="patient-booking-field">
+        <div class="patient-booking-field">
           <span class="patient-booking-label"
-            ><Stethoscope :size="21" aria-hidden="true" /> Dental Service</span
+            ><Stethoscope :size="21" aria-hidden="true" /> Dental Services</span
           >
-          <select v-model="form.service" required>
-            <option value="">Select service</option>
-            <option
-              v-for="service in services"
-              :key="service.id || service.name"
-              :value="service.name"
-            >
-              {{ service.name }}
-            </option>
-          </select>
-        </label>
+          <ServiceMultiSelect
+            v-model="form.services"
+            :services="services"
+            label="Dental services"
+          />
+        </div>
         <label class="patient-booking-field single-doctor-field">
           <span class="patient-booking-label"
             ><UserRound :size="21" aria-hidden="true" /> Clinic Dentist</span
@@ -281,19 +283,10 @@ async function submit() {
     </template>
 
     <template v-else>
-      <label
-        >Dental service
-        <select v-model="form.service" required>
-          <option value="">Select service</option>
-          <option
-            v-for="service in services"
-            :key="service.id || service.name"
-            :value="service.name"
-          >
-            {{ service.name }}
-          </option>
-        </select>
-      </label>
+      <div class="booking-services-field">
+        <span class="booking-services-label">Dental services</span>
+        <ServiceMultiSelect v-model="form.services" :services="services" label="Dental services" />
+      </div>
       <label class="single-doctor-field"
         >Clinic dentist<input v-model="form.doctor" readonly required
       /></label>
@@ -364,6 +357,18 @@ async function submit() {
 </template>
 
 <style scoped>
+.booking-services-field {
+  display: grid;
+  min-width: 0;
+  gap: 7px;
+}
+
+.booking-services-label {
+  color: var(--ink);
+  font-size: 0.9rem;
+  font-weight: 800;
+}
+
 .appointment-date-field {
   display: grid;
   min-width: 0;

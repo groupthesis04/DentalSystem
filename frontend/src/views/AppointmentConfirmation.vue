@@ -15,6 +15,7 @@ import {
 import { computed, onMounted, reactive, ref, watch } from "vue";
 
 import AvailabilityDatePicker from "../components/AvailabilityDatePicker.vue";
+import ServiceMultiSelect from "../components/ServiceMultiSelect.vue";
 import { dashboardPath, navigate } from "../router";
 import { apiRequest, refreshSession, session } from "../services/api";
 import { availableSlotDates, futureOpenSlots } from "../services/availability";
@@ -37,7 +38,7 @@ const editing = ref(false);
 const editChecking = ref(false);
 const editSaving = ref(false);
 const editError = ref("");
-const editForm = reactive({ service: "", doctor: "", date: "", time: "", notes: "" });
+const editForm = reactive({ services: [], doctor: "", date: "", time: "", notes: "" });
 
 const details = computed(() => draft.value?.appointment || null);
 const editableSlots = computed(() => futureOpenSlots(availability.value, editForm.doctor));
@@ -45,6 +46,17 @@ const editableDates = computed(() => availableSlotDates(editableSlots.value));
 const editableTimes = computed(() =>
   editableSlots.value.filter((slot) => slot.date === editForm.date),
 );
+
+function selectedServices(appointment) {
+  if (Array.isArray(appointment?.services)) return appointment.services.filter(Boolean);
+  return [appointment?.service].filter(Boolean);
+}
+
+function offeredService(name) {
+  return services.value.some(
+    (service) => service.name?.trim().toLowerCase() === name.trim().toLowerCase(),
+  );
+}
 
 watch(
   () => editForm.date,
@@ -82,11 +94,8 @@ function currentValidationError() {
   } catch (error) {
     return error.message;
   }
-  const serviceExists = services.value.some(
-    (service) => service.name?.trim().toLowerCase() === details.value.service.toLowerCase(),
-  );
-  if (!serviceExists) {
-    return "This dental service is no longer offered. Please choose another service.";
+  if (!selectedServices(details.value).every(offeredService)) {
+    return "One or more dental services are no longer offered. Please edit your selection.";
   }
   const slotExists = futureOpenSlots(availability.value, details.value.doctor).some(
     (slot) => slot.date === details.value.date && slot.time === details.value.time,
@@ -127,14 +136,10 @@ async function refreshEditorOptions() {
   try {
     const clinicDoctor = await loadBookingOptions();
     if (!editForm.doctor && clinicDoctor) editForm.doctor = clinicDoctor;
-    if (
-      editForm.service &&
-      !services.value.some(
-        (service) => service.name?.trim().toLowerCase() === editForm.service.toLowerCase(),
-      )
-    ) {
-      editForm.service = "";
-      editError.value = "The saved dental service is no longer offered. Choose another service.";
+    if (editForm.services.some((name) => !offeredService(name))) {
+      editForm.services = editForm.services.filter(offeredService);
+      editError.value =
+        "One or more saved dental services are no longer offered. Choose from the current services.";
     }
     if (editForm.date && !editableDates.value.includes(editForm.date)) {
       editForm.date = "";
@@ -156,7 +161,7 @@ async function refreshEditorOptions() {
 
 async function editAppointment() {
   if (!details.value || confirming.value) return;
-  Object.assign(editForm, details.value);
+  Object.assign(editForm, details.value, { services: [...selectedServices(details.value)] });
   editError.value = "";
   editing.value = true;
   await refreshEditorOptions();
@@ -185,15 +190,11 @@ async function saveEditedAppointment() {
     if (!(await refreshEditorOptions())) return;
     if (editError.value) return;
     const payload = validatedPayload({ ...editForm, _website: "" });
-    if (!payload.service || !payload.doctor || !payload.date || !payload.time) {
-      throw new Error("Choose a dental service, date, and available time.");
+    if (!payload.services.length || !payload.doctor || !payload.date || !payload.time) {
+      throw new Error("Choose at least one dental service, a date, and an available time.");
     }
-    if (
-      !services.value.some(
-        (service) => service.name?.trim().toLowerCase() === payload.service.toLowerCase(),
-      )
-    ) {
-      throw new Error("Choose a currently offered dental service.");
+    if (!payload.services.every(offeredService)) {
+      throw new Error("Choose currently offered dental services.");
     }
     if (
       !futureOpenSlots(availability.value, payload.doctor).some(
@@ -374,8 +375,8 @@ onMounted(async () => {
 
           <dl v-if="!editing" class="confirmation-details">
             <div>
-              <dt><Stethoscope :size="20" />Dental Service</dt>
-              <dd>{{ details.service }}</dd>
+              <dt><Stethoscope :size="20" />Dental Services</dt>
+              <dd>{{ selectedServices(details).join(", ") }}</dd>
             </div>
             <div>
               <dt><UserRound :size="20" />Dentist</dt>
@@ -402,19 +403,15 @@ onMounted(async () => {
             aria-label="Edit appointment details"
             @submit.prevent="saveEditedAppointment"
           >
-            <label class="confirmation-edit-field">
-              <span><Stethoscope :size="20" aria-hidden="true" />Dental Service <b>*</b></span>
-              <select v-model="editForm.service" required :disabled="editChecking || editSaving">
-                <option value="">Select a dental service</option>
-                <option
-                  v-for="service in services"
-                  :key="service.id || service.name"
-                  :value="service.name"
-                >
-                  {{ service.name }}
-                </option>
-              </select>
-            </label>
+            <div class="confirmation-edit-field">
+              <span><Stethoscope :size="20" aria-hidden="true" />Dental Services <b>*</b></span>
+              <ServiceMultiSelect
+                v-model="editForm.services"
+                :services="services"
+                :disabled="editChecking || editSaving"
+                label="Dental services"
+              />
+            </div>
             <label class="confirmation-edit-field">
               <span><UserRound :size="20" aria-hidden="true" />Dentist</span>
               <input v-model="editForm.doctor" readonly required />
@@ -477,11 +474,11 @@ onMounted(async () => {
             <strong>Appointment update needed</strong>
             <p>{{ validationError }}</p>
             <button class="secondary-button" type="button" @click="editAppointment">
-              <Pencil :size="17" />Choose Another Time
+              <Pencil :size="17" />Edit Appointment
             </button>
           </div>
           <div v-else-if="!editing" class="confirmation-available">
-            <CheckCircle2 :size="20" />This service and appointment slot are currently available.
+            <CheckCircle2 :size="20" />These services and appointment slot are currently available.
           </div>
 
           <footer v-if="editing" class="confirmation-actions confirmation-edit-actions">

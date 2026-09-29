@@ -31,6 +31,18 @@ import { consumeQueuedToast, queueToast, showToast } from "../services/toast";
 const { state, load } = useDoctorStore();
 const activePanel = ref("doctorOverview");
 const highlightedId = ref("");
+const mobileNavigationOpen = ref(false);
+const portalHeader = ref(null);
+
+function closeMobileNavigation(restoreFocus = false) {
+  mobileNavigationOpen.value = false;
+  if (restoreFocus) nextTick(() => portalHeader.value?.focusNavigationButton());
+}
+
+function selectPanel(panel) {
+  activePanel.value = panel;
+  closeMobileNavigation();
+}
 
 const navItems = [
   { id: "doctorOverview", label: "Overview", icon: LayoutDashboard },
@@ -156,11 +168,21 @@ onMounted(async () => {
         :items="navItems"
         :active="activePanel"
         profile-panel-id="doctorProfile"
-        @select="activePanel = $event"
+        :mobile-drawer="true"
+        :mobile-open="mobileNavigationOpen"
+        @select="selectPanel"
         @logout="logout"
+        @close-navigation="closeMobileNavigation(true)"
       />
       <div class="portal-workspace">
-        <PortalHeader mode="doctor" @open-notification="openNotification" />
+        <PortalHeader
+          ref="portalHeader"
+          mode="doctor"
+          :navigation-open="mobileNavigationOpen"
+          @navigate-overview="selectPanel('doctorOverview')"
+          @toggle-navigation="mobileNavigationOpen = !mobileNavigationOpen"
+          @open-notification="openNotification"
+        />
         <section class="portal-main" aria-label="Doctor dashboard">
           <div
             v-if="state.loading && !state.patients.length && !state.appointments.length"
