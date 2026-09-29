@@ -40,12 +40,8 @@ const currentDate = computed(() =>
 </script>
 
 <template>
-  <header
-    class="site-header portal-header dashboard-overview-header"
-    :class="{ 'doctor-mobile-header': isDoctor }"
-  >
+  <header class="site-header portal-header dashboard-overview-header mobile-dashboard-header">
     <button
-      v-if="isDoctor"
       class="dashboard-mobile-brand"
       type="button"
       aria-label="Go to dashboard overview"
@@ -83,12 +79,11 @@ const currentDate = computed(() =>
         <Moon v-else :size="20" aria-hidden="true" />
       </button>
       <button
-        v-if="isDoctor"
         ref="navigationButton"
         class="dashboard-mobile-menu-button"
         type="button"
         aria-label="Open dashboard menu"
-        aria-controls="doctor-mobile-navigation"
+        aria-controls="dashboard-mobile-navigation"
         :aria-expanded="navigationOpen"
         @click="emit('toggle-navigation')"
       >
@@ -271,7 +266,7 @@ const currentDate = computed(() =>
 }
 
 @media (max-width: 720px) {
-  .portal-header.dashboard-overview-header.doctor-mobile-header {
+  .portal-header.dashboard-overview-header.mobile-dashboard-header {
     position: relative;
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
@@ -284,7 +279,7 @@ const currentDate = computed(() =>
     box-shadow: none;
   }
 
-  .doctor-mobile-header.dashboard-overview-header::before {
+  .mobile-dashboard-header.dashboard-overview-header::before {
     display: none;
   }
 
@@ -328,14 +323,14 @@ const currentDate = computed(() =>
     white-space: nowrap;
   }
 
-  .doctor-mobile-header .auth-actions {
+  .mobile-dashboard-header .auth-actions {
     grid-column: 2;
     grid-row: 1;
     gap: 7px;
   }
 
-  .doctor-mobile-header :deep(.notification-button),
-  .doctor-mobile-header :deep(.theme-toggle-button),
+  .mobile-dashboard-header :deep(.notification-button),
+  .mobile-dashboard-header :deep(.theme-toggle-button),
   .dashboard-mobile-menu-button {
     display: inline-grid;
     width: 42px;
@@ -349,7 +344,7 @@ const currentDate = computed(() =>
     box-shadow: 0 2px 10px rgba(18, 39, 75, 0.06);
   }
 
-  .doctor-mobile-header :deep(.notification-panel) {
+  .mobile-dashboard-header :deep(.notification-panel) {
     position: fixed;
     top: 62px;
     right: 12px;
@@ -389,29 +384,29 @@ const currentDate = computed(() =>
     opacity: 0.29;
   }
 
-  .doctor-mobile-header .dashboard-header-greeting {
+  .mobile-dashboard-header .dashboard-header-greeting {
     position: relative;
     z-index: 1;
     grid-column: 1;
     padding: 14px 0 14px 15px;
   }
 
-  .doctor-mobile-header .dashboard-header-greeting > span {
+  .mobile-dashboard-header .dashboard-header-greeting > span {
     font-size: 0.9rem;
   }
 
-  .doctor-mobile-header .dashboard-header-greeting > strong {
+  .mobile-dashboard-header .dashboard-header-greeting > strong {
     max-width: none;
     font-size: clamp(1.28rem, 5.2vw, 1.85rem);
   }
 
-  .doctor-mobile-header .dashboard-header-greeting > small {
+  .mobile-dashboard-header .dashboard-header-greeting > small {
     max-width: 260px;
     font-size: 0.7rem;
     line-height: 1.3;
   }
 
-  .doctor-mobile-header .dashboard-header-message {
+  .mobile-dashboard-header .dashboard-header-message {
     position: relative;
     z-index: 1;
     display: grid;
@@ -420,22 +415,22 @@ const currentDate = computed(() =>
     padding: 5px;
   }
 
-  .doctor-mobile-header .dashboard-header-message strong,
-  .doctor-mobile-header .dashboard-header-message span {
+  .mobile-dashboard-header .dashboard-header-message strong,
+  .mobile-dashboard-header .dashboard-header-message span {
     font-size: clamp(0.67rem, 2.8vw, 0.86rem);
   }
 }
 
 @media (max-width: 390px) {
-  .doctor-mobile-header :deep(.notification-button),
-  .doctor-mobile-header :deep(.theme-toggle-button),
+  .mobile-dashboard-header :deep(.notification-button),
+  .mobile-dashboard-header :deep(.theme-toggle-button),
   .dashboard-mobile-menu-button {
     width: 37px;
     height: 37px;
     flex-basis: 37px;
   }
 
-  .doctor-mobile-header .auth-actions {
+  .mobile-dashboard-header .auth-actions {
     gap: 5px;
   }
 
@@ -455,17 +450,19 @@ const currentDate = computed(() =>
 }
 
 @media (max-width: 720px) {
-  :global(html[data-dashboard-theme="dark"] .doctor-mobile-header .dashboard-mobile-brand) {
+  :global(html[data-dashboard-theme="dark"] .mobile-dashboard-header .dashboard-mobile-brand) {
     color: #edf4ff;
   }
 
-  :global(html[data-dashboard-theme="dark"] .doctor-mobile-header .dashboard-mobile-brand img) {
+  :global(html[data-dashboard-theme="dark"] .mobile-dashboard-header .dashboard-mobile-brand img) {
     filter: brightness(0) invert(1);
   }
 
-  :global(html[data-dashboard-theme="dark"] .doctor-mobile-header .notification-button),
-  :global(html[data-dashboard-theme="dark"] .doctor-mobile-header .theme-toggle-button),
-  :global(html[data-dashboard-theme="dark"] .doctor-mobile-header .dashboard-mobile-menu-button) {
+  :global(html[data-dashboard-theme="dark"] .mobile-dashboard-header .notification-button),
+  :global(html[data-dashboard-theme="dark"] .mobile-dashboard-header .theme-toggle-button),
+  :global(
+    html[data-dashboard-theme="dark"] .mobile-dashboard-header .dashboard-mobile-menu-button
+  ) {
     border-color: #3a4554;
     background: #1c2430;
     color: #f3f6fb;

@@ -158,8 +158,13 @@ function openAppointment(item) {
         <section class="patient-home-panel patient-upcoming-panel" aria-labelledby="upcoming-title">
           <header class="patient-panel-heading">
             <div>
-              <CalendarDays :size="20" aria-hidden="true" />
-              <h2 id="upcoming-title">Upcoming Appointment</h2>
+              <span class="patient-heading-icon"
+                ><CalendarDays :size="20" aria-hidden="true"
+              /></span>
+              <span class="patient-heading-copy">
+                <h2 id="upcoming-title">Upcoming Appointment</h2>
+                <small>Your next scheduled visit</small>
+              </span>
             </div>
             <button type="button" @click="openAppointment(nextVisit)">View All</button>
           </header>
@@ -171,7 +176,7 @@ function openAppointment(item) {
               <small>{{ nextVisitDate.year }}</small>
             </time>
             <div class="patient-upcoming-copy">
-              <h3>{{ nextVisit.service }}</h3>
+              <h3>{{ appointmentService(nextVisit) }}</h3>
               <dl>
                 <div>
                   <dt>Dentist</dt>
@@ -207,8 +212,13 @@ function openAppointment(item) {
         >
           <header class="patient-panel-heading appointment-heading">
             <div>
-              <CalendarDays :size="20" aria-hidden="true" />
-              <h2 id="home-appointments-title">My Appointments</h2>
+              <span class="patient-heading-icon"
+                ><CalendarDays :size="20" aria-hidden="true"
+              /></span>
+              <span class="patient-heading-copy">
+                <h2 id="home-appointments-title">My Appointments</h2>
+                <small>Your clinic visit history</small>
+              </span>
             </div>
             <button type="button" @click="openAppointment(null)">View All</button>
           </header>
@@ -268,6 +278,29 @@ function openAppointment(item) {
               </tbody>
             </table>
           </div>
+          <ul class="patient-mobile-appointments" aria-label="Recent appointments">
+            <li v-for="item in visibleAppointments" :key="item.id" :data-entity-id="item.id">
+              <button
+                type="button"
+                :class="{ 'notification-target-glow': highlightedId === item.id }"
+                @click="openAppointment(item)"
+              >
+                <span class="patient-mobile-appointment-date">
+                  <strong>{{ formatDate(item.date) }}</strong>
+                  <small>{{ formatTime(item.time) }}</small>
+                </span>
+                <span class="patient-mobile-appointment-copy">
+                  <strong>{{ appointmentService(item) }}</strong>
+                  <small>{{ item.doctor || "Clinic dentist" }}</small>
+                </span>
+                <StatusBadge :status="item.status" />
+                <ChevronRight :size="16" aria-hidden="true" />
+              </button>
+            </li>
+            <li v-if="!visibleAppointments.length" class="patient-mobile-appointment-empty">
+              No {{ appointmentFilter === "all" ? "" : appointmentFilter }} appointments to show.
+            </li>
+          </ul>
         </section>
       </div>
 
@@ -278,8 +311,11 @@ function openAppointment(item) {
         >
           <header class="patient-panel-heading compact">
             <div>
-              <Zap :size="20" aria-hidden="true" />
-              <h2 id="quick-actions-title">Quick Actions</h2>
+              <span class="patient-heading-icon"><Zap :size="20" aria-hidden="true" /></span>
+              <span class="patient-heading-copy">
+                <h2 id="quick-actions-title">Quick Actions</h2>
+                <small>What would you like to do?</small>
+              </span>
             </div>
           </header>
           <div class="patient-quick-grid">
@@ -315,8 +351,11 @@ function openAppointment(item) {
         >
           <header class="patient-panel-heading compact">
             <div>
-              <MapPin :size="20" aria-hidden="true" />
-              <h2 id="clinic-information-title">Clinic Information</h2>
+              <span class="patient-heading-icon"><MapPin :size="20" aria-hidden="true" /></span>
+              <span class="patient-heading-copy">
+                <h2 id="clinic-information-title">Clinic Information</h2>
+                <small>Visit or contact our clinic</small>
+              </span>
             </div>
           </header>
           <address>
@@ -466,6 +505,22 @@ function openAppointment(item) {
   align-items: center;
   gap: 10px;
   color: #1876e7;
+}
+
+.patient-heading-icon {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+}
+
+.patient-heading-copy {
+  display: block;
+  min-width: 0;
+}
+
+.patient-heading-copy > small {
+  display: none;
 }
 
 .patient-panel-heading h2 {
@@ -689,6 +744,10 @@ function openAppointment(item) {
 .patient-home-table-wrap {
   overflow-x: auto;
   padding: 0 18px 16px;
+}
+
+.patient-mobile-appointments {
+  display: none;
 }
 
 .patient-home-table {
@@ -1172,10 +1231,6 @@ function openAppointment(item) {
 }
 
 @media (max-width: 420px) {
-  .patient-quick-grid {
-    grid-template-columns: 1fr;
-  }
-
   .patient-summary-card {
     grid-template-columns: 38px minmax(0, 1fr);
     gap: 8px;
@@ -1190,6 +1245,310 @@ function openAppointment(item) {
   .patient-summary-icon :deep(svg) {
     width: 21px;
     height: 21px;
+  }
+}
+
+@media (max-width: 620px) {
+  .patient-home-dashboard,
+  .patient-home-content,
+  .patient-home-primary,
+  .patient-home-rail {
+    gap: 10px;
+  }
+
+  .patient-summary-cards {
+    gap: 8px;
+  }
+
+  .patient-summary-card {
+    min-height: 100px;
+    border-radius: 11px;
+    box-shadow: 0 6px 17px rgb(31 64 102 / 5%);
+  }
+
+  .patient-summary-card > span:last-child {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  .patient-summary-card small {
+    order: -1;
+    margin: 0 0 5px;
+    font-size: 0.7rem;
+    line-height: 1.16;
+  }
+
+  .patient-summary-card strong {
+    font-size: 1.35rem;
+    line-height: 1;
+  }
+
+  .patient-summary-icon {
+    border-radius: 50%;
+  }
+
+  .patient-summary-card.summary-total {
+    border-color: #d7e8ff;
+    background: #f1f7ff;
+  }
+
+  .patient-summary-card.summary-completed {
+    border-color: #d1efe5;
+    background: #effaf6;
+  }
+
+  .patient-summary-card.summary-upcoming {
+    border-color: #f8e9cb;
+    background: #fff8ed;
+  }
+
+  .patient-summary-card.summary-cancelled {
+    border-color: #f8dfe4;
+    background: #fff4f5;
+  }
+
+  .patient-home-panel,
+  .patient-care-note {
+    border-radius: 11px;
+  }
+
+  .patient-panel-heading,
+  .patient-panel-heading.compact {
+    min-height: 66px;
+    gap: 7px;
+    padding: 12px;
+  }
+
+  .patient-panel-heading > div {
+    gap: 8px;
+  }
+
+  .patient-heading-icon {
+    width: 39px;
+    height: 39px;
+    border-radius: 50%;
+    background: #dff5f9;
+    color: #0089a3;
+  }
+
+  .patient-heading-icon :deep(svg) {
+    width: 19px;
+    height: 19px;
+  }
+
+  .patient-heading-copy > small {
+    display: block;
+    margin-top: 2px;
+    color: #6b7f99;
+    font-size: 0.62rem;
+    line-height: 1.25;
+  }
+
+  .patient-panel-heading h2 {
+    font-size: 0.83rem;
+    line-height: 1.15;
+  }
+
+  .patient-panel-heading > button {
+    flex: 0 0 auto;
+    border-radius: 6px;
+    background: #625af1;
+    padding: 7px 9px;
+    color: #fff;
+    font-size: 0.63rem;
+    text-decoration: none;
+  }
+
+  .patient-panel-heading > button:hover,
+  .patient-panel-heading > button:focus-visible {
+    background: #4e45dd;
+    color: #fff;
+    text-decoration: none;
+  }
+
+  .patient-upcoming-body,
+  .patient-upcoming-empty {
+    border-radius: 9px;
+    background: #eef7ff;
+  }
+
+  .patient-upcoming-body {
+    min-height: 0;
+  }
+
+  .patient-upcoming-copy h3 {
+    margin-bottom: 5px;
+    font-size: 0.85rem;
+    white-space: normal;
+  }
+
+  .patient-view-details,
+  .patient-upcoming-empty > button {
+    min-height: 35px;
+    border-radius: 7px;
+  }
+
+  .patient-home-table-wrap {
+    display: none;
+  }
+
+  .patient-mobile-appointments {
+    display: grid;
+    gap: 7px;
+    margin: 0;
+    padding: 0 12px 13px;
+    list-style: none;
+  }
+
+  .patient-mobile-appointments > li {
+    min-width: 0;
+  }
+
+  .patient-mobile-appointments > li > button {
+    display: grid;
+    width: 100%;
+    min-width: 0;
+    grid-template-columns: 67px minmax(0, 1fr) auto 14px;
+    align-items: center;
+    gap: 7px;
+    border: 1px solid #e1eaf3;
+    border-radius: 8px;
+    background: #fbfdff;
+    padding: 9px 7px;
+    color: #14284a;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .patient-mobile-appointments > li > button:hover,
+  .patient-mobile-appointments > li > button:focus-visible {
+    border-color: #99bfec;
+    background: #f2f8ff;
+    outline: none;
+  }
+
+  .patient-mobile-appointment-date,
+  .patient-mobile-appointment-copy {
+    display: grid;
+    min-width: 0;
+    gap: 3px;
+  }
+
+  .patient-mobile-appointment-date strong,
+  .patient-mobile-appointment-copy strong {
+    overflow: hidden;
+    font-size: 0.63rem;
+    line-height: 1.2;
+    text-overflow: ellipsis;
+  }
+
+  .patient-mobile-appointment-date small,
+  .patient-mobile-appointment-copy small {
+    overflow: hidden;
+    color: #6b7e96;
+    font-size: 0.56rem;
+    line-height: 1.2;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .patient-mobile-appointment-copy strong {
+    white-space: nowrap;
+  }
+
+  .patient-mobile-appointments :deep(.status) {
+    min-width: 0;
+    padding: 3px 5px;
+    font-size: 0.52rem;
+  }
+
+  .patient-mobile-appointments button > svg {
+    color: #7790ac;
+  }
+
+  .patient-mobile-appointment-empty {
+    border: 1px dashed #dce8f3;
+    border-radius: 8px;
+    padding: 20px 12px;
+    color: #6b7e96;
+    font-size: 0.7rem;
+    text-align: center;
+  }
+
+  .patient-quick-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    padding: 0 12px 12px;
+  }
+
+  .patient-quick-grid button {
+    grid-template-columns: 29px minmax(0, 1fr);
+    min-height: 60px;
+    gap: 6px;
+    border-radius: 8px;
+    padding: 7px;
+  }
+
+  .patient-quick-grid button > span:first-child {
+    width: 29px;
+    height: 29px;
+    border-radius: 7px;
+  }
+
+  .patient-quick-grid button > span:first-child :deep(svg) {
+    width: 17px;
+    height: 17px;
+  }
+
+  .patient-quick-grid button > svg {
+    display: none;
+  }
+
+  .patient-quick-grid strong {
+    font-size: 0.62rem;
+    line-height: 1.15;
+    white-space: normal;
+  }
+
+  .patient-quick-grid small {
+    font-size: 0.54rem;
+    line-height: 1.15;
+  }
+
+  .patient-clinic-panel {
+    min-height: 0;
+  }
+
+  .patient-clinic-panel address {
+    gap: 10px;
+    padding: 2px 14px 17px;
+  }
+}
+
+@media (max-width: 359px) {
+  .patient-summary-card {
+    grid-template-columns: 32px minmax(0, 1fr);
+    gap: 5px;
+    padding: 7px;
+  }
+
+  .patient-summary-icon {
+    width: 32px;
+    height: 32px;
+  }
+
+  .patient-summary-card small {
+    font-size: 0.62rem;
+  }
+
+  .patient-mobile-appointments > li > button {
+    grid-template-columns: 58px minmax(0, 1fr) auto;
+  }
+
+  .patient-mobile-appointments button > svg {
+    display: none;
   }
 }
 </style>

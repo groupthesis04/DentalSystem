@@ -362,6 +362,16 @@ body[data-page="patient"] #app {
   color: var(--dashboard-blue-dark);
 }
 
+.sidebar-profile-avatar {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.sidebar-profile-status,
+.sidebar-profile-copy small svg {
+  display: none;
+}
+
 .profile-sidebar .sidebar-account .profile-avatar {
   width: 38px;
   height: 38px;
@@ -4951,19 +4961,19 @@ html[data-dashboard-theme="dark"]
   }
 }
 
-/* Doctor dashboard mobile navigation uses the header menu instead of the bottom bar. */
+/* Dashboard mobile navigation uses the header menu instead of the bottom bar. */
 .sidebar-drawer-close,
 .doctor-mobile-navigation-backdrop {
   display: none;
 }
 
 @media (max-width: 720px) {
-  body[data-page="doctor"] {
+  body:is([data-page="doctor"], [data-page="patient"]) {
     padding-bottom: 0;
   }
 
-  .doctor-portal.portal-page,
-  .doctor-portal .portal-workspace {
+  :is(.doctor-portal, .patient-portal).portal-page,
+  :is(.doctor-portal, .patient-portal) .portal-workspace {
     min-height: 100vh;
   }
 
@@ -4978,7 +4988,7 @@ html[data-dashboard-theme="dark"]
     cursor: default;
   }
 
-  .doctor-portal.portal-page > .doctor-navigation-drawer {
+  :is(.doctor-portal, .patient-portal).portal-page > .doctor-navigation-drawer {
     position: fixed;
     inset: 0 auto 0 0;
     z-index: 99;
@@ -4999,7 +5009,7 @@ html[data-dashboard-theme="dark"]
       visibility 200ms ease;
   }
 
-  .doctor-portal.portal-page > .doctor-navigation-drawer.mobile-open {
+  :is(.doctor-portal, .patient-portal).portal-page > .doctor-navigation-drawer.mobile-open {
     visibility: visible;
     transform: translateX(0);
   }
@@ -5077,10 +5087,110 @@ html[data-dashboard-theme="dark"]
 
   .doctor-navigation-drawer .sidebar-account {
     display: flex;
+    min-height: 68px;
+    margin-top: 8px;
+    gap: 12px;
+    border: 1px solid #dceafb;
+    border-radius: 13px;
+    background: linear-gradient(105deg, #eaf4ff, #f5faff 72%, #edf7ff);
+    padding: 9px 11px;
+    box-shadow: 0 2px 8px rgba(40, 104, 188, 0.05);
+  }
+
+  .doctor-navigation-drawer .sidebar-account:is(:hover, :focus-visible, .active) {
+    border-color: #bad6fa;
+    background: linear-gradient(105deg, #e1efff, #f0f7ff 72%, #e6f3ff);
+    color: var(--dashboard-text);
+  }
+
+  .doctor-navigation-drawer .sidebar-profile-avatar {
+    width: 45px;
+    height: 45px;
+    flex: 0 0 45px;
+  }
+
+  .doctor-navigation-drawer .sidebar-account .profile-avatar {
+    display: grid;
+    width: 45px;
+    height: 45px;
+    margin: 0;
+    border: 0;
+    border-radius: 50%;
+    background-color: #dbeafe;
+  }
+
+  .doctor-navigation-drawer .sidebar-profile-status {
+    position: absolute;
+    right: 0;
+    bottom: 1px;
+    display: block;
+    width: 12px;
+    height: 12px;
+    border: 2px solid #f0f7ff;
+    border-radius: 50%;
+    background: #16a34a;
+  }
+
+  .doctor-navigation-drawer .sidebar-profile-copy {
+    gap: 3px;
+  }
+
+  .doctor-navigation-drawer .sidebar-profile-copy strong {
+    color: #10213d;
+    font-size: 0.74rem;
+    line-height: 1.2;
+  }
+
+  .doctor-navigation-drawer .sidebar-profile-copy small {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    color: #1473e6;
+    font-size: 0.68rem;
+    line-height: 1.2;
+  }
+
+  .doctor-navigation-drawer .sidebar-profile-copy small svg {
+    display: block;
   }
 
   .doctor-navigation-drawer .sidebar-logout {
     display: flex;
+  }
+
+  html[data-dashboard-theme="dark"]
+    body:is([data-page="doctor"], [data-page="patient"])
+    .doctor-navigation-drawer
+    .sidebar-account,
+  html[data-dashboard-theme="dark"]
+    body:is([data-page="doctor"], [data-page="patient"])
+    .doctor-navigation-drawer
+    .sidebar-account:is(:hover, :focus-visible, .active) {
+    border-color: #355375;
+    background: linear-gradient(105deg, #1b3152, #1c2c48 72%, #1a3452);
+  }
+
+  html[data-dashboard-theme="dark"]
+    body:is([data-page="doctor"], [data-page="patient"])
+    .doctor-navigation-drawer
+    .sidebar-profile-copy
+    strong {
+    color: #f1f5ff;
+  }
+
+  html[data-dashboard-theme="dark"]
+    body:is([data-page="doctor"], [data-page="patient"])
+    .doctor-navigation-drawer
+    .sidebar-profile-copy
+    small {
+    color: #9bc7ff;
+  }
+
+  html[data-dashboard-theme="dark"]
+    body:is([data-page="doctor"], [data-page="patient"])
+    .doctor-navigation-drawer
+    .sidebar-profile-status {
+    border-color: #1b3152;
   }
 }
 

@@ -25,6 +25,18 @@ const clinicDoctor = ref("");
 const bookingOpen = ref(false);
 const bookingBusy = ref(false);
 const highlightedId = ref("");
+const mobileNavigationOpen = ref(false);
+const portalHeader = ref(null);
+
+function closeMobileNavigation(restoreFocus = false) {
+  mobileNavigationOpen.value = false;
+  if (restoreFocus) nextTick(() => portalHeader.value?.focusNavigationButton());
+}
+
+function selectPanel(panel) {
+  activePanel.value = panel;
+  closeMobileNavigation();
+}
 
 function formatBookingDate(value) {
   if (!value) return "No previous visit";
@@ -111,6 +123,7 @@ async function appointmentCreated(item) {
 }
 
 async function openNotification(item) {
+  closeMobileNavigation();
   activePanel.value = item.entity_type === "appointment" ? "patientSchedule" : "patientRecords";
   highlightedId.value = item.entity_id || "";
   await nextTick();
@@ -174,11 +187,21 @@ onMounted(async () => {
         :items="navItems"
         :active="activePanel"
         profile-panel-id="patientProfile"
-        @select="activePanel = $event"
+        :mobile-drawer="true"
+        :mobile-open="mobileNavigationOpen"
+        @select="selectPanel"
         @logout="logout"
+        @close-navigation="closeMobileNavigation(true)"
       />
       <div class="portal-workspace">
-        <PortalHeader mode="patient" @open-notification="openNotification" />
+        <PortalHeader
+          ref="portalHeader"
+          mode="patient"
+          :navigation-open="mobileNavigationOpen"
+          @navigate-overview="selectPanel('patientOverview')"
+          @toggle-navigation="mobileNavigationOpen = !mobileNavigationOpen"
+          @open-notification="openNotification"
+        />
         <section class="portal-main" aria-label="Patient dashboard">
           <div v-if="loading" class="loading-state">Loading your care information...</div>
 

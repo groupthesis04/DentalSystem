@@ -1,5 +1,5 @@
 <script setup>
-import { ChevronDown, LogOut, X } from "lucide-vue-next";
+import { ChevronDown, ChevronRight, LogOut, X } from "lucide-vue-next";
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 
 import AvatarBadge from "./AvatarBadge.vue";
@@ -158,7 +158,7 @@ function selectDrawerChild(child) {
     ></button>
   </Teleport>
   <aside
-    :id="mobileDrawer ? 'doctor-mobile-navigation' : undefined"
+    :id="mobileDrawer ? 'dashboard-mobile-navigation' : undefined"
     ref="sidebar"
     class="profile-sidebar overview-navigation"
     :class="{ 'doctor-navigation-drawer': mobileDrawer, 'mobile-open': mobileOpen }"
@@ -262,10 +262,13 @@ function selectDrawerChild(child) {
         mobileDrawer && isMobile && emit('close-navigation');
       "
     >
-      <AvatarBadge :name="user.name" :image="user.profile_image" />
+      <div class="sidebar-profile-avatar">
+        <AvatarBadge :name="user.name" :image="user.profile_image" />
+        <span class="sidebar-profile-status" aria-hidden="true"></span>
+      </div>
       <span class="sidebar-profile-copy">
         <strong>{{ user.name }}</strong>
-        <small>View Profile</small>
+        <small>View Profile <ChevronRight :size="13" aria-hidden="true" /></small>
       </span>
     </button>
     <button
