@@ -1,5 +1,8 @@
 import os
+import secrets
 from pathlib import Path
+
+from django.core.exceptions import ImproperlyConfigured
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -30,12 +33,20 @@ load_environment_file(BASE_DIR / ".env")
 # CORE
 # ============================================================
 
-SECRET_KEY = os.environ.get(
-    "DRMS_DJANGO_SECRET_KEY",
-    "development-only-change-this-key-before-deployment",
-)
+DEBUG = os.environ.get("DRMS_DEBUG", "0") == "1"
 
-DEBUG = os.environ.get("DRMS_DEBUG", "1") == "1"
+configured_secret = os.environ.get("DRMS_DJANGO_SECRET_KEY", "").strip()
+if not DEBUG and (
+    len(configured_secret) < 50
+    or configured_secret in {
+        "development-only-change-this-key-before-deployment",
+        "replace-with-a-long-random-secret",
+    }
+):
+    raise ImproperlyConfigured(
+        "Set DRMS_DJANGO_SECRET_KEY to a unique random value of at least 50 characters."
+    )
+SECRET_KEY = configured_secret or secrets.token_urlsafe(64)
 
 
 # ============================================================
@@ -44,20 +55,11 @@ DEBUG = os.environ.get("DRMS_DEBUG", "1") == "1"
 
 configured_hosts = os.environ.get("DRMS_ALLOWED_HOSTS", "").strip()
 
-if configured_hosts:
-    ALLOWED_HOSTS = [
-        host.strip()
-        for host in configured_hosts.split(",")
-        if host.strip()
-    ]
-elif DEBUG:
-    # Allows localhost and LAN testing during development.
-    ALLOWED_HOSTS = ["*"]
-else:
-    ALLOWED_HOSTS = [
-        "127.0.0.1",
-        "localhost",
-    ]
+ALLOWED_HOSTS = [host.strip() for host in configured_hosts.split(",") if host.strip()]
+if not ALLOWED_HOSTS:
+    ALLOWED_HOSTS = ["127.0.0.1", "localhost"]
+if not DEBUG and "*" in ALLOWED_HOSTS:
+    raise ImproperlyConfigured("DRMS_ALLOWED_HOSTS must list explicit production hostnames.")
 
 
 # ============================================================
@@ -220,9 +222,7 @@ SESSION_COOKIE_HTTPONLY = True
 # protecting cookies from cross-site POST requests.
 SESSION_COOKIE_SAMESITE = "Lax"
 
-SESSION_COOKIE_SECURE = (
-    os.environ.get("DRMS_COOKIE_SECURE", "0") == "1"
-)
+SESSION_COOKIE_SECURE = not DEBUG or os.environ.get("DRMS_COOKIE_SECURE", "0") == "1"
 
 SESSION_COOKIE_AGE = 12 * 60 * 60
 SESSION_SAVE_EVERY_REQUEST = True
@@ -274,6 +274,11 @@ SECURE_PROXY_SSL_HEADER = (
     "HTTP_X_FORWARDED_PROTO",
     "https",
 )
+
+SECURE_SSL_REDIRECT = not DEBUG
+SECURE_HSTS_SECONDS = 3600 if not DEBUG else 0
+SECURE_HSTS_INCLUDE_SUBDOMAINS = False
+SECURE_HSTS_PRELOAD = False
 
 
 # ============================================================

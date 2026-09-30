@@ -51,6 +51,12 @@ npm.cmd run dev
 `install` is needed only the first time. `dev` starts the Vue frontend and refreshes the browser
 whenever you save a Vue file. On this computer, open `http://127.0.0.1:5173`.
 
+The current Railway service runs `vite preview`; its response security headers
+are configured in `vite.config.js`. Vite intends this server for previewing a
+built site, so a future production static server should serve `dist/` while
+preserving the same-origin `/api` proxy, SPA fallback, and those headers. The
+browser's API calls rely on that proxy for session and CSRF handling.
+
 ## Open on a Phone
 
 1. Connect the computer and phone to the same Wi-Fi network.

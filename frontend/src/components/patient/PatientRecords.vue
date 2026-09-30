@@ -341,9 +341,6 @@ watch(pageCount, (count) => {
     <TreatmentDetailsModal
       v-if="detailRecord"
       :record="detailRecord"
-      show-dentist
-      show-status
-      show-next-visit
       @close="detailRecord = null"
     />
   </section>

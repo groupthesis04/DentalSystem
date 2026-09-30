@@ -404,8 +404,6 @@ function selectPage(page) {
     <TreatmentDetailsModal
       v-if="detailRecord"
       :record="detailRecord"
-      show-dentist
-      :doctor-fallback="state.clinicDoctor || 'Clinic dentist'"
       @close="detailRecord = null"
     />
   </section>

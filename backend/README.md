@@ -46,6 +46,27 @@ Normal application commands still use MySQL.
 
 See `DJANGO_BACKEND_GUIDE.md` in the project root for the complete beginner guide.
 
+## Railway production security
+
+Before deploying the backend, set `DRMS_DEBUG=0`, a unique random
+`DRMS_DJANGO_SECRET_KEY` of at least 50 characters, and `DRMS_ALLOWED_HOSTS` to
+the backend's explicit public hostname. Set `DRMS_COOKIE_SECURE=1` as well. The
+frontend's HTTPS origin is already trusted for CSRF in `settings.py`; add any
+other frontend origins through `DRMS_CSRF_TRUSTED_ORIGINS`.
+
+Production refuses to start with a missing, short, or known placeholder secret
+or a wildcard host. It redirects HTTP to HTTPS, marks session and CSRF cookies
+Secure, and initially sends HSTS with a one-hour lifetime. Do not enable HSTS
+subdomains or preload until every affected hostname has been verified on HTTPS.
+Changing the secret signs out existing users, so rotate it during a planned
+deployment and ask users to log in again. Never copy the secret into source,
+frontend variables, logs, or support messages.
+
+After setting the production variables, run `python manage.py check --deploy`
+with the production environment. The initial HSTS configuration intentionally
+leaves subdomains and preload disabled, so Django reports only those two
+advisory warnings.
+
 ## SMS worker
 
 Optional Semaphore settings are listed in `.env.example`. Set the API key only in
