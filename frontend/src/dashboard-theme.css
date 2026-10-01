@@ -1879,6 +1879,15 @@ body[data-page="patient"] #app {
   font-size: 0.72rem;
 }
 
+.patient-detail-identity .patient-account-state {
+  color: #15803d;
+  font-weight: 700;
+}
+
+.patient-detail-identity .patient-account-state.disabled {
+  color: #b45309;
+}
+
 .patient-detail-actions {
   display: flex;
   flex: 0 0 auto;
@@ -2119,6 +2128,29 @@ body[data-page="patient"] #app {
 
 .patient-contact-list > div {
   padding-block: 7px;
+}
+
+.patient-consent-card {
+  display: grid;
+  align-content: start;
+  gap: 9px;
+}
+
+.patient-consent-card .patient-card-heading,
+.patient-consent-card p {
+  margin: 0;
+}
+
+.patient-consent-card p {
+  color: var(--dashboard-muted);
+  font-size: 0.72rem;
+  line-height: 1.45;
+}
+
+.patient-consent-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .patient-treatment-history {
@@ -6103,6 +6135,61 @@ html[data-dashboard-theme="dark"]
   font-size: 0.55rem;
 }
 
+.patient-sms-preference {
+  display: grid;
+  gap: 10px;
+  margin-top: 16px;
+  padding: 16px;
+  border: 1px solid var(--dashboard-border);
+  border-radius: 10px;
+  background: #fafcff;
+  color: var(--dashboard-text);
+}
+
+.patient-sms-preference h3,
+.patient-sms-preference p {
+  margin: 0;
+}
+
+.patient-sms-preference h3 {
+  font-size: 0.9rem;
+}
+
+.patient-sms-preference p,
+.patient-sms-preference small,
+.patient-sms-options {
+  font-size: 0.75rem;
+  line-height: 1.45;
+}
+
+.patient-sms-preference small {
+  color: var(--dashboard-muted);
+}
+
+.patient-sms-preference .patient-sms-legacy-note {
+  color: #8a5a00;
+}
+
+.patient-sms-options {
+  display: grid;
+  gap: 8px;
+}
+
+.patient-sms-options label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.patient-sms-options input {
+  accent-color: #0b6b82;
+}
+
+.patient-sms-preference .account-save-button {
+  justify-self: start;
+}
+
 .account-theme-choice {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -6827,6 +6914,17 @@ html[data-dashboard-theme="dark"]
   text-align: right;
 }
 
+.doctor-account-page:not(.patient-account-page)
+  .account-security-side
+  .account-security-card
+  > form.account-security-fields {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.doctor-account-page:not(.patient-account-page) > .activity-log {
+  margin-top: 14px;
+}
+
 .doctor-account-page:not(.patient-account-page) .account-current-session {
   display: flex;
   align-items: center;
@@ -7006,10 +7104,28 @@ html[data-dashboard-theme="dark"]
   .doctor-account-page:not(.patient-account-page) .account-side-column {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .doctor-account-page:not(.patient-account-page) .account-security-side .account-security-card {
+    grid-column: 1 / -1;
+  }
+
+  .doctor-account-page:not(.patient-account-page)
+    .account-security-side
+    .account-security-card
+    > form.account-security-fields {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 760px) {
   .doctor-account-page:not(.patient-account-page) .account-side-column {
+    grid-template-columns: 1fr;
+  }
+
+  .doctor-account-page:not(.patient-account-page)
+    .account-security-side
+    .account-security-card
+    > form.account-security-fields {
     grid-template-columns: 1fr;
   }
 

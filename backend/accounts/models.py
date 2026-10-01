@@ -75,6 +75,13 @@ class PatientProfile(models.Model):
     phone_number = models.CharField(max_length=24, blank=True)
     mobile_number = models.CharField(max_length=24, blank=True)
     notes = models.TextField(blank=True)
+    privacy_consent_given = models.BooleanField(default=False)
+    privacy_consent_at = models.DateTimeField(null=True, blank=True)
+    privacy_version = models.CharField(max_length=40, blank=True)
+    # NULL marks pre-consent records whose historic choice was not recorded.
+    # Newly created profiles default to False until the patient opts in.
+    sms_consent = models.BooleanField(default=False, null=True)
+    sms_consent_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     legacy_payload = models.JSONField(default=dict, blank=True)
@@ -121,6 +128,8 @@ class PatientAccountVerification(models.Model):
     password_hash = models.CharField(max_length=128, blank=True)
     profile_image = models.TextField(blank=True)
     remember = models.BooleanField(default=False)
+    privacy_version = models.CharField(max_length=40, blank=True)
+    sms_consent = models.BooleanField(default=False)
     expires_at = models.DateTimeField()
     attempts = models.PositiveSmallIntegerField(default=0)
     is_used = models.BooleanField(default=False)
@@ -143,3 +152,16 @@ class AccountLoginActivity(models.Model):
 
     class Meta:
         indexes = [models.Index(fields=["user", "-created_at"], name="account_login_user_idx")]
+
+
+class AccountAuthState(models.Model):
+    """Persistent failed sign-in counter shared across devices and workers."""
+
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="auth_state")
+    failed_attempts = models.PositiveSmallIntegerField(default=0)
+    locked_until = models.DateTimeField(null=True, blank=True)
+    last_failed_at = models.DateTimeField(null=True, blank=True)
+
+
+# Django discovers models imported from this module during app initialization.
+from .audit_models import AuditEvent  # noqa: E402,F401

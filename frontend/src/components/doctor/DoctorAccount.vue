@@ -34,6 +34,7 @@ import { apiRequest, session } from "../../services/api";
 import { showToast } from "../../services/toast";
 import { imageToDataUrl, validatedPayload } from "../../services/validation";
 import AvatarBadge from "../AvatarBadge.vue";
+import ActivityLog from "./ActivityLog.vue";
 
 const props = defineProps({
   mode: {
@@ -116,6 +117,11 @@ const sessionsBusy = ref(false);
 const notificationsBusy = ref(false);
 const securityLoaded = ref(false);
 const notificationsLoaded = ref(false);
+const smsPreferenceLoaded = ref(false);
+const smsPreferenceBusy = ref(false);
+const smsChoice = ref(null);
+const smsPreferenceAt = ref(null);
+const privacyConsentAt = ref(null);
 const editing = ref(false);
 const editingRecovery = ref(false);
 const fileInput = ref(null);
@@ -239,8 +245,40 @@ async function loadNotifications(showErrors = false) {
   }
 }
 
+async function loadSmsPreference(showErrors = false) {
+  if (!isPatient.value) return;
+  try {
+    const data = await apiRequest("/api/account/sms-preference");
+    smsChoice.value = data.sms_consent;
+    smsPreferenceAt.value = data.sms_consent_at;
+    privacyConsentAt.value = data.privacy_consent_at;
+    smsPreferenceLoaded.value = true;
+  } catch (error) {
+    if (showErrors) showToast(error.message, "error");
+  }
+}
+
+async function saveSmsPreference() {
+  if (typeof smsChoice.value !== "boolean") return;
+  smsPreferenceBusy.value = true;
+  try {
+    const data = await apiRequest("/api/account/sms-preference", {
+      method: "PATCH",
+      body: { sms_consent: smsChoice.value },
+    });
+    smsChoice.value = data.sms_consent;
+    smsPreferenceAt.value = data.sms_consent_at;
+    showToast("SMS preference saved.");
+  } catch (error) {
+    showToast(error.message, "error");
+  } finally {
+    smsPreferenceBusy.value = false;
+  }
+}
+
 onMounted(() => {
   if (!isPatient.value) loadSecurity();
+  else loadSmsPreference();
 });
 
 function syncForm() {
@@ -274,6 +312,7 @@ function selectTab(tab) {
   }
   if (tab === "security") loadSecurity(true);
   if (tab === "notifications") loadNotifications(true);
+  if (tab === "notifications") loadSmsPreference(true);
 }
 
 function beginEditing() {
@@ -703,6 +742,260 @@ async function saveNotifications() {
             </div>
           </form>
 
+          <section
+            class="account-panel account-login-activity-card"
+            aria-labelledby="login-activity-title"
+          >
+            <header class="account-panel-heading">
+              <div class="account-heading-icon blue"><Monitor :size="19" aria-hidden="true" /></div>
+              <div>
+                <h2 id="login-activity-title">Login Activity</h2>
+                <p>Recent login history for your account.</p>
+              </div>
+            </header>
+            <div v-if="securityData.login_activity.length" class="account-activity-list">
+              <div class="account-activity-header" aria-hidden="true">
+                <span>Device</span>
+                <span>Date &amp; Time</span>
+              </div>
+              <div
+                v-for="entry in securityData.login_activity"
+                :key="entry.id"
+                class="account-activity-row"
+              >
+                <Monitor :size="18" aria-hidden="true" />
+                <span>
+                  <strong>{{ entry.device }}</strong>
+                  <small v-if="entry.is_current">Current Device</small>
+                </span>
+                <time :datetime="entry.created_at">{{
+                  formatAccountDateTime(entry.created_at)
+                }}</time>
+              </div>
+            </div>
+            <p v-else class="account-empty-state">
+              {{
+                securityLoaded
+                  ? "No recent login activity is available."
+                  : "Loading login activity..."
+              }}
+            </p>
+          </section>
+        </template>
+      </div>
+
+      <div v-else class="account-settings-view">
+        <section class="account-panel account-settings-panel">
+          <header class="account-panel-heading">
+            <div class="account-heading-icon blue"><Bell :size="19" aria-hidden="true" /></div>
+            <div>
+              <h2>Notification Settings</h2>
+              <p>
+                {{
+                  isPatient
+                    ? accountCopy.notificationDescription
+                    : "Choose which dashboard notifications you want to receive."
+                }}
+              </p>
+            </div>
+          </header>
+          <div v-if="isPatient">
+            <div class="account-setting-rows">
+              <article>
+                <CalendarDays :size="19" aria-hidden="true" />
+                <span
+                  ><strong>Appointment activity</strong
+                  ><small>Bookings and status changes in your dashboard</small></span
+                >
+                <b>Enabled</b>
+              </article>
+              <article>
+                <UserRound :size="19" aria-hidden="true" />
+                <span
+                  ><strong>{{ accountCopy.recordAlertTitle }}</strong
+                  ><small>{{ accountCopy.recordAlertNote }}</small></span
+                >
+                <b>Enabled</b>
+              </article>
+            </div>
+            <form class="patient-sms-preference" @submit.prevent="saveSmsPreference">
+              <h3>SMS messages</h3>
+              <p>
+                Choose whether to receive appointment, next-visit, and payment reminder SMS
+                messages.
+              </p>
+              <p v-if="smsPreferenceLoaded && smsChoice === null" class="patient-sms-legacy-note">
+                No SMS choice was recorded for this older account. Existing reminders continue until
+                you make a choice.
+              </p>
+              <div
+                class="patient-sms-options"
+                role="radiogroup"
+                aria-label="SMS message preference"
+              >
+                <label>
+                  <input
+                    v-model="smsChoice"
+                    type="radio"
+                    :value="true"
+                    :disabled="!smsPreferenceLoaded || smsPreferenceBusy"
+                  />
+                  Yes, send me SMS messages
+                </label>
+                <label>
+                  <input
+                    v-model="smsChoice"
+                    type="radio"
+                    :value="false"
+                    :disabled="!smsPreferenceLoaded || smsPreferenceBusy"
+                  />
+                  No, stop SMS messages
+                </label>
+              </div>
+              <small v-if="smsPreferenceAt"
+                >Choice saved {{ formatAccountDateTime(smsPreferenceAt) }}.</small
+              >
+              <small v-if="privacyConsentAt"
+                >Patient information agreement recorded
+                {{ formatAccountDateTime(privacyConsentAt) }}.</small
+              >
+              <button
+                class="account-save-button"
+                type="submit"
+                :disabled="
+                  !smsPreferenceLoaded || smsPreferenceBusy || typeof smsChoice !== 'boolean'
+                "
+              >
+                <Save :size="16" aria-hidden="true" />
+                {{ smsPreferenceBusy ? "Saving..." : "Save SMS Preference" }}
+              </button>
+            </form>
+          </div>
+          <form v-else @submit.prevent="saveNotifications">
+            <div class="account-notification-list">
+              <article
+                v-for="option in notificationOptions"
+                :key="option.key"
+                class="account-notification-row"
+              >
+                <span class="account-notification-icon" :class="option.tone">
+                  <component :is="option.icon" :size="19" aria-hidden="true" />
+                </span>
+                <span class="account-notification-copy">
+                  <strong>{{ option.title }}</strong>
+                  <small>{{ option.description }}</small>
+                </span>
+                <label class="account-notification-switch">
+                  <input
+                    v-model="notificationPreferences[option.key]"
+                    type="checkbox"
+                    :aria-label="option.title"
+                    :disabled="!notificationsLoaded || notificationsBusy"
+                  />
+                  <span aria-hidden="true"></span>
+                </label>
+              </article>
+            </div>
+            <div class="account-notification-actions">
+              <div class="account-notification-note">
+                <Info :size="22" aria-hidden="true" />
+                <p>
+                  <strong>System Notifications</strong>
+                  <span>
+                    These notifications will appear in your dashboard and notification bell. SMS
+                    sent to patients are managed separately in the SMS settings.
+                  </span>
+                </p>
+              </div>
+              <button
+                class="account-save-button"
+                type="submit"
+                :disabled="!notificationsLoaded || notificationsBusy"
+              >
+                <Save :size="16" aria-hidden="true" />
+                {{ notificationsBusy ? "Saving..." : "Save Changes" }}
+              </button>
+            </div>
+          </form>
+        </section>
+      </div>
+
+      <aside
+        class="account-side-column"
+        :class="{ 'account-security-side': !isPatient && activeTab === 'security' }"
+      >
+        <section class="account-panel account-overview-panel" aria-labelledby="overview-title">
+          <header class="account-panel-heading">
+            <div class="account-heading-icon green">
+              <UserRound :size="19" aria-hidden="true" />
+            </div>
+            <div>
+              <h2 id="overview-title">Account Overview</h2>
+              <p>Your account status and access information.</p>
+            </div>
+          </header>
+          <dl class="account-overview-list">
+            <div>
+              <span class="account-overview-icon green"
+                ><Check :size="17" aria-hidden="true"
+              /></span>
+              <dt>Account Status</dt>
+              <dd :class="{ active: accountStatusLabel === 'Active' }">{{ accountStatusLabel }}</dd>
+              <small v-if="!isPatient">Your account is in good standing.</small>
+            </div>
+            <div>
+              <span class="account-overview-icon purple"
+                ><ShieldCheck :size="17" aria-hidden="true"
+              /></span>
+              <dt>Role</dt>
+              <dd>{{ accountCopy.accessLevel }}</dd>
+              <small v-if="!isPatient">System administrator access.</small>
+            </div>
+            <div>
+              <span class="account-overview-icon blue"
+                ><CalendarDays :size="17" aria-hidden="true"
+              /></span>
+              <dt>Last Login</dt>
+              <dd>{{ isPatient ? "Unavailable" : lastLoginLabel }}</dd>
+            </div>
+          </dl>
+        </section>
+
+        <template v-if="!isPatient && activeTab === 'security'">
+          <section class="account-panel account-sessions-panel">
+            <header class="account-panel-heading">
+              <div class="account-heading-icon blue"><Monitor :size="19" aria-hidden="true" /></div>
+              <div>
+                <h2>Active Sessions</h2>
+                <p>Manage access from your other devices.</p>
+              </div>
+            </header>
+            <div class="account-current-session">
+              <span class="account-current-session-icon"
+                ><Monitor :size="23" aria-hidden="true"
+              /></span>
+              <span>
+                <strong>{{ currentLogin?.device || "Current browser" }}</strong>
+                <small>{{
+                  currentLogin ? formatAccountDateTime(currentLogin.created_at) : "This Device"
+                }}</small>
+              </span>
+              <b>This Device</b>
+            </div>
+            <button
+              class="account-logout-devices"
+              type="button"
+              :disabled="!securityLoaded || !securityData.other_sessions_count || sessionsBusy"
+              @click="logOutOtherDevices"
+            >
+              <LogOut :size="16" aria-hidden="true" />
+              {{ sessionsBusy ? "Logging out..." : "Log Out Other Devices" }}
+            </button>
+            <small class="account-session-help">
+              This will end all other active sessions except for your current device.
+            </small>
+          </section>
+
           <section class="account-panel account-security-card" aria-labelledby="recovery-title">
             <header class="account-panel-heading">
               <div class="account-heading-icon purple"><Phone :size="19" aria-hidden="true" /></div>
@@ -787,205 +1080,7 @@ async function saveNotifications() {
               </div>
             </form>
           </section>
-
-          <section
-            class="account-panel account-security-card"
-            aria-labelledby="login-activity-title"
-          >
-            <header class="account-panel-heading">
-              <div class="account-heading-icon blue"><Monitor :size="19" aria-hidden="true" /></div>
-              <div>
-                <h2 id="login-activity-title">Login Activity</h2>
-                <p>Recent login history for your account.</p>
-              </div>
-            </header>
-            <div v-if="securityData.login_activity.length" class="account-activity-list">
-              <div class="account-activity-header" aria-hidden="true">
-                <span>Device</span>
-                <span>Date &amp; Time</span>
-              </div>
-              <div
-                v-for="entry in securityData.login_activity"
-                :key="entry.id"
-                class="account-activity-row"
-              >
-                <Monitor :size="18" aria-hidden="true" />
-                <span>
-                  <strong>{{ entry.device }}</strong>
-                  <small v-if="entry.is_current">Current Device</small>
-                </span>
-                <time :datetime="entry.created_at">{{
-                  formatAccountDateTime(entry.created_at)
-                }}</time>
-              </div>
-            </div>
-            <p v-else class="account-empty-state">
-              {{
-                securityLoaded
-                  ? "No recent login activity is available."
-                  : "Loading login activity..."
-              }}
-            </p>
-          </section>
         </template>
-      </div>
-
-      <div v-else class="account-settings-view">
-        <section class="account-panel account-settings-panel">
-          <header class="account-panel-heading">
-            <div class="account-heading-icon blue"><Bell :size="19" aria-hidden="true" /></div>
-            <div>
-              <h2>Notification Settings</h2>
-              <p>
-                {{
-                  isPatient
-                    ? accountCopy.notificationDescription
-                    : "Choose which dashboard notifications you want to receive."
-                }}
-              </p>
-            </div>
-          </header>
-          <div v-if="isPatient" class="account-setting-rows">
-            <article>
-              <CalendarDays :size="19" aria-hidden="true" />
-              <span
-                ><strong>Appointment activity</strong
-                ><small>Bookings and status changes</small></span
-              >
-              <b>Enabled</b>
-            </article>
-            <article>
-              <UserRound :size="19" aria-hidden="true" />
-              <span
-                ><strong>{{ accountCopy.recordAlertTitle }}</strong
-                ><small>{{ accountCopy.recordAlertNote }}</small></span
-              >
-              <b>Enabled</b>
-            </article>
-          </div>
-          <form v-else @submit.prevent="saveNotifications">
-            <div class="account-notification-list">
-              <article
-                v-for="option in notificationOptions"
-                :key="option.key"
-                class="account-notification-row"
-              >
-                <span class="account-notification-icon" :class="option.tone">
-                  <component :is="option.icon" :size="19" aria-hidden="true" />
-                </span>
-                <span class="account-notification-copy">
-                  <strong>{{ option.title }}</strong>
-                  <small>{{ option.description }}</small>
-                </span>
-                <label class="account-notification-switch">
-                  <input
-                    v-model="notificationPreferences[option.key]"
-                    type="checkbox"
-                    :aria-label="option.title"
-                    :disabled="!notificationsLoaded || notificationsBusy"
-                  />
-                  <span aria-hidden="true"></span>
-                </label>
-              </article>
-            </div>
-            <div class="account-notification-actions">
-              <div class="account-notification-note">
-                <Info :size="22" aria-hidden="true" />
-                <p>
-                  <strong>System Notifications</strong>
-                  <span>
-                    These notifications will appear in your dashboard and notification bell. SMS
-                    sent to patients are managed separately in the SMS settings.
-                  </span>
-                </p>
-              </div>
-              <button
-                class="account-save-button"
-                type="submit"
-                :disabled="!notificationsLoaded || notificationsBusy"
-              >
-                <Save :size="16" aria-hidden="true" />
-                {{ notificationsBusy ? "Saving..." : "Save Changes" }}
-              </button>
-            </div>
-          </form>
-        </section>
-      </div>
-
-      <aside class="account-side-column">
-        <section class="account-panel account-overview-panel" aria-labelledby="overview-title">
-          <header class="account-panel-heading">
-            <div class="account-heading-icon green">
-              <UserRound :size="19" aria-hidden="true" />
-            </div>
-            <div>
-              <h2 id="overview-title">Account Overview</h2>
-              <p>Your account status and access information.</p>
-            </div>
-          </header>
-          <dl class="account-overview-list">
-            <div>
-              <span class="account-overview-icon green"
-                ><Check :size="17" aria-hidden="true"
-              /></span>
-              <dt>Account Status</dt>
-              <dd :class="{ active: accountStatusLabel === 'Active' }">{{ accountStatusLabel }}</dd>
-              <small v-if="!isPatient">Your account is in good standing.</small>
-            </div>
-            <div>
-              <span class="account-overview-icon purple"
-                ><ShieldCheck :size="17" aria-hidden="true"
-              /></span>
-              <dt>Role</dt>
-              <dd>{{ accountCopy.accessLevel }}</dd>
-              <small v-if="!isPatient">System administrator access.</small>
-            </div>
-            <div>
-              <span class="account-overview-icon blue"
-                ><CalendarDays :size="17" aria-hidden="true"
-              /></span>
-              <dt>Last Login</dt>
-              <dd>{{ isPatient ? "Unavailable" : lastLoginLabel }}</dd>
-            </div>
-          </dl>
-        </section>
-
-        <section
-          v-if="!isPatient && activeTab === 'security'"
-          class="account-panel account-sessions-panel"
-        >
-          <header class="account-panel-heading">
-            <div class="account-heading-icon blue"><Monitor :size="19" aria-hidden="true" /></div>
-            <div>
-              <h2>Active Sessions</h2>
-              <p>Manage access from your other devices.</p>
-            </div>
-          </header>
-          <div class="account-current-session">
-            <span class="account-current-session-icon"
-              ><Monitor :size="23" aria-hidden="true"
-            /></span>
-            <span>
-              <strong>{{ currentLogin?.device || "Current browser" }}</strong>
-              <small>{{
-                currentLogin ? formatAccountDateTime(currentLogin.created_at) : "This Device"
-              }}</small>
-            </span>
-            <b>This Device</b>
-          </div>
-          <button
-            class="account-logout-devices"
-            type="button"
-            :disabled="!securityLoaded || !securityData.other_sessions_count || sessionsBusy"
-            @click="logOutOtherDevices"
-          >
-            <LogOut :size="16" aria-hidden="true" />
-            {{ sessionsBusy ? "Logging out..." : "Log Out Other Devices" }}
-          </button>
-          <small class="account-session-help">
-            This will end all other active sessions except for your current device.
-          </small>
-        </section>
 
         <section v-else class="account-panel account-quick-panel" aria-labelledby="quick-title">
           <header class="account-panel-heading">
@@ -1015,5 +1110,6 @@ async function saveNotifications() {
         </section>
       </aside>
     </div>
+    <ActivityLog v-if="!isPatient && activeTab === 'security'" />
   </section>
 </template>

@@ -1,5 +1,6 @@
 """Authenticated doctor account security and session controls."""
 
+import datetime as dt
 import hashlib
 
 from django.contrib.auth import SESSION_KEY, update_session_auth_hash
@@ -19,7 +20,8 @@ from dental_backend.api import (
 )
 
 from .identity import canonical_mobile
-from .models import AccountLoginActivity, User
+from .audit import record_audit_event
+from .models import AccountAuthState, AccountLoginActivity, User
 
 
 def _session_hash(session_key):
@@ -71,6 +73,7 @@ def security(request):
     current_session = request.session.session_key
     current_hash = _session_hash(current_session)
     activity = AccountLoginActivity.objects.filter(user=request.user).order_by("-created_at", "-id")[:10]
+    auth_state = AccountAuthState.objects.filter(user=request.user).first()
     return JsonResponse({
         "is_active": request.user.is_active,
         "last_login": request.user.last_login.isoformat() if request.user.last_login else None,
@@ -86,6 +89,12 @@ def security(request):
             for entry in activity
         ],
         "other_sessions_count": sum(key != current_session for key in _active_user_sessions(request.user.pk)),
+        "login_failed_attempts": (
+            auth_state.failed_attempts
+            if auth_state and auth_state.last_failed_at and auth_state.last_failed_at >= timezone.now() - dt.timedelta(minutes=15)
+            else 0
+        ),
+        "login_locked_until": auth_state.locked_until.isoformat() if auth_state and auth_state.locked_until and auth_state.locked_until > timezone.now() else None,
     })
 
 
@@ -129,6 +138,7 @@ def change_password(request):
     ).update(
         session_key_hash=_session_hash(request.session.session_key)
     )
+    record_audit_event("PASSWORD_CHANGED", actor=user, target=user, request=request)
     return JsonResponse({"ok": True, "csrf_token": get_token(request)})
 
 

@@ -6,6 +6,7 @@ import secrets
 from django.contrib.auth.hashers import check_password, make_password
 from django.contrib.auth import login as auth_login
 from django.contrib.auth import logout as auth_logout
+from django.contrib.sessions.models import Session
 from django.conf import settings
 from django.db import IntegrityError, transaction
 from django.db.models import Sum
@@ -40,8 +41,14 @@ from .identity import (
     identity_candidates,
     normalized_full_name,
 )
+from .audit import record_audit_event
+from .lockout import (
+    account_lock_seconds,
+    clear_failed_attempts,
+    register_failed_attempt,
+)
 from .models import PatientAccountVerification, PatientProfile, User
-from .security_views import record_login_activity
+from .security_views import _active_user_sessions, record_login_activity
 
 
 OTP_LIFETIME = dt.timedelta(minutes=5)
@@ -49,6 +56,7 @@ OTP_RESEND_COOLDOWN = dt.timedelta(seconds=60)
 OTP_HOURLY_LIMIT = 5
 OTP_MAX_ATTEMPTS = 5
 MATCH_REVIEW_MESSAGE = "A patient record may already exist. Contact the clinic to verify your details."
+PRIVACY_NOTICE_VERSION = "registration-2026-10-01"
 
 
 def patient_payload(profile):
@@ -72,6 +80,12 @@ def patient_payload(profile):
         "source": "account" if profile.user_id else "profile",
         "profile_image": profile.user.profile_image if profile.user_id else "",
         "role": profile.user.role if profile.user_id else "patient",
+        "account_active": profile.user.is_active if profile.user_id else None,
+        "privacy_consent_given": profile.privacy_consent_given,
+        "privacy_consent_at": profile.privacy_consent_at.isoformat() if profile.privacy_consent_at else None,
+        "privacy_version": profile.privacy_version,
+        "sms_consent": profile.sms_consent,
+        "sms_consent_at": profile.sms_consent_at.isoformat() if profile.sms_consent_at else None,
         "created_at": profile.created_at.isoformat(),
         "updated_at": profile.updated_at.isoformat(),
     }
@@ -104,6 +118,7 @@ def profile_for_user(user):
                 email=user.email,
                 phone_number=user.phone,
                 mobile_number=user.phone,
+                sms_consent=None,
             )
 
 
@@ -178,7 +193,8 @@ def verification_response(token, phone):
 
 
 def create_verification(profile, *, email, first_name, middle_name, last_name,
-                        birthdate, password_hash, profile_image, remember, phone):
+                        birthdate, password_hash, profile_image, remember, phone,
+                        privacy_version, sms_consent):
     now = timezone.now()
     recent = PatientAccountVerification.objects.filter(
         patient=profile, created_at__gte=now - dt.timedelta(hours=1)
@@ -208,6 +224,8 @@ def create_verification(profile, *, email, first_name, middle_name, last_name,
         password_hash=password_hash,
         profile_image=profile_image,
         remember=remember,
+        privacy_version=privacy_version,
+        sms_consent=sms_consent,
         expires_at=now + OTP_LIFETIME,
     )
     return token, code
@@ -240,6 +258,14 @@ def send_verification_code(phone, token, code):
             is_used=True, code_hash="", password_hash="", profile_image=""
         )
         return api_error("Verification SMS could not be sent. Please try again after a minute.", 503)
+    verification = PatientAccountVerification.objects.select_related("patient").filter(
+        token_hash=verification_token_hash(token)
+    ).first()
+    record_audit_event(
+        "SMS_SENT",
+        target=verification.patient if verification else None,
+        metadata={"origin": "system", "channel": "sms"},
+    )
     return verification_response(token, phone)
 
 
@@ -260,6 +286,13 @@ def register(request):
         return api_error(str(error))
     if str(payload.get("role", "patient")).strip().lower() != "patient":
         return api_error("New accounts must be patient accounts.", 403)
+    if payload.get("privacy_consent_given") is not True:
+        return api_error("Please agree to the patient information notice to create an account.")
+    if payload.get("privacy_version") != PRIVACY_NOTICE_VERSION:
+        return api_error("The registration notice has changed. Refresh and review it before continuing.", 409)
+    if "sms_consent" in payload and not isinstance(payload["sms_consent"], bool):
+        return api_error("Choose whether to receive appointment and account-related SMS messages.")
+    sms_consent = payload.get("sms_consent", False)
     if User.objects.filter(email__iexact=email).exists():
         return api_error("An account already uses this email.", 409)
     try:
@@ -314,6 +347,8 @@ def register(request):
                     profile_image=profile_image,
                     remember=remember,
                     phone=stored_phone,
+                    privacy_version=PRIVACY_NOTICE_VERSION,
+                    sms_consent=sms_consent,
                 )
                 verification = (stored_phone, token, code)
             else:
@@ -326,7 +361,7 @@ def register(request):
                     role="patient",
                     profile_image=profile_image,
                 )
-                PatientProfile.objects.create(
+                profile = PatientProfile.objects.create(
                     id=user.id,
                     user=user,
                     first_name=first_name,
@@ -337,6 +372,15 @@ def register(request):
                     age=calculate_age(birthdate),
                     phone_number=phone,
                     mobile_number=phone,
+                    privacy_consent_given=True,
+                    privacy_consent_at=timezone.now(),
+                    privacy_version=PRIVACY_NOTICE_VERSION,
+                    sms_consent=sms_consent,
+                    sms_consent_at=timezone.now(),
+                )
+                record_audit_event(
+                    "PATIENT_CREATED", actor=user, target=profile,
+                    metadata={"origin": "patient"},
                 )
     except IntegrityError:
         if User.objects.filter(email__iexact=email).exists():
@@ -352,6 +396,7 @@ def register(request):
 
     auth_login(request, user, backend="django.contrib.auth.backends.ModelBackend")
     request.session.set_expiry(7 * 24 * 60 * 60 if remember else 12 * 60 * 60)
+    record_audit_event("LOGIN_SUCCESS", actor=user, request=request)
     return JsonResponse(
         {"user": authenticated_user_payload(user), "csrf_token": get_token(request)},
         status=201,
@@ -407,6 +452,8 @@ def verify_account(request):
                 return api_error("This verification code has already been used.", 409)
             if verification.expires_at <= timezone.now():
                 return api_error("Verification code expired. Request a new code.", 410)
+            if verification.privacy_version != PRIVACY_NOTICE_VERSION:
+                return api_error("The registration notice has changed. Please register again.", 409)
             if not re.fullmatch(r"[0-9]{6}", code) or not check_password(code, verification.code_hash):
                 verification.attempts += 1
                 verification.save(update_fields=["attempts"])
@@ -432,10 +479,25 @@ def verify_account(request):
             )
             profile.user = user
             changed = ["user", "updated_at"]
+            profile.privacy_consent_given = True
+            profile.privacy_consent_at = timezone.now()
+            profile.privacy_version = verification.privacy_version
+            profile.sms_consent = verification.sms_consent
+            profile.sms_consent_at = timezone.now()
+            changed.extend(["privacy_consent_given", "privacy_consent_at", "privacy_version", "sms_consent", "sms_consent_at"])
             if not profile.email:
                 profile.email = verification.email
                 changed.append("email")
             profile.save(update_fields=changed)
+            record_audit_event(
+                "PATIENT_UPDATED", actor=user, target=profile,
+                metadata={"origin": "patient"},
+            )
+            if not profile.sms_consent:
+                from communications.models import SmsMessage
+                SmsMessage.objects.filter(patient=profile, status="queued", is_test=False).update(
+                    status="suppressed", error="Patient SMS consent is not active."
+                )
             verification.is_used = True
             verification.code_hash = ""
             verification.password_hash = ""
@@ -446,6 +508,7 @@ def verify_account(request):
 
     auth_login(request, user, backend="django.contrib.auth.backends.ModelBackend")
     request.session.set_expiry(7 * 24 * 60 * 60 if verification.remember else 12 * 60 * 60)
+    record_audit_event("LOGIN_SUCCESS", actor=user, request=request)
     return JsonResponse({"user": authenticated_user_payload(user), "csrf_token": get_token(request)}, status=201)
 
 
@@ -474,6 +537,8 @@ def resend_account_code(request):
                 return api_error("This verification code has already been used.", 409)
             if previous.created_at < timezone.now() - dt.timedelta(days=1):
                 return api_error("Verification request expired. Please register again.", 410)
+            if previous.privacy_version != PRIVACY_NOTICE_VERSION:
+                return api_error("The registration notice has changed. Please register again.", 409)
             if profile.user_id:
                 return api_error("This patient record is already linked to an account.", 409)
             if User.objects.filter(email__iexact=previous.email).exists():
@@ -492,6 +557,8 @@ def resend_account_code(request):
                 profile_image=previous.profile_image,
                 remember=previous.remember,
                 phone=stored_phone,
+                privacy_version=previous.privacy_version,
+                sms_consent=previous.sms_consent,
             )
     except VerificationCooldown as error:
         return api_error("Resend available in 60 seconds." if error.seconds <= 60 else "Too many codes requested. Please try again later.", 429, retry_after=error.seconds)
@@ -509,28 +576,49 @@ def login(request):
         return api_error(str(error))
     email = str(payload.get("email", "")).strip().lower()
     password = str(payload.get("password", ""))
-    user = User.objects.filter(email__iexact=email, is_active=True).first()
+    user = User.objects.filter(email__iexact=email).first()
+    if user:
+        retry_after = account_lock_seconds(user)
+        if retry_after:
+            return api_error("This account is temporarily locked. Try again later.", 429, retry_after=retry_after)
     password_matches = False
     if user:
         try:
             password_matches = user.check_password(password)
         except (TypeError, ValueError):
             password_matches = False
-        if not password_matches and verify_legacy_password(password, user.password):
+        if user.is_active and not password_matches and verify_legacy_password(password, user.password):
             user.set_password(password)
             user.save(update_fields=["password", "updated_at"])
             password_matches = True
     if not user or not password_matches:
+        if user:
+            retry_after, newly_locked = register_failed_attempt(user)
+            if newly_locked:
+                record_audit_event("ACCOUNT_LOCKED", target=user)
+            record_audit_event("LOGIN_FAILED", target=user)
+            if retry_after:
+                return api_error("This account is temporarily locked. Try again later.", 429, retry_after=retry_after)
+        else:
+            record_audit_event("LOGIN_FAILED")
         return api_error("Email or password is incorrect.", 401)
+    if not user.is_active:
+        record_audit_event("LOGIN_FAILED", target=user)
+        return api_error("This account has been disabled. Please contact Borja Dental Clinic.", 403)
 
+    remember = str(payload.get("remember", "")).lower() in {"1", "true", "yes", "on"}
+    clear_failed_attempts(user)
     auth_login(request, user, backend="django.contrib.auth.backends.ModelBackend")
-    request.session.set_expiry(7 * 24 * 60 * 60 if str(payload.get("remember", "")).lower() in {"1", "true", "yes", "on"} else 12 * 60 * 60)
+    request.session.set_expiry(7 * 24 * 60 * 60 if remember else 12 * 60 * 60)
     record_login_activity(request, user)
+    record_audit_event("LOGIN_SUCCESS", actor=user, request=request)
     return JsonResponse({"user": authenticated_user_payload(user), "csrf_token": get_token(request)})
 
 
 @require_POST
 def logout(request):
+    if request.user.is_authenticated:
+        record_audit_event("LOGOUT", actor=request.user, request=request)
     auth_logout(request)
     return JsonResponse({"ok": True})
 
@@ -587,6 +675,49 @@ def profile(request):
             if old_name != name:
                 Appointment.objects.filter(doctor__isnull=True, doctor_name=old_name).update(doctor_name=name)
     return JsonResponse({"user": authenticated_user_payload(user)})
+
+
+def update_sms_consent(patient, consent):
+    """Persist an explicit patient choice and stop unsent messages on opt-out."""
+    patient.sms_consent = consent
+    patient.sms_consent_at = timezone.now()
+    patient.save(update_fields=["sms_consent", "sms_consent_at", "updated_at"])
+    if not consent:
+        from communications.models import SmsMessage
+        SmsMessage.objects.filter(patient=patient, status="queued", is_test=False).update(
+            status="suppressed", error="Patient SMS consent is not active."
+        )
+
+
+@require_http_methods(["GET", "PATCH"])
+def sms_preference(request):
+    if not request.user.is_authenticated or request.user.role != "patient":
+        return api_error("Patient access is required.", 403)
+    patient = profile_for_user(request.user)
+    if patient is None:
+        return api_error("Your patient record needs clinic verification.", 409)
+    if request.method == "GET":
+        return JsonResponse({
+            "sms_consent": patient.sms_consent,
+            "sms_consent_at": patient.sms_consent_at.isoformat() if patient.sms_consent_at else None,
+            "privacy_consent_given": patient.privacy_consent_given,
+            "privacy_consent_at": patient.privacy_consent_at.isoformat() if patient.privacy_consent_at else None,
+            "privacy_version": patient.privacy_version,
+        })
+    try:
+        payload = read_json(request)
+    except ValueError as error:
+        return api_error(str(error))
+    if not isinstance(payload.get("sms_consent"), bool):
+        return api_error("Choose whether to receive SMS messages.")
+    with transaction.atomic():
+        patient = PatientProfile.objects.select_for_update().get(pk=patient.pk)
+        update_sms_consent(patient, payload["sms_consent"])
+        record_audit_event("PATIENT_UPDATED", actor=request.user, target=patient, request=request, metadata={"origin": "patient"})
+    return JsonResponse({
+        "sms_consent": patient.sms_consent,
+        "sms_consent_at": patient.sms_consent_at.isoformat(),
+    })
 
 
 def parse_birthdate(value):
@@ -674,15 +805,56 @@ def patients(request):
     except ValueError as error:
         return api_error(str(error))
 
-    if request.method == "DELETE":
-        patient = PatientProfile.objects.filter(id=str(payload.get("id", "")).strip()).first()
-        if not patient:
-            return api_error("Patient not found.", 404)
-        if patient.user_id:
-            return api_error("Patient login accounts cannot be deleted from this section.", 403)
-        if Appointment.objects.filter(patient=patient).exists():
-            return api_error("This patient has appointment history and cannot be deleted.", 409)
+    if request.method == "PATCH" and payload.get("action") == "account_status":
+        if not isinstance(payload.get("is_active"), bool):
+            return api_error("Choose an active or disabled account status.")
         with transaction.atomic():
+            patient = PatientProfile.objects.select_for_update().select_related("user").filter(
+                pk=str(payload.get("id", "")).strip(), user__role="patient"
+            ).first()
+            if not patient:
+                return api_error("Patient account not found.", 404)
+            account = patient.user
+            if account.is_active != payload["is_active"]:
+                account.is_active = payload["is_active"]
+                account.save(update_fields=["is_active", "updated_at"])
+                if not account.is_active:
+                    Session.objects.filter(session_key__in=list(_active_user_sessions(account.pk))).delete()
+                record_audit_event(
+                    "ACCOUNT_ENABLED" if account.is_active else "ACCOUNT_DISABLED",
+                    actor=request.user, target=account, request=request,
+                )
+        return JsonResponse({"patient": patient_payload(patient)})
+
+    if request.method == "PATCH" and payload.get("action") == "sms_consent":
+        if not isinstance(payload.get("sms_consent"), bool):
+            return api_error("Record the patient's SMS choice before saving.")
+        with transaction.atomic():
+            patient = PatientProfile.objects.select_for_update().select_related("user").filter(
+                pk=str(payload.get("id", "")).strip()
+            ).first()
+            if not patient:
+                return api_error("Patient not found.", 404)
+            update_sms_consent(patient, payload["sms_consent"])
+            record_audit_event("PATIENT_UPDATED", actor=request.user, target=patient, request=request, metadata={"origin": "doctor"})
+        return JsonResponse({"patient": patient_payload(patient)})
+
+    if request.method == "DELETE":
+        with transaction.atomic():
+            patient = PatientProfile.objects.select_for_update().filter(
+                id=str(payload.get("id", "")).strip()
+            ).first()
+            if not patient:
+                return api_error("Patient not found.", 404)
+            if patient.user_id:
+                return api_error("Patient login accounts cannot be deleted from this section.", 403)
+            if Appointment.objects.filter(patient=patient).exists():
+                return api_error("This patient has appointment history and cannot be deleted.", 409)
+            for treatment in TreatmentRecord.objects.filter(patient=patient):
+                record_audit_event(
+                    "TREATMENT_DELETED", actor=request.user, target=treatment, request=request
+                )
+            record_audit_event("PATIENT_DELETED", actor=request.user, target=patient, request=request)
             TreatmentRecord.objects.filter(patient=patient).delete()
             patient.delete()
         return JsonResponse({"ok": True})
@@ -714,8 +886,13 @@ def patients(request):
             setattr(patient, field, value)
         status = 200
     try:
-        patient.save()
+        with transaction.atomic():
+            patient.save()
+            TreatmentRecord.objects.filter(patient=patient).update(patient_name=patient.name)
+            record_audit_event(
+                "PATIENT_CREATED" if request.method == "POST" else "PATIENT_UPDATED",
+                actor=request.user, target=patient, request=request, metadata={"origin": "doctor"},
+            )
     except IntegrityError:
         return api_error("A patient record with these details already exists.", 409)
-    TreatmentRecord.objects.filter(patient=patient).update(patient_name=patient.name)
     return JsonResponse({"patient": patient_payload(patient)}, status=status)

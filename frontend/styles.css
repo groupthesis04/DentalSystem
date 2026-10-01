@@ -1930,6 +1930,48 @@ td select {
   opacity: 1;
 }
 
+.register-consent {
+  display: grid;
+  gap: 10px;
+  padding: 14px 16px;
+  border: 1px solid #d3deee;
+  border-radius: 10px;
+  background: #f7fafc;
+  color: #34445f;
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.register-consent p,
+.register-consent small {
+  margin: 0;
+}
+
+.register-consent small {
+  color: #52627c;
+}
+
+.register-consent-choice {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  cursor: pointer;
+}
+
+.register-consent-choice input {
+  width: 17px;
+  height: 17px;
+  flex: 0 0 17px;
+  margin-top: 2px;
+  accent-color: #0b6b82;
+}
+
+.register-consent-choice strong {
+  color: #0b5b73;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
 .auth-modal .register-submit {
   display: inline-flex;
   min-height: 52px;

@@ -4,6 +4,7 @@ from django.db import IntegrityError, transaction
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
 
+from accounts.audit import record_audit_event
 from accounts.identity import PatientIdentityConflict, creation_conflict, normalized_full_name
 from accounts.models import PatientProfile, User
 from clinic.models import Service
@@ -303,6 +304,7 @@ def create_appointment(request, payload):
                     other.save(update_fields=["status", "updated_at"])
                     cancelled_ids.append(other.id)
                     notify_appointment_status(other, "Cancelled")
+                    record_audit_event("APPOINTMENT_CANCELLED", actor=request.user, target=other, request=request)
                 recipient = patient_user(patient)
                 if recipient:
                     create_notification(recipient, "appointment_created", "Appointment scheduled", f"{service_summary} with {doctor_name} on {appointment_date.isoformat()} at {appointment_time.strftime('%H:%M')} was scheduled by the clinic.", "appointment", item.id)
@@ -369,9 +371,12 @@ def update_appointment(request, payload):
                     other.save(update_fields=["status", "updated_at"])
                     cancelled_ids.append(other.id)
                     notify_appointment_status(other, "Cancelled")
+                    record_audit_event("APPOINTMENT_CANCELLED", actor=request.user, target=other, request=request)
             if status != previous_status:
                 label = {"pending": "Pending", "approved": "Accepted", "completed": "Completed", "cancelled": "Cancelled"}[status]
                 notify_appointment_status(item, label)
+                if status == "cancelled":
+                    record_audit_event("APPOINTMENT_CANCELLED", actor=request.user, target=item, request=request)
                 if label not in {"Accepted", "Cancelled"}:
                     notify_doctors("appointment_status", "Appointment status updated", f"{item.patient_name}'s {appointment_service_summary(item)} is now {label}.", "appointment", item.id)
     except Appointment.DoesNotExist:
@@ -399,6 +404,7 @@ def clear_appointments(request, payload):
         for item in entries:
             item.status = "cancelled"
             item.save(update_fields=["status", "updated_at"])
+            record_audit_event("APPOINTMENT_CANCELLED", actor=request.user, target=item, request=request)
             if notify_patients and item.patient.user_id:
                 message = message_template.replace("{date}", item.appointment_date.isoformat()).replace("{time}", item.appointment_time.strftime("%H:%M")).replace("{service}", appointment_service_summary(item))
                 create_notification(item.patient.user, "appointment_status", "Appointment cancelled", message, "appointment", item.id)

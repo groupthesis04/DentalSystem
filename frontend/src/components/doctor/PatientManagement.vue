@@ -295,6 +295,58 @@ async function deletePatient(patient) {
   }
 }
 
+function replacePatient(patient) {
+  const index = props.state.patients.findIndex((item) => item.id === patient.id);
+  if (index >= 0)
+    props.state.patients.splice(index, 1, { ...props.state.patients[index], ...patient });
+}
+
+async function setAccountActive(patient, isActive) {
+  if (
+    !isActive &&
+    !window.confirm(
+      `Disable ${patient.name}'s login? Their appointments and treatment records will remain available to the clinic.`,
+    )
+  )
+    return;
+  busy.value = true;
+  try {
+    const data = await apiRequest("/api/patients", {
+      method: "PATCH",
+      body: { action: "account_status", id: patient.id, is_active: isActive },
+    });
+    replacePatient(data.patient);
+    showToast(isActive ? "Patient account enabled." : "Patient account disabled.");
+  } catch (error) {
+    showToast(error.message, "error");
+  } finally {
+    busy.value = false;
+  }
+}
+
+async function recordSmsChoice(patient, consent) {
+  if (
+    consent &&
+    !window.confirm(
+      `Confirm that ${patient.name} agreed to receive appointment, next-visit, and payment reminder SMS messages.`,
+    )
+  )
+    return;
+  busy.value = true;
+  try {
+    const data = await apiRequest("/api/patients", {
+      method: "PATCH",
+      body: { action: "sms_consent", id: patient.id, sms_consent: consent },
+    });
+    replacePatient(data.patient);
+    showToast(consent ? "SMS consent recorded." : "SMS messages stopped for this patient.");
+  } catch (error) {
+    showToast(error.message, "error");
+  } finally {
+    busy.value = false;
+  }
+}
+
 function recordProcedures(record) {
   const stored = Array.isArray(record.procedures) ? record.procedures : [];
   const values = stored.length ? stored : [record.procedure || record.treatment];
@@ -503,6 +555,13 @@ function viewTreatment(record) {
                 <span class="section-kicker">Patient record</span>
                 <h2>{{ selectedPatient.name }}</h2>
                 <p>Registered {{ patientRegisteredDate(selectedPatient) }}</p>
+                <p
+                  v-if="selectedPatient.source === 'account'"
+                  class="patient-account-state"
+                  :class="{ disabled: !selectedPatient.account_active }"
+                >
+                  Account {{ selectedPatient.account_active ? "active" : "disabled" }}
+                </p>
               </div>
             </div>
             <div class="patient-detail-actions">
@@ -526,6 +585,15 @@ function viewTreatment(record) {
                   @click="deletePatient(selectedPatient)"
                 />
               </template>
+              <button
+                v-else
+                class="secondary-button compact-button patient-account-action"
+                type="button"
+                :disabled="busy"
+                @click="setAccountActive(selectedPatient, !selectedPatient.account_active)"
+              >
+                {{ selectedPatient.account_active ? "Disable Account" : "Enable Account" }}
+              </button>
             </div>
           </header>
 
@@ -651,6 +719,56 @@ function viewTreatment(record) {
                     <dd>{{ selectedPatient.email || "Not provided" }}</dd>
                   </div>
                 </dl>
+              </section>
+
+              <section
+                class="patient-detail-card patient-consent-card"
+                aria-label="Patient choices"
+              >
+                <div class="patient-card-heading">
+                  <div>
+                    <span class="section-kicker">Patient choices</span>
+                    <h3>Privacy and SMS</h3>
+                  </div>
+                </div>
+                <p>
+                  Registration agreement:
+                  {{
+                    selectedPatient.privacy_consent_given
+                      ? formatDate(String(selectedPatient.privacy_consent_at || "").slice(0, 10))
+                      : "Not recorded"
+                  }}
+                </p>
+                <p>
+                  SMS messages:
+                  {{
+                    selectedPatient.sms_consent === null
+                      ? "Not recorded (legacy reminders continue)"
+                      : selectedPatient.sms_consent
+                        ? "Agreed"
+                        : selectedPatient.sms_consent_at
+                          ? "Declined"
+                          : "Not recorded (SMS off)"
+                  }}
+                </p>
+                <div class="patient-consent-actions">
+                  <button
+                    class="secondary-button compact-button"
+                    type="button"
+                    :disabled="busy || selectedPatient.sms_consent === true"
+                    @click="recordSmsChoice(selectedPatient, true)"
+                  >
+                    Record SMS agreement
+                  </button>
+                  <button
+                    class="secondary-button compact-button"
+                    type="button"
+                    :disabled="busy || selectedPatient.sms_consent === false"
+                    @click="recordSmsChoice(selectedPatient, false)"
+                  >
+                    Stop SMS
+                  </button>
+                </div>
               </section>
             </div>
           </div>

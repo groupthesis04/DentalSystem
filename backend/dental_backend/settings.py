@@ -34,7 +34,6 @@ load_environment_file(BASE_DIR / ".env")
 # ============================================================
 
 DEBUG = os.environ.get("DRMS_DEBUG", "0") == "1"
-
 configured_secret = os.environ.get("DRMS_DJANGO_SECRET_KEY", "").strip()
 if not DEBUG and (
     len(configured_secret) < 50
@@ -47,7 +46,6 @@ if not DEBUG and (
         "Set DRMS_DJANGO_SECRET_KEY to a unique random value of at least 50 characters."
     )
 SECRET_KEY = configured_secret or secrets.token_urlsafe(64)
-
 
 # ============================================================
 # ALLOWED HOSTS

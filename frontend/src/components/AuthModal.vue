@@ -27,6 +27,7 @@ const busy = ref(false);
 const showPassword = ref(false);
 const errorMessage = ref("");
 const login = reactive({ email: "", password: "", remember: false, _website: "" });
+const privacyNoticeVersion = "registration-2026-10-01";
 const register = reactive({
   first_name: "",
   middle_name: "",
@@ -37,6 +38,9 @@ const register = reactive({
   password: "",
   role: "patient",
   profile_image: "",
+  privacy_consent_given: false,
+  privacy_version: privacyNoticeVersion,
+  sms_consent: false,
   _website: "",
 });
 const confirmPassword = ref("");
@@ -150,6 +154,9 @@ async function submitRegister() {
   busy.value = true;
   try {
     if (!register.birthdate) throw new Error("Please select your birthdate.");
+    if (!register.privacy_consent_given) {
+      throw new Error("Please agree to the patient information notice to create an account.");
+    }
     if (register.password !== confirmPassword.value) {
       throw new Error("Passwords do not match.");
     }
@@ -520,6 +527,24 @@ function handleRegisterInvalid(event) {
                 />
               </span>
             </label>
+          </div>
+          <div class="register-consent" aria-label="Patient information choices">
+            <p>
+              Borja Dental Clinic uses the information you provide to manage appointments, provide
+              dental care, track payments, and maintain your patient record.
+            </p>
+            <label class="register-consent-choice">
+              <input v-model="register.privacy_consent_given" type="checkbox" required />
+              <span>I agree to this use of my patient information. <strong>Required</strong></span>
+            </label>
+            <label class="register-consent-choice">
+              <input v-model="register.sms_consent" type="checkbox" />
+              <span
+                >I agree to receive appointment, next-visit, and payment reminder SMS messages.
+                <strong>Optional</strong></span
+              >
+            </label>
+            <small>Clinic record verification may still require a one-time code.</small>
           </div>
           <p v-if="errorMessage" class="form-error" role="alert">{{ errorMessage }}</p>
           <button class="primary-button register-submit full" type="submit" :disabled="busy">

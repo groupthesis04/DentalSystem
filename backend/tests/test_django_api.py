@@ -36,6 +36,7 @@ class DentalApiTests(TestCase):
             last_name="One",
             email=self.patient.email,
             mobile_number=self.patient.phone,
+            sms_consent=None,
         )
         self.other_patient = User.objects.create_user(
             id="usr_patient_two",
@@ -52,6 +53,7 @@ class DentalApiTests(TestCase):
             last_name="Two",
             email=self.other_patient.email,
             mobile_number=self.other_patient.phone,
+            sms_consent=None,
         )
         self.service = Service.objects.create(
             id="svc_test_cleaning",
@@ -128,6 +130,9 @@ class DentalApiTests(TestCase):
                 "birthdate": "2000-04-12",
                 "password": "NewPatient123!",
                 "role": "patient",
+                "privacy_consent_given": True,
+                "privacy_version": "registration-2026-10-01",
+                "sms_consent": False,
             },
         )
         self.assertEqual(response.status_code, 201)

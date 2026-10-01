@@ -54,6 +54,23 @@ the backend's explicit public hostname. Set `DRMS_COOKIE_SECURE=1` as well. The
 frontend's HTTPS origin is already trusted for CSRF in `settings.py`; add any
 other frontend origins through `DRMS_CSRF_TRUSTED_ORIGINS`.
 
+Doctor and patient accounts sign in with their password. Five failed password
+attempts within 15 minutes lock that account for 15 minutes across devices. The
+account lockout migration does not revoke existing sessions. The optional
+`/django-admin/` entry point remains available only in local development.
+
+The patient-management page can disable or re-enable a linked patient account.
+Disabling it revokes active sessions while keeping the patient profile and clinic
+history. New registrations record the accepted privacy notice version and a
+separate SMS choice. Existing patient records keep their previous SMS behavior
+with the choice shown as "not recorded" until a patient or clinic staff member
+records one. New patient records start with automated SMS off. Opting out
+suppresses queued messages; a message already being sent finishes before the
+consent change is saved. Account > Security > Activity Log shows account,
+patient, treatment, appointment cancellation, and accepted SMS events with
+opaque user and record IDs. It does not store passwords, verification codes,
+message bodies, or patient details.
+
 Production refuses to start with a missing, short, or known placeholder secret
 or a wildcard host. It redirects HTTP to HTTPS, marks session and CSRF cookies
 Secure, and initially sends HSTS with a one-hour lifetime. Do not enable HSTS

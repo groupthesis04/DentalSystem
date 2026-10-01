@@ -44,6 +44,9 @@ class RegistrationLinkingTests(TestCase):
             "birthdate": self.birthdate.isoformat(),
             "password": "NewPatient123!",
             "role": "patient",
+            "privacy_consent_given": True,
+            "privacy_version": "registration-2026-10-01",
+            "sms_consent": False,
         }
         payload.update(overrides)
         return payload
@@ -85,6 +88,7 @@ class RegistrationLinkingTests(TestCase):
             "birthdate": self.birthdate,
             "mobile_number": "09123456789",
             "notes": "Existing clinic notes",
+            "sms_consent": None,
         }
         values.update(overrides)
         return PatientProfile.objects.create(**values)
@@ -215,6 +219,20 @@ class RegistrationLinkingTests(TestCase):
         self.assertEqual(PatientProfile.objects.count(), 1)
         self.assertEqual(profile.birthdate, self.birthdate)
         self.assertEqual(profile.name, "Juan Dela Cruz")
+
+    def test_old_pending_challenge_cannot_record_unseen_privacy_notice(self):
+        profile = self.clinic_profile()
+        response = self.register()
+        self.assertEqual(response.status_code, 202)
+        PatientAccountVerification.objects.filter(patient=profile).update(privacy_version="")
+
+        verified = self.verify(response)
+        self.assertEqual(verified.status_code, 409)
+        self.assertEqual(self.resend(response).status_code, 409)
+        profile.refresh_from_db()
+        self.assertIsNone(profile.user_id)
+        self.assertFalse(profile.privacy_consent_given)
+        self.assertIsNone(profile.privacy_consent_at)
 
     def test_wrong_code_does_not_create_user_or_link_profile(self):
         profile = self.clinic_profile()

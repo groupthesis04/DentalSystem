@@ -4,6 +4,7 @@ from django.db import transaction
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
 
+from accounts.audit import record_audit_event
 from accounts.models import PatientProfile
 from clinic.models import Service
 from communications.services import create_notification, notify_doctors
@@ -221,6 +222,12 @@ def save_record(request, payload, editing=False):
             "treatment",
             item.id,
         )
+        record_audit_event(
+            "TREATMENT_UPDATED" if editing else "TREATMENT_CREATED",
+            actor=request.user,
+            target=item,
+            request=request,
+        )
     return JsonResponse({"record": record_payload(item)}, status=200 if editing else 201)
 
 
@@ -233,8 +240,10 @@ def delete_record(request, payload):
     patient_name = item.patient_name
     item_id = item.id
     patient = item.patient
-    item.delete()
-    sync_balance(patient)
+    with transaction.atomic():
+        record_audit_event("TREATMENT_DELETED", actor=request.user, target=item, request=request)
+        item.delete()
+        sync_balance(patient)
     if patient_user:
         create_notification(patient_user, "treatment_deleted", "Treatment record removed", f"The {procedure} record was removed by clinic staff.", "treatment", item_id)
     notify_doctors("treatment_deleted", "Treatment transaction removed", f"The {procedure} record for {patient_name} was removed.", "treatment", item_id)

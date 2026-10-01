@@ -8,6 +8,7 @@ from django.db import transaction
 from django.db.models import Q, Sum
 from django.utils import timezone
 
+from accounts.audit import record_audit_event
 from accounts.models import PatientProfile
 from dental_backend.api import make_id
 from records.models import TreatmentRecord
@@ -80,6 +81,8 @@ def enqueue(key, patient, event_key, context, *, appointment=None, record=None, 
     now = timezone.now()
     number = phone if phone is not None else patient.phone or (patient.user.phone if patient.user_id else "")
     state, error = ("queued", "") if rule.enabled or is_test else ("suppressed", "Automation was off when this event occurred.")
+    if not is_test and PatientProfile.objects.filter(pk=patient.pk).values_list("sms_consent", flat=True).first() is False:
+        state, error = "suppressed", "Patient SMS consent is not active."
     try:
         number = sms_provider.normalize_phone(number)
     except ValueError as exc:
@@ -168,6 +171,8 @@ def suppression_reason(item, now):
         return "Automation is turned off."
     if not item.patient_id:
         return "Patient record is no longer available."
+    if item.patient.sms_consent is False:
+        return "Patient SMS consent is not active."
     if item.rule_id == "balance" and patient_balance(item.patient) <= 0:
         return "Balance fully paid."
     if item.rule_id in {"booking", "approval", "walk_in", "cancellation"} and not item.appointment_id:
@@ -192,36 +197,44 @@ def dispatch(item_id, now):
     claimed = SmsMessage.objects.filter(pk=item_id, status="queued").update(status="processing", updated_at=now)
     if not claimed:
         return
-    item = SmsMessage.objects.select_related("rule", "patient__user", "appointment", "record").get(pk=item_id)
-    reason = suppression_reason(item, now)
-    if reason:
-        item.status, item.error = "suppressed", reason
+    # Serialize a send with consent changes for this patient. An opt-out that
+    # completes before this lock is acquired suppresses the send; one that waits
+    # for an in-flight send completes only after the provider call has finished.
+    with transaction.atomic():
+        item = SmsMessage.objects.select_related("rule", "patient__user", "appointment", "record").get(pk=item_id)
+        if item.patient_id:
+            item.patient = PatientProfile.objects.select_for_update().get(pk=item.patient_id)
+        reason = suppression_reason(item, now)
+        if reason:
+            item.status, item.error = "suppressed", reason
+            item.save()
+            return
+        if not item.is_test:
+            item.phone = item.patient.phone or (item.patient.user.phone if item.patient.user_id else "")
+            item.context["Balance"] = f"{patient_balance(item.patient):,.2f}"
+            item.context["PatientName"] = item.patient.name
+            item.context["ClinicName"] = settings.SMS_CLINIC_NAME
+            item.body = item.rule.template.format_map(item.context)
+        item.attempts += 1
+        try:
+            item.phone = sms_provider.normalize_phone(item.phone)
+            item.provider_id, item.status = sms_provider.send(item.phone, item.body)
+            item.submitted_at = now
+            item.checked_at = now
+            item.error = "Semaphore rejected the message. Check its message log." if item.status in {"failed", "refunded"} else ""
+        except ValueError as exc:
+            item.status, item.error = "failed", str(exc)
+        except sms_provider.SmsProviderError as exc:
+            item.status = "unknown" if exc.uncertain else "failed"
+            item.error = str(exc)
+            if exc.retryable and item.attempts < 3:
+                item.status = "queued"
+                item.scheduled_for = now + dt.timedelta(minutes=1)
         item.save()
-        return
-    if not item.is_test:
-        item.phone = item.patient.phone or (item.patient.user.phone if item.patient.user_id else "")
-        item.context["Balance"] = f"{patient_balance(item.patient):,.2f}"
-        item.context["PatientName"] = item.patient.name
-        item.context["ClinicName"] = settings.SMS_CLINIC_NAME
-        item.body = item.rule.template.format_map(item.context)
-    item.attempts += 1
-    try:
-        item.phone = sms_provider.normalize_phone(item.phone)
-        item.provider_id, item.status = sms_provider.send(item.phone, item.body)
-        item.submitted_at = now
-        item.checked_at = now
-        item.error = "Semaphore rejected the message. Check its message log." if item.status in {"failed", "refunded"} else ""
-    except ValueError as exc:
-        item.status, item.error = "failed", str(exc)
-    except sms_provider.SmsProviderError as exc:
-        item.status = "unknown" if exc.uncertain else "failed"
-        item.error = str(exc)
-        if exc.retryable and item.attempts < 3:
-            item.status = "queued"
-            item.scheduled_for = now + dt.timedelta(minutes=1)
-    item.save()
-    if item.status in {"failed", "refunded"}:
-        notify_sms_failure(item)
+        if item.provider_id and item.status in {"submitted", "pending", "sent"}:
+            record_audit_event("SMS_SENT", target=item, metadata={"origin": "system"})
+        if item.status in {"failed", "refunded"}:
+            notify_sms_failure(item)
 
 
 def process_queue():
