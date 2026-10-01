@@ -28,6 +28,7 @@ const props = defineProps({
   record: { type: Object, required: true },
   preferredDate: { type: String, required: true },
   doctor: { type: String, required: true },
+  origin: { type: String, default: "appointment" },
 });
 const emit = defineEmits(["close", "back", "scheduled"]);
 
@@ -63,7 +64,11 @@ const selectedSlot = computed(
   () => availableTimes.value.find((slot) => slot.time === form.time) || null,
 );
 const modalTitle = computed(() =>
-  scheduledAppointment.value ? "Appointment Completed!" : "Schedule Next Visit",
+  scheduledAppointment.value
+    ? props.origin === "treatment"
+      ? "Next Visit Scheduled!"
+      : "Appointment Completed!"
+    : "Schedule Next Visit",
 );
 const modalEyebrow = computed(() =>
   scheduledAppointment.value ? "Follow-up Scheduled" : "Next Visit",
@@ -157,7 +162,13 @@ async function scheduleFollowUp() {
     <section v-if="scheduledAppointment" class="follow-up-success" aria-live="polite">
       <span class="follow-up-success-icon"><CheckCircle2 :size="32" aria-hidden="true" /></span>
       <div>
-        <h3>Treatment saved and appointment completed</h3>
+        <h3>
+          {{
+            origin === "treatment"
+              ? "Treatment saved and next visit scheduled"
+              : "Treatment saved and appointment completed"
+          }}
+        </h3>
         <p>The patient's treatment record is secure and the next visit is now scheduled.</p>
       </div>
 

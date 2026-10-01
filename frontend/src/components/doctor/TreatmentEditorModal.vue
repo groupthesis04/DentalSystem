@@ -13,7 +13,9 @@ import {
 } from "lucide-vue-next";
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, useId } from "vue";
 
+import AvailabilityDatePicker from "../AvailabilityDatePicker.vue";
 import { calculateAge, formatDate } from "../../services/format";
+import { availableSlotDates, futureOpenSlots } from "../../services/availability";
 import AvatarBadge from "../AvatarBadge.vue";
 import BaseModal from "../BaseModal.vue";
 
@@ -22,9 +24,12 @@ const props = defineProps({
   patient: { type: Object, required: true },
   records: { type: Array, default: () => [] },
   appointments: { type: Array, default: () => [] },
+  availability: { type: Array, default: () => [] },
+  doctor: { type: String, default: "" },
   procedures: { type: Array, default: () => [] },
   busy: { type: Boolean, default: false },
   maxDate: { type: String, default: "" },
+  allowFollowUpDate: { type: Boolean, default: false },
 });
 const emit = defineEmits(["close", "submit"]);
 const servicePicker = ref(null);
@@ -32,6 +37,10 @@ const serviceTrigger = ref(null);
 const servicePickerOpen = ref(false);
 const serviceError = ref("");
 const serviceListId = `treatment-services-${useId().replaceAll(":", "")}`;
+const followUpDateError = ref("");
+const availableFollowUpDates = computed(() =>
+  availableSlotDates(futureOpenSlots(props.availability, props.doctor)),
+);
 
 const selectedServices = computed(() =>
   Array.isArray(props.form.procedures) ? props.form.procedures : [],
@@ -109,6 +118,15 @@ function submitForm() {
     nextTick(() => serviceTrigger.value?.focus());
     return;
   }
+  if (
+    (!props.form.id || props.allowFollowUpDate) &&
+    props.form.next_visit &&
+    !availableFollowUpDates.value.includes(props.form.next_visit)
+  ) {
+    followUpDateError.value = "Choose a next-visit date with an available clinic schedule.";
+    return;
+  }
+  followUpDateError.value = "";
   emit("submit");
 }
 
@@ -302,6 +320,39 @@ const remainingBalance = computed(() => {
               placeholder="Enter medical instruction (e.g., take medicine, avoid certain foods, etc.)..."
             ></textarea>
           </label>
+        </div>
+
+        <div
+          v-if="!form.id || allowFollowUpDate"
+          class="treatment-next-visit"
+          :class="{ active: form.next_visit }"
+        >
+          <div class="treatment-next-visit-copy">
+            <CalendarDays :size="21" aria-hidden="true" />
+            <div>
+              <strong>Next Visit <small>Optional</small></strong>
+              <p>
+                Choose an open clinic date. After saving the treatment, select a time to book the
+                follow-up appointment.
+              </p>
+            </div>
+          </div>
+          <div class="treatment-next-visit-control">
+            <AvailabilityDatePicker
+              v-model="form.next_visit"
+              :available-dates="availableFollowUpDates"
+              placeholder="Select an available date"
+              aria-label="Select an available next-visit date"
+              clearable
+              @update:model-value="followUpDateError = ''"
+            />
+            <small v-if="followUpDateError" class="treatment-next-visit-error" role="alert">
+              {{ followUpDateError }}
+            </small>
+            <small v-else-if="!availableFollowUpDates.length" class="treatment-next-visit-hint">
+              Add clinic availability before scheduling a next visit.
+            </small>
+          </div>
         </div>
       </section>
 
@@ -662,6 +713,79 @@ const remainingBalance = computed(() => {
   gap: 18px;
 }
 
+.treatment-next-visit {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(230px, 320px);
+  align-items: center;
+  gap: 18px;
+  border: 1px solid #dbe7f3;
+  border-radius: 8px;
+  background: #f8fbff;
+  padding: 13px 15px;
+}
+
+.treatment-next-visit.active {
+  border-color: #acd1f5;
+}
+
+.treatment-next-visit-copy {
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.treatment-next-visit-copy > svg {
+  flex: 0 0 auto;
+  color: #0874e8;
+}
+
+.treatment-next-visit-copy strong {
+  color: #142954;
+  font-size: 0.8rem;
+}
+
+.treatment-next-visit-copy strong small {
+  margin-left: 5px;
+  color: #7183a0;
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.treatment-next-visit-copy p {
+  margin: 4px 0 0;
+  color: #587097;
+  font-size: 0.74rem;
+  font-weight: 500;
+  line-height: 1.45;
+}
+
+.treatment-next-visit-control {
+  display: grid;
+  min-width: 0;
+  gap: 5px;
+  font-size: 0.8rem;
+  font-weight: 650;
+}
+
+.treatment-next-visit-control :deep(.availability-date-trigger) {
+  border-color: #cdd9e8;
+  color: #152b53;
+}
+
+.treatment-next-visit-control > small {
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.treatment-next-visit-hint {
+  color: #7183a0;
+}
+
+.treatment-next-visit-error {
+  color: #b4233d;
+}
+
 .treatment-editor-form label {
   display: grid;
   min-width: 0;
@@ -848,6 +972,15 @@ const remainingBalance = computed(() => {
   background: #244267;
 }
 
+:global(html[data-dashboard-theme="dark"]) .treatment-next-visit {
+  border-color: var(--dashboard-border);
+  background: #162334;
+}
+
+:global(html[data-dashboard-theme="dark"]) .treatment-next-visit-copy strong {
+  color: var(--dashboard-text);
+}
+
 :global(html[data-dashboard-theme="dark"]) .treatment-editor-actions {
   border-color: var(--dashboard-border);
   background: #111821;
@@ -920,6 +1053,11 @@ const remainingBalance = computed(() => {
   .treatment-billing-grid {
     grid-template-columns: 1fr;
     gap: 13px;
+  }
+
+  .treatment-next-visit {
+    grid-template-columns: 1fr;
+    gap: 10px;
   }
 
   .treatment-editor-actions {

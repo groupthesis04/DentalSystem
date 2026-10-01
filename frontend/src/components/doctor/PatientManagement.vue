@@ -27,7 +27,9 @@ import BaseModal from "../BaseModal.vue";
 import StatusBadge from "../StatusBadge.vue";
 import TreatmentDetailsModal from "../TreatmentDetailsModal.vue";
 import TreatmentEditorModal from "./TreatmentEditorModal.vue";
-import { apiRequest } from "../../services/api";
+import ScheduleFollowUpModal from "./ScheduleFollowUpModal.vue";
+import { apiRequest, session } from "../../services/api";
+import { availableSlotDates, futureOpenSlots } from "../../services/availability";
 import {
   appointmentService,
   calculateAge,
@@ -54,9 +56,16 @@ const patientListOpen = ref(false);
 const treatmentEditorOpen = ref(false);
 const treatmentPromptOpen = ref(false);
 const treatmentDetailOpen = ref(false);
+const followUpContext = ref(null);
+const followUpModalOpen = ref(false);
+const followUpWasScheduled = ref(false);
 const selectedPatientId = ref("");
 const detailRecord = ref(null);
 const busy = ref(false);
+const clinicDoctor = computed(() => session.user?.name || props.state.clinicDoctor || "");
+const openFollowUpDates = computed(() =>
+  availableSlotDates(futureOpenSlots(props.state.availability, clinicDoctor.value)),
+);
 const sexLabels = {
   female: "Female",
   male: "Male",
@@ -94,6 +103,7 @@ const emptyTreatment = () => ({
   amount_charged: "0.00",
   amount_paid: "0.00",
   remarks: "",
+  next_visit: "",
   _website: "",
 });
 const treatmentForm = reactive(emptyTreatment());
@@ -371,6 +381,7 @@ function resetTreatmentForm(record = null) {
           amount_charged: Number(record.amount_charged || 0).toFixed(2),
           amount_paid: Number(record.amount_paid || 0).toFixed(2),
           remarks: record.remarks || record.notes || "",
+          next_visit: record.next_visit || "",
         }
       : {
           patient_id: selectedPatientId.value,
@@ -399,6 +410,15 @@ async function saveTreatment() {
     });
     payload.treatment = payload.procedure;
     const editing = Boolean(payload.id);
+    const scheduleFollowUp =
+      Boolean(payload.next_visit) && (!editing || Boolean(followUpContext.value));
+    if (scheduleFollowUp && !clinicDoctor.value) {
+      throw new Error("The clinic dentist could not be found. Refresh and try again.");
+    }
+    if (scheduleFollowUp && !openFollowUpDates.value.includes(payload.next_visit)) {
+      throw new Error("Choose a next-visit date with an available clinic slot.");
+    }
+    payload.schedule_follow_up = scheduleFollowUp;
     const data = await apiRequest("/api/records", {
       method: editing ? "PATCH" : "POST",
       body: payload,
@@ -426,12 +446,70 @@ async function saveTreatment() {
       patient.total_balance = records.reduce((sum, item) => sum + treatmentBalance(item), 0);
     }
     treatmentEditorOpen.value = false;
-    showToast(editing ? "Treatment record updated." : "Treatment record added.");
+    if (scheduleFollowUp) {
+      const sourcePatient = props.state.patients.find((item) => item.id === data.record.patient_id);
+      followUpContext.value = {
+        record: data.record,
+        date: data.record.next_visit,
+        appointment: {
+          patient_id: data.record.patient_id,
+          patient_name: sourcePatient?.name || data.record.patient_name,
+          patient_email: sourcePatient?.email || "",
+          service: selectedProcedures[0],
+          services: selectedProcedures,
+        },
+      };
+      followUpWasScheduled.value = false;
+      followUpModalOpen.value = true;
+      showToast("Treatment saved. Choose a time to schedule the next visit.");
+    } else {
+      followUpContext.value = null;
+      showToast(editing ? "Treatment record updated." : "Treatment record added.");
+    }
   } catch (error) {
     showToast(error.message, "error");
   } finally {
     busy.value = false;
   }
+}
+
+function closeTreatmentEditor() {
+  treatmentEditorOpen.value = false;
+  if (followUpContext.value) {
+    followUpContext.value = null;
+    showToast("Treatment saved, but no follow-up appointment was scheduled.");
+  }
+}
+
+function returnToTreatmentRecord() {
+  if (!followUpContext.value) return;
+  followUpModalOpen.value = false;
+  selectedPatientId.value = followUpContext.value.record.patient_id;
+  resetTreatmentForm(followUpContext.value.record);
+}
+
+function followUpScheduled(data) {
+  const appointment = data.appointment;
+  if (appointment) {
+    const index = props.state.appointments.findIndex((item) => item.id === appointment.id);
+    if (index >= 0) props.state.appointments.splice(index, 1, appointment);
+    else props.state.appointments.unshift(appointment);
+  }
+  const cancelledIds = new Set(data.cancelled_appointment_ids || []);
+  props.state.appointments.forEach((item) => {
+    if (cancelledIds.has(item.id)) item.status = "cancelled";
+  });
+  followUpWasScheduled.value = true;
+  emit("refresh");
+}
+
+function closeFollowUp() {
+  if (!followUpWasScheduled.value) {
+    showToast("Treatment saved, but no follow-up appointment was scheduled.");
+  }
+  followUpModalOpen.value = false;
+  followUpContext.value = null;
+  followUpWasScheduled.value = false;
 }
 
 async function deleteTreatment(record) {
@@ -587,7 +665,8 @@ function viewTreatment(record) {
               </template>
               <button
                 v-else
-                class="secondary-button compact-button patient-account-action"
+                class="compact-button patient-account-action"
+                :class="selectedPatient.account_active ? 'danger-button' : 'secondary-button'"
                 type="button"
                 :disabled="busy"
                 @click="setAccountActive(selectedPatient, !selectedPatient.account_active)"
@@ -1137,10 +1216,26 @@ function viewTreatment(record) {
       :records="patientRecords"
       :appointments="patientAppointments"
       :procedures="procedures"
+      :availability="state.availability"
+      :doctor="clinicDoctor"
+      :allow-follow-up-date="Boolean(followUpContext)"
       :busy="busy"
       :max-date="localDateIso()"
-      @close="treatmentEditorOpen = false"
+      @close="closeTreatmentEditor"
       @submit="saveTreatment"
+    />
+
+    <ScheduleFollowUpModal
+      v-if="followUpModalOpen && followUpContext"
+      :state="state"
+      :appointment="followUpContext.appointment"
+      :record="followUpContext.record"
+      :preferred-date="followUpContext.date"
+      :doctor="clinicDoctor"
+      origin="treatment"
+      @back="returnToTreatmentRecord"
+      @close="closeFollowUp"
+      @scheduled="followUpScheduled"
     />
 
     <TreatmentDetailsModal

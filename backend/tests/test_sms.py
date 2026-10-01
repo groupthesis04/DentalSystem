@@ -600,6 +600,45 @@ class SmsTests(TestCase):
         self.assertEqual(self.write("/api/records", values, "patch").status_code, 200)
         self.assertEqual(SmsMessage.objects.count(), 1)
 
+    def test_treatment_follow_up_booking_sends_one_appointment_sms(self):
+        record_response = self.write("/api/records", {
+            "patient_id": self.profile.id,
+            "procedure": self.service.name,
+            "diagnosis": "Follow-up needed",
+            "treatment_date": timezone.localdate().isoformat(),
+            "next_visit": self.visit_date.isoformat(),
+            "schedule_follow_up": True,
+        })
+        self.assertEqual(record_response.status_code, 201, record_response.content)
+        record = TreatmentRecord.objects.get(pk=record_response.json()["record"]["id"])
+        self.assertEqual(record.patient_id, self.profile.id)
+        self.assertEqual(record.next_visit, self.visit_date)
+        self.assertFalse(SmsMessage.objects.exists())
+
+        appointment_response = self.write("/api/appointments", {
+            "patient_id": self.profile.id,
+            "source": "follow_up",
+            "doctor": self.doctor.name,
+            "service": self.service.name,
+            "date": self.visit_date.isoformat(),
+            "time": "09:00",
+            "notes": "Follow-up after treatment",
+        })
+        self.assertEqual(appointment_response.status_code, 201, appointment_response.content)
+        appointment = Appointment.objects.get(pk=appointment_response.json()["appointment"]["id"])
+        self.assertEqual(appointment.patient_id, record.patient_id)
+        self.assertEqual(appointment.appointment_date, record.next_visit)
+        self.assertEqual(appointment.status, "approved")
+        self.assertEqual(appointment.source, "follow_up")
+
+        messages = SmsMessage.objects.filter(rule_id="next_visit")
+        self.assertEqual(SmsMessage.objects.count(), 1)
+        self.assertEqual(messages.count(), 1)
+        message = messages.get()
+        self.assertEqual(message.appointment_id, appointment.id)
+        self.assertIsNone(message.record_id)
+        self.assertEqual(message.patient_id, self.profile.id)
+
     def test_test_sms_explicit_number_and_sample_data(self):
         response = self.write("/api/sms/test", {"key": "booking", "phone": "09123456789", "template": "Hi {PatientName}, {ClinicName}."})
         self.assertEqual(response.status_code, 201, response.content)
