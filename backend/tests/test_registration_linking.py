@@ -44,9 +44,6 @@ class RegistrationLinkingTests(TestCase):
             "birthdate": self.birthdate.isoformat(),
             "password": "NewPatient123!",
             "role": "patient",
-            "privacy_consent_given": True,
-            "privacy_version": "registration-2026-10-01",
-            "sms_consent": False,
         }
         payload.update(overrides)
         return payload
@@ -220,19 +217,34 @@ class RegistrationLinkingTests(TestCase):
         self.assertEqual(profile.birthdate, self.birthdate)
         self.assertEqual(profile.name, "Juan Dela Cruz")
 
-    def test_old_pending_challenge_cannot_record_unseen_privacy_notice(self):
+    def test_old_pending_challenge_does_not_record_unseen_consent(self):
         profile = self.clinic_profile()
         response = self.register()
         self.assertEqual(response.status_code, 202)
-        PatientAccountVerification.objects.filter(patient=profile).update(privacy_version="")
+        PatientAccountVerification.objects.filter(patient=profile).update(
+            privacy_version="registration-2026-10-01", sms_consent=True,
+        )
 
         verified = self.verify(response)
-        self.assertEqual(verified.status_code, 409)
-        self.assertEqual(self.resend(response).status_code, 409)
+        self.assertEqual(verified.status_code, 201)
         profile.refresh_from_db()
-        self.assertIsNone(profile.user_id)
+        self.assertIsNotNone(profile.user_id)
         self.assertFalse(profile.privacy_consent_given)
         self.assertIsNone(profile.privacy_consent_at)
+        self.assertIsNone(profile.sms_consent)
+        self.assertIsNone(profile.sms_consent_at)
+        self.assertFalse(profile.consent_records.exists())
+
+    def test_linking_preserves_existing_patient_sms_preference(self):
+        choice_date = timezone.now() - dt.timedelta(days=2)
+        profile = self.clinic_profile(sms_consent=True, sms_consent_at=choice_date)
+        response = self.register()
+
+        self.assertEqual(response.status_code, 202)
+        self.assertEqual(self.verify(response).status_code, 201)
+        profile.refresh_from_db()
+        self.assertTrue(profile.sms_consent)
+        self.assertEqual(profile.sms_consent_at, choice_date)
 
     def test_wrong_code_does_not_create_user_or_link_profile(self):
         profile = self.clinic_profile()

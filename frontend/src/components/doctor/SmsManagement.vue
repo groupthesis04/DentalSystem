@@ -395,11 +395,12 @@ onBeforeUnmount(() => window.clearInterval(timer));
               </button>
             </header>
             <div class="log-filters">
-              <select v-model="logRule" aria-label="Filter SMS automation">
-                <option value="">All automations</option>
+              <select v-model="logRule" aria-label="Filter SMS message type">
+                <option value="">All message types</option>
                 <option v-for="item in data.rules" :key="item.key" :value="item.key">
                   {{ item.name }}
-                </option></select
+                </option>
+                <option value="manual">Manual Clinic Message</option></select
               ><select v-model="status" aria-label="Filter SMS status">
                 <option value="">All Statuses</option>
                 <option v-for="(label, key) in statusLabels" :key="key" :value="key">

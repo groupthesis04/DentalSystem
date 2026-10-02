@@ -32,6 +32,7 @@ TEMPLATE_NAMES = {
     "walk_in": "Walk-in Appointment Added", "next_visit": "Next Visit Reminder",
     "balance": "Payment Reminder", "cancellation": "Appointment Cancelled",
 }
+MANUAL_RULE_KEY = "manual"
 
 
 def ensure_rules():
@@ -81,8 +82,12 @@ def enqueue(key, patient, event_key, context, *, appointment=None, record=None, 
     now = timezone.now()
     number = phone if phone is not None else patient.phone or (patient.user.phone if patient.user_id else "")
     state, error = ("queued", "") if rule.enabled or is_test else ("suppressed", "Automation was off when this event occurred.")
-    if not is_test and PatientProfile.objects.filter(pk=patient.pk).values_list("sms_consent", flat=True).first() is False:
-        state, error = "suppressed", "Patient SMS consent is not active."
+    if not is_test:
+        choice = PatientProfile.objects.filter(pk=patient.pk).values_list(
+            "sms_consent", "sms_consent_at", "sms_stop_reason"
+        ).first()
+        if not choice or choice[0] is not True or choice[1] is None or choice[2]:
+            state, error = "suppressed", "Patient SMS consent is not active."
     try:
         number = sms_provider.normalize_phone(number)
     except ValueError as exc:
@@ -94,6 +99,47 @@ def enqueue(key, patient, event_key, context, *, appointment=None, record=None, 
         "body": rule.template.format_map(context), "context": context, "status": state,
         "error": error, "is_test": is_test, "scheduled_for": now + dt.timedelta(minutes=0 if is_test else rule.delay_minutes),
         "expires_at": now + dt.timedelta(hours=24),
+    })
+    if created and item.status == "failed":
+        notify_sms_failure(item)
+    return item
+
+
+def ensure_manual_rule():
+    # Manual clinic messages have a rule only to fit the existing SMS queue.
+    # This key is intentionally absent from RULES and the automation controls.
+    rule, _ = SmsRule.objects.get_or_create(
+        key=MANUAL_RULE_KEY, defaults={"template": "", "enabled": True}
+    )
+    return rule
+
+
+def enqueue_manual(patient, event_key, template, *, body=None, rule=None, actor=None):
+    """Queue one clinic-composed message through the existing SMS worker."""
+    rule = rule or ensure_manual_rule()
+    now = timezone.now()
+    context = message_context(patient)
+    context["ManualTemplate"] = template
+    context["ManualSenderId"] = actor.pk if actor else ""
+    if body is None:
+        body = template.format_map(context)
+    number = patient.phone or (patient.user.phone if patient.user_id else "")
+    if patient.sms_consent is not True or patient.sms_consent_at is None or patient.sms_stop_reason:
+        state, error = "suppressed", "Patient SMS consent is not active."
+    else:
+        state, error = "queued", ""
+    try:
+        number = sms_provider.normalize_phone(number)
+    except ValueError as exc:
+        if state == "queued":
+            state, error = "failed", str(exc)
+    context["ManualAccepted"] = state == "queued"
+    context["ManualSkipReason"] = error if state != "queued" else ""
+    item, created = SmsMessage.objects.get_or_create(event_key=event_key, defaults={
+        "id": make_id("sms"), "rule": rule, "patient": patient,
+        "patient_name": patient.name, "phone": number, "body": body,
+        "context": context, "status": state, "error": error,
+        "scheduled_for": now, "expires_at": now + dt.timedelta(hours=24),
     })
     if created and item.status == "failed":
         notify_sms_failure(item)
@@ -167,11 +213,11 @@ def suppression_reason(item, now):
         return "Unsent message expired after 24 hours."
     if item.is_test:
         return ""
-    if not item.rule.enabled:
+    if item.rule_id != MANUAL_RULE_KEY and not item.rule.enabled:
         return "Automation is turned off."
     if not item.patient_id:
         return "Patient record is no longer available."
-    if item.patient.sms_consent is False:
+    if item.patient.sms_consent is not True or item.patient.sms_consent_at is None or item.patient.sms_stop_reason:
         return "Patient SMS consent is not active."
     if item.rule_id == "balance" and patient_balance(item.patient) <= 0:
         return "Balance fully paid."
@@ -214,7 +260,8 @@ def dispatch(item_id, now):
             item.context["Balance"] = f"{patient_balance(item.patient):,.2f}"
             item.context["PatientName"] = item.patient.name
             item.context["ClinicName"] = settings.SMS_CLINIC_NAME
-            item.body = item.rule.template.format_map(item.context)
+            if item.rule_id != MANUAL_RULE_KEY:
+                item.body = item.rule.template.format_map(item.context)
         item.attempts += 1
         try:
             item.phone = sms_provider.normalize_phone(item.phone)

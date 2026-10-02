@@ -1,5 +1,6 @@
 import datetime as dt
 import json
+import uuid
 from decimal import Decimal
 from io import BytesIO
 from unittest.mock import patch
@@ -22,6 +23,10 @@ class SmsTests(TestCase):
     def setUp(self):
         test_django_api.DentalApiTests.setUp(self)
         cache.clear()
+        # These provider tests exercise delivery after a patient has opted in.
+        self.profile.sms_consent = True
+        self.profile.sms_consent_at = timezone.now()
+        self.profile.save(update_fields=["sms_consent", "sms_consent_at"])
         sms.ensure_rules()
         self.client.force_login(self.doctor)
 
@@ -646,6 +651,132 @@ class SmsTests(TestCase):
         self.assertTrue(item.is_test)
         self.assertIsNone(item.patient)
         self.assertIn("Sample Patient", item.body)
+
+    def test_bulk_manual_sms_queues_personalized_messages_without_sending_in_request(self):
+        self.other_profile.sms_consent = True
+        self.other_profile.sms_consent_at = timezone.now()
+        self.other_profile.save(update_fields=["sms_consent", "sms_consent_at"])
+        payload = {
+            "patient_ids": [self.profile.pk, self.other_profile.pk],
+            "body": "Hi {PatientName}, this is {ClinicName}.",
+            "request_id": str(uuid.uuid4()),
+        }
+        with patch("communications.sms_provider.send") as send:
+            response = self.write("/api/sms/bulk", payload)
+            send.assert_not_called()
+        self.assertEqual(response.status_code, 201, response.content)
+        self.assertEqual(response.json(), {"queued_count": 2, "skipped": [], "already_queued": False})
+        self.assertNotIn(self.profile.phone, response.content.decode())
+        messages = list(SmsMessage.objects.filter(rule_id="manual").order_by("patient_id"))
+        self.assertEqual(len(messages), 2)
+        self.assertEqual({item.body for item in messages}, {
+            f"Hi Patient One, this is {sms.message_context(self.profile)['ClinicName']}.",
+            f"Hi Patient Two, this is {sms.message_context(self.other_profile)['ClinicName']}.",
+        })
+        self.assertEqual({item.status for item in messages}, {"queued"})
+        logs = self.client.get("/api/sms/logs", {"source": "manual", "rule": "manual"}).json()
+        self.assertEqual(logs["total"], 2)
+        self.assertEqual({item["source"] for item in logs["messages"]}, {"manual"})
+        self.assertEqual(self.client.get("/api/sms").json()["stats"]["active"], 6)
+        self.assertEqual(len(self.client.get("/api/sms").json()["rules"]), 6)
+        self.write("/api/sms/rules", {"key": "all", "enabled": False}, "patch")
+        self.assertTrue(SmsRule.objects.get(pk="manual").enabled)
+        self.assertEqual(set(SmsMessage.objects.values_list("status", flat=True)), {"queued"})
+
+    def test_bulk_manual_sms_skips_inactive_consent_and_invalid_mobile(self):
+        self.profile.mobile_number = "invalid"
+        self.profile.save(update_fields=["mobile_number"])
+        response = self.write("/api/sms/bulk", {
+            "patient_ids": [self.profile.pk, self.other_profile.pk],
+            "body": "Hello from {ClinicName}.",
+            "request_id": str(uuid.uuid4()),
+        })
+        self.assertEqual(response.status_code, 201, response.content)
+        data = response.json()
+        self.assertEqual(data["queued_count"], 0)
+        self.assertEqual([entry["patient_id"] for entry in data["skipped"]], [self.profile.pk, self.other_profile.pk])
+        self.assertIn("valid Philippine mobile", data["skipped"][0]["reason"])
+        self.assertEqual(data["skipped"][1]["reason"], "Patient SMS consent is not active.")
+        self.assertEqual(set(SmsMessage.objects.values_list("status", flat=True)), {"failed", "suppressed"})
+
+    def test_bulk_manual_sms_is_idempotent_and_rejects_changed_payload(self):
+        payload = {
+            "patient_ids": [self.profile.pk],
+            "body": "Hello {PatientName}.",
+            "request_id": str(uuid.uuid4()),
+        }
+        first = self.write("/api/sms/bulk", payload)
+        again = self.write("/api/sms/bulk", payload)
+        self.assertEqual(first.status_code, 201)
+        self.assertEqual(again.status_code, 200)
+        self.assertEqual(again.json(), {"queued_count": 1, "skipped": [], "already_queued": True})
+        self.assertEqual(SmsMessage.objects.count(), 1)
+        self.assertEqual(self.write("/api/sms/bulk", {**payload, "body": "Different text."}).status_code, 409)
+        self.assertEqual(self.write("/api/sms/bulk", {**payload, "patient_ids": [self.other_profile.pk]}).status_code, 409)
+        self.assertEqual(SmsMessage.objects.count(), 1)
+
+    def test_bulk_manual_sms_rechecks_consent_and_mobile_at_dispatch(self):
+        response = self.write("/api/sms/bulk", {
+            "patient_ids": [self.profile.pk], "body": "Hello {PatientName}.",
+            "request_id": str(uuid.uuid4()),
+        })
+        self.assertEqual(response.status_code, 201)
+        self.profile.mobile_number = "09123456780"
+        self.profile.save(update_fields=["mobile_number"])
+        with patch("communications.sms_provider.send", return_value=("bulk-provider-id", "sent")) as send:
+            sms.process_queue()
+        send.assert_called_once_with("639123456780", "Hello Patient One.")
+        self.assertEqual(SmsMessage.objects.get().status, "sent")
+
+        second = self.write("/api/sms/bulk", {
+            "patient_ids": [self.profile.pk], "body": "A second clinic message.",
+            "request_id": str(uuid.uuid4()),
+        })
+        self.assertEqual(second.status_code, 201)
+        self.profile.sms_consent = False
+        self.profile.save(update_fields=["sms_consent"])
+        with patch("communications.sms_provider.send") as send:
+            sms.process_queue()
+            send.assert_not_called()
+        self.assertEqual(SmsMessage.objects.get(body="A second clinic message.").status, "suppressed")
+
+    def test_bulk_manual_sms_validates_selection_access_and_rate_limit(self):
+        base = {"patient_ids": [self.profile.pk], "body": "Clinic notice.", "request_id": str(uuid.uuid4())}
+        for invalid in (
+            {**base, "patient_ids": [self.profile.pk, self.profile.pk]},
+            {**base, "patient_ids": ["missing"]},
+            {**base, "patient_ids": [self.profile.pk] * 51},
+            {**base, "request_id": "not-a-uuid"},
+        ):
+            with self.subTest(invalid=invalid):
+                self.assertEqual(self.write("/api/sms/bulk", invalid).status_code, 400)
+        self.assertFalse(SmsMessage.objects.exists())
+        self.client.force_login(self.patient)
+        self.assertEqual(self.write("/api/sms/bulk", base).status_code, 403)
+        self.client.force_login(self.doctor)
+        secure = Client(enforce_csrf_checks=True)
+        secure.force_login(self.doctor)
+        self.assertEqual(secure.post("/api/sms/bulk", data=json.dumps(base), content_type="application/json").status_code, 403)
+        with override_settings(SMS_ENABLED=False):
+            self.assertEqual(self.write("/api/sms/bulk", base).status_code, 409)
+        for _ in range(3):
+            self.assertEqual(self.write("/api/sms/bulk", {**base, "request_id": str(uuid.uuid4())}).status_code, 201)
+        self.assertEqual(self.write("/api/sms/bulk", {**base, "request_id": str(uuid.uuid4())}).status_code, 429)
+        self.assertEqual(SmsMessage.objects.count(), 3)
+
+    def test_manual_bulk_failure_can_be_resent_with_original_body(self):
+        self.assertEqual(self.write("/api/sms/bulk", {
+            "patient_ids": [self.profile.pk], "body": "Hi {PatientName}, from {ClinicName}.",
+            "request_id": str(uuid.uuid4()),
+        }).status_code, 201)
+        original = SmsMessage.objects.get()
+        SmsMessage.objects.filter(pk=original.pk).update(status="failed")
+        response = self.write("/api/sms/resend", {"id": original.pk})
+        self.assertEqual(response.status_code, 201, response.content)
+        resent = SmsMessage.objects.get(event_key="resend:" + original.pk)
+        self.assertEqual(resent.body, original.body)
+        self.assertEqual(resent.rule_id, "manual")
+        self.assertEqual(response.json()["message"]["source"], "manual")
 
     def test_worker_lease_blocks_overlapping_pass(self):
         self.booking()

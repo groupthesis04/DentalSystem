@@ -61,12 +61,12 @@ account lockout migration does not revoke existing sessions. The optional
 
 The patient-management page can disable or re-enable a linked patient account.
 Disabling it revokes active sessions while keeping the patient profile and clinic
-history. New registrations record the accepted privacy notice version and a
-separate SMS choice. Existing patient records keep their previous SMS behavior
-with the choice shown as "not recorded" until a patient or clinic staff member
-records one. New patient records start with automated SMS off. Opting out
-suppresses queued messages; a message already being sent finishes before the
-consent change is saved. Account > Security > Activity Log shows account,
+history. New registrations do not record a privacy or SMS choice. Automated SMS
+starts off until the patient chooses to receive it in their profile; older records
+whose choice is unknown are also suppressed. The patient's SMS preference history
+retains subsequent choices and withdrawals with their recorder and time. Opting
+out suppresses queued messages; a message already being sent finishes before the
+change is saved. Account > Security > Activity Log shows account,
 patient, treatment, appointment cancellation, and accepted SMS events with
 opaque user and record IDs. It does not store passwords, verification codes,
 message bodies, or patient details.

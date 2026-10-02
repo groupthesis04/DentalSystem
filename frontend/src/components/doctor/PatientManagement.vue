@@ -11,10 +11,10 @@ import {
   Globe,
   Mail,
   MapPin,
-  Phone,
   Plus,
   Save,
   Search,
+  Send,
   Smartphone,
   UserRound,
   UsersRound,
@@ -51,6 +51,14 @@ const emit = defineEmits(["refresh"]);
 // Search, selection, dialogs, and forms for this screen.
 const search = ref("");
 const queueSort = ref("all");
+const selectedPatientIds = ref([]);
+const bulkSmsOpen = ref(false);
+const bulkSmsBody = ref("");
+const bulkSmsBusy = ref(false);
+const bulkSmsError = ref("");
+const bulkSmsResult = ref(null);
+const bulkSmsRecipientNames = ref({});
+let lastBulkSubmission = null;
 const patientEditorOpen = ref(false);
 const patientListOpen = ref(false);
 const treatmentEditorOpen = ref(false);
@@ -156,6 +164,26 @@ const filteredPatients = computed(() => {
   }
   return patients.sort((a, b) => String(a.name).localeCompare(String(b.name)));
 });
+const selectedPatients = computed(() =>
+  props.state.patients.filter((patient) => selectedPatientIds.value.includes(patient.id)),
+);
+const selectedPatientCount = computed(() => selectedPatientIds.value.length);
+const allFilteredSelected = computed(
+  () =>
+    filteredPatients.value.length > 0 &&
+    filteredPatients.value.every((patient) => selectedPatientIds.value.includes(patient.id)),
+);
+const filteredSelectionExceedsLimit = computed(
+  () =>
+    new Set([...selectedPatientIds.value, ...filteredPatients.value.map((patient) => patient.id)])
+      .size > 50,
+);
+const selectedMissingMobileCount = computed(
+  () =>
+    selectedPatients.value.filter(
+      (patient) => !String(patient.mobile_number || patient.phone || "").trim(),
+    ).length,
+);
 const selectedPatient = computed(
   () => props.state.patients.find((item) => item.id === selectedPatientId.value) || null,
 );
@@ -211,6 +239,119 @@ watch(
   },
   { immediate: true },
 );
+watch(
+  () => props.state.patients.map((patient) => patient.id),
+  (ids) => {
+    selectedPatientIds.value = selectedPatientIds.value.filter((id) => ids.includes(id));
+  },
+);
+
+function togglePatientSelection(id, event) {
+  const checked = event.target.checked;
+  if (!checked) {
+    selectedPatientIds.value = selectedPatientIds.value.filter((selectedId) => selectedId !== id);
+    return;
+  }
+  if (selectedPatientIds.value.includes(id)) return;
+  if (selectedPatientIds.value.length >= 50) {
+    event.target.checked = false;
+    showToast("Select up to 50 patients per SMS send.", "error");
+    return;
+  }
+  selectedPatientIds.value = [...selectedPatientIds.value, id];
+}
+
+function toggleAllFilteredPatients(checked) {
+  const ids = filteredPatients.value.map((patient) => patient.id);
+  if (!checked) {
+    selectedPatientIds.value = selectedPatientIds.value.filter((id) => !ids.includes(id));
+    return;
+  }
+  if (filteredSelectionExceedsLimit.value) {
+    showToast("Narrow the search or clear selections to stay within 50 patients.", "error");
+    return;
+  }
+  selectedPatientIds.value = [...new Set([...selectedPatientIds.value, ...ids])];
+}
+
+function openBulkSms() {
+  if (!selectedPatientIds.value.length) return;
+  bulkSmsError.value = "";
+  bulkSmsResult.value = null;
+  bulkSmsOpen.value = true;
+  patientListOpen.value = false;
+}
+
+function closeBulkSms() {
+  if (bulkSmsBusy.value) return;
+  bulkSmsOpen.value = false;
+  if (bulkSmsResult.value) {
+    bulkSmsBody.value = "";
+    bulkSmsResult.value = null;
+    lastBulkSubmission = null;
+  }
+}
+
+function newBulkRequestId() {
+  if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID();
+  const bytes = new Uint8Array(16);
+  globalThis.crypto.getRandomValues(bytes);
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = [...bytes].map((value) => value.toString(16).padStart(2, "0")).join("");
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
+async function sendBulkSms() {
+  if (bulkSmsBusy.value) return;
+  const body = bulkSmsBody.value.trim();
+  const patientIds = [...selectedPatientIds.value].sort();
+  if (!patientIds.length) {
+    bulkSmsError.value = "Select at least one patient.";
+    return;
+  }
+  if (!body || body.length > 1000) {
+    bulkSmsError.value = "Enter a message of up to 1,000 characters.";
+    return;
+  }
+  const fingerprint = JSON.stringify({ patientIds, body });
+  if (lastBulkSubmission?.fingerprint !== fingerprint) {
+    lastBulkSubmission = { fingerprint, requestId: newBulkRequestId() };
+  }
+  bulkSmsBusy.value = true;
+  bulkSmsError.value = "";
+  const recipientNames = Object.fromEntries(
+    selectedPatients.value.map((patient) => [patient.id, patient.name]),
+  );
+  try {
+    const result = await apiRequest("/api/sms/bulk", {
+      method: "POST",
+      body: {
+        patient_ids: patientIds,
+        body,
+        request_id: lastBulkSubmission.requestId,
+      },
+    });
+    bulkSmsRecipientNames.value = recipientNames;
+    bulkSmsResult.value = {
+      queuedCount: result.queued_count || 0,
+      skipped: result.skipped || [],
+      alreadyQueued: Boolean(result.already_queued),
+      selectedCount: patientIds.length,
+    };
+    selectedPatientIds.value = [];
+    showToast(
+      result.already_queued
+        ? "This SMS request was already queued. No duplicate messages were created."
+        : `${result.queued_count || 0} SMS message${result.queued_count === 1 ? "" : "s"} queued.`,
+    );
+    lastBulkSubmission = null;
+  } catch (error) {
+    bulkSmsError.value = error.message;
+  } finally {
+    bulkSmsBusy.value = false;
+  }
+}
 
 function patientRegisteredDate(patient) {
   const value = patient?.created_at || patient?.updated_at || "";
@@ -327,29 +468,6 @@ async function setAccountActive(patient, isActive) {
     });
     replacePatient(data.patient);
     showToast(isActive ? "Patient account enabled." : "Patient account disabled.");
-  } catch (error) {
-    showToast(error.message, "error");
-  } finally {
-    busy.value = false;
-  }
-}
-
-async function recordSmsChoice(patient, consent) {
-  if (
-    consent &&
-    !window.confirm(
-      `Confirm that ${patient.name} agreed to receive appointment, next-visit, and payment reminder SMS messages.`,
-    )
-  )
-    return;
-  busy.value = true;
-  try {
-    const data = await apiRequest("/api/patients", {
-      method: "PATCH",
-      body: { action: "sms_consent", id: patient.id, sms_consent: consent },
-    });
-    replacePatient(data.patient);
-    showToast(consent ? "SMS consent recorded." : "SMS messages stopped for this patient.");
   } catch (error) {
     showToast(error.message, "error");
   } finally {
@@ -540,10 +658,26 @@ function viewTreatment(record) {
           <h1>Patient Records</h1>
           <p>Review patient information, appointments, balances, and treatment history.</p>
         </div>
-        <button class="primary-button patient-add-button" type="button" @click="resetPatientForm()">
-          <Plus :size="18" aria-hidden="true" />
-          Add Patient
-        </button>
+        <div class="patient-page-actions">
+          <button
+            class="secondary-button patient-bulk-sms-button"
+            type="button"
+            :disabled="!selectedPatientCount"
+            @click="openBulkSms"
+          >
+            <Send :size="17" aria-hidden="true" />
+            Send SMS to Selected Patients
+            <span v-if="selectedPatientCount">({{ selectedPatientCount }})</span>
+          </button>
+          <button
+            class="primary-button patient-add-button"
+            type="button"
+            @click="resetPatientForm()"
+          >
+            <Plus :size="18" aria-hidden="true" />
+            Add Patient
+          </button>
+        </div>
       </div>
 
       <div class="patient-management-workspace">
@@ -585,38 +719,78 @@ function viewTreatment(record) {
             </button>
           </div>
 
-          <div class="patient-list-items">
+          <div class="patient-bulk-selection-tools">
+            <label class="patient-select-all">
+              <input
+                type="checkbox"
+                :checked="allFilteredSelected"
+                :disabled="
+                  !filteredPatients.length ||
+                  (!allFilteredSelected && filteredSelectionExceedsLimit)
+                "
+                @change="toggleAllFilteredPatients($event.target.checked)"
+              />
+              <span>Select all matching</span>
+            </label>
             <button
+              v-if="selectedPatientCount"
+              class="patient-clear-selection"
+              type="button"
+              @click="selectedPatientIds = []"
+            >
+              Clear
+            </button>
+            <small v-if="filteredSelectionExceedsLimit && !allFilteredSelected">
+              Narrow search or clear selections to select all (50 max).
+            </small>
+            <small v-else>{{ selectedPatientCount }} selected · 50 max</small>
+          </div>
+
+          <div class="patient-list-items">
+            <div
               v-for="patient in filteredPatients.slice(0, 5)"
               :key="patient.id"
-              class="patient-list-item"
-              :class="{ active: selectedPatientId === patient.id }"
-              type="button"
-              @click="openProfile(patient)"
+              class="patient-list-row"
             >
-              <AvatarBadge :name="patient.name" :image="patient.profile_image || ''" />
-              <span class="patient-list-copy">
-                <strong>{{ patient.name }}</strong>
-                <small>{{
-                  patient.mobile_number || patient.phone || patient.email || "No contact details"
-                }}</small>
-                <small>Registered: {{ patientRegisteredDate(patient) }}</small>
-              </span>
-              <ChevronRight :size="18" aria-hidden="true" />
-            </button>
+              <label class="patient-select-control">
+                <input
+                  type="checkbox"
+                  :checked="selectedPatientIds.includes(patient.id)"
+                  :aria-label="`Select ${patient.name} for SMS`"
+                  @change="togglePatientSelection(patient.id, $event)"
+                />
+              </label>
+              <button
+                class="patient-list-item"
+                :class="{ active: selectedPatientId === patient.id }"
+                type="button"
+                @click="openProfile(patient)"
+              >
+                <AvatarBadge :name="patient.name" :image="patient.profile_image || ''" />
+                <span class="patient-list-copy">
+                  <strong>{{ patient.name }}</strong>
+                  <small>{{
+                    patient.mobile_number || patient.phone || patient.email || "No contact details"
+                  }}</small>
+                  <small>Registered: {{ patientRegisteredDate(patient) }}</small>
+                </span>
+                <ChevronRight :size="18" aria-hidden="true" />
+              </button>
+            </div>
             <p v-if="!filteredPatients.length" class="patient-list-empty">
               No matching patient records.
             </p>
           </div>
 
-          <div v-if="filteredPatients.length > 5" class="patient-list-footer">
+          <div class="patient-list-footer">
             <button
               id="openPatientListDialog"
               class="primary-button compact-button"
               type="button"
+              :disabled="!state.patients.length"
               @click="patientListOpen = true"
             >
-              More
+              View all patients
             </button>
           </div>
         </aside>
@@ -781,11 +955,6 @@ function viewTreatment(record) {
                 </div>
                 <dl class="patient-contact-list">
                   <div>
-                    <Phone :size="17" aria-hidden="true" />
-                    <dt>Phone</dt>
-                    <dd>{{ selectedPatient.phone_number || "Not provided" }}</dd>
-                  </div>
-                  <div>
                     <Smartphone :size="17" aria-hidden="true" />
                     <dt>Mobile</dt>
                     <dd>
@@ -798,56 +967,6 @@ function viewTreatment(record) {
                     <dd>{{ selectedPatient.email || "Not provided" }}</dd>
                   </div>
                 </dl>
-              </section>
-
-              <section
-                class="patient-detail-card patient-consent-card"
-                aria-label="Patient choices"
-              >
-                <div class="patient-card-heading">
-                  <div>
-                    <span class="section-kicker">Patient choices</span>
-                    <h3>Privacy and SMS</h3>
-                  </div>
-                </div>
-                <p>
-                  Registration agreement:
-                  {{
-                    selectedPatient.privacy_consent_given
-                      ? formatDate(String(selectedPatient.privacy_consent_at || "").slice(0, 10))
-                      : "Not recorded"
-                  }}
-                </p>
-                <p>
-                  SMS messages:
-                  {{
-                    selectedPatient.sms_consent === null
-                      ? "Not recorded (legacy reminders continue)"
-                      : selectedPatient.sms_consent
-                        ? "Agreed"
-                        : selectedPatient.sms_consent_at
-                          ? "Declined"
-                          : "Not recorded (SMS off)"
-                  }}
-                </p>
-                <div class="patient-consent-actions">
-                  <button
-                    class="secondary-button compact-button"
-                    type="button"
-                    :disabled="busy || selectedPatient.sms_consent === true"
-                    @click="recordSmsChoice(selectedPatient, true)"
-                  >
-                    Record SMS agreement
-                  </button>
-                  <button
-                    class="secondary-button compact-button"
-                    type="button"
-                    :disabled="busy || selectedPatient.sms_consent === false"
-                    @click="recordSmsChoice(selectedPatient, false)"
-                  >
-                    Stop SMS
-                  </button>
-                </div>
               </section>
             </div>
           </div>
@@ -935,6 +1054,117 @@ function viewTreatment(record) {
         </section>
       </div>
     </div>
+
+    <BaseModal
+      v-if="bulkSmsOpen"
+      :title="bulkSmsResult ? 'SMS request queued' : 'Send SMS to selected patients'"
+      eyebrow="Clinic messages"
+      size-class="patient-bulk-sms-dialog"
+      @close="closeBulkSms"
+    >
+      <template #subtitle>
+        <p class="patient-bulk-sms-subtitle">
+          {{
+            bulkSmsResult
+              ? "Review the queue result below. Delivery updates appear in Message Logs."
+              : "Send one clinic-related message to the selected patients."
+          }}
+        </p>
+      </template>
+      <form v-if="!bulkSmsResult" class="patient-bulk-sms-form" @submit.prevent="sendBulkSms">
+        <div class="patient-bulk-sms-body">
+          <div class="patient-bulk-sms-summary">
+            <strong
+              >{{ selectedPatientCount }} patient{{
+                selectedPatientCount === 1 ? "" : "s"
+              }}
+              selected</strong
+            >
+            <p>
+              Only patients with active SMS agreement and a valid Philippine mobile number will be
+              queued. The server checks each patient again when you send.
+            </p>
+            <p v-if="selectedMissingMobileCount" class="patient-bulk-sms-warning">
+              {{ selectedMissingMobileCount }} selected patient{{
+                selectedMissingMobileCount === 1 ? "" : "s"
+              }}
+              {{ selectedMissingMobileCount === 1 ? "has" : "have" }} no mobile number on file and
+              will be skipped.
+            </p>
+          </div>
+          <details class="patient-bulk-sms-recipients">
+            <summary>Review selected patients</summary>
+            <ul>
+              <li v-for="patient in selectedPatients" :key="patient.id">
+                <span>{{ patient.name }}</span>
+                <small v-if="!String(patient.mobile_number || patient.phone || '').trim()">
+                  No mobile number
+                </small>
+              </li>
+            </ul>
+          </details>
+          <label class="patient-bulk-sms-message-label" for="patient-bulk-sms-message">
+            Message <span aria-hidden="true">*</span>
+          </label>
+          <textarea
+            id="patient-bulk-sms-message"
+            v-model="bulkSmsBody"
+            rows="6"
+            maxlength="1000"
+            :disabled="bulkSmsBusy"
+            required
+            placeholder="Write a clinic-related message..."
+          ></textarea>
+          <div class="patient-bulk-sms-message-hint">
+            <span>Use {PatientName} and {ClinicName} to personalize the message.</span>
+            <span>{{ bulkSmsBody.length }}/1000</span>
+          </div>
+          <p v-if="bulkSmsError" class="patient-bulk-sms-error" role="alert">
+            {{ bulkSmsError }}
+          </p>
+        </div>
+        <div class="crud-dialog-actions patient-bulk-sms-actions">
+          <button
+            class="secondary-button"
+            type="button"
+            :disabled="bulkSmsBusy"
+            @click="closeBulkSms"
+          >
+            Cancel
+          </button>
+          <button
+            class="primary-button"
+            type="submit"
+            :disabled="bulkSmsBusy || !selectedPatientCount"
+          >
+            <Send :size="16" aria-hidden="true" />
+            {{ bulkSmsBusy ? "Queuing..." : "Send SMS" }}
+          </button>
+        </div>
+      </form>
+      <div v-else class="patient-bulk-sms-result">
+        <div class="patient-bulk-sms-result-counts">
+          <strong>{{ bulkSmsResult.queuedCount }} queued</strong>
+          <span>{{ bulkSmsResult.skipped.length }} skipped</span>
+          <span>{{ bulkSmsResult.selectedCount }} selected</span>
+        </div>
+        <p v-if="bulkSmsResult.alreadyQueued">
+          This request had already been queued. No duplicate messages were created.
+        </p>
+        <div v-if="bulkSmsResult.skipped.length" class="patient-bulk-sms-skipped">
+          <h3>Skipped patients</h3>
+          <ul>
+            <li v-for="item in bulkSmsResult.skipped" :key="item.patient_id">
+              <strong>{{ bulkSmsRecipientNames[item.patient_id] || item.patient_id }}</strong>
+              <span>{{ item.reason }}</span>
+            </li>
+          </ul>
+        </div>
+        <div class="crud-dialog-actions patient-bulk-sms-actions">
+          <button class="primary-button" type="button" @click="closeBulkSms">Done</button>
+        </div>
+      </div>
+    </BaseModal>
 
     <BaseModal
       v-if="patientEditorOpen"
@@ -1154,10 +1384,37 @@ function viewTreatment(record) {
       @close="patientListOpen = false"
     >
       <div class="patient-list-dialog-body">
+        <div class="patient-directory-toolbar">
+          <label class="patient-list-search">
+            <Search :size="17" aria-hidden="true" />
+            <span class="sr-only">Search all patient records</span>
+            <input
+              v-model="search"
+              type="search"
+              placeholder="Search patients"
+              autocomplete="off"
+            />
+          </label>
+          <label class="patient-select-all">
+            <input
+              type="checkbox"
+              :checked="allFilteredSelected"
+              :disabled="
+                !filteredPatients.length || (!allFilteredSelected && filteredSelectionExceedsLimit)
+              "
+              @change="toggleAllFilteredPatients($event.target.checked)"
+            />
+            <span>Select all matching</span>
+          </label>
+          <span>{{ selectedPatientCount }} selected · 50 max</span>
+        </div>
         <div class="table-wrap">
           <table class="crud-table patient-directory-table">
             <thead>
               <tr>
+                <th class="patient-directory-select-col">
+                  <span class="sr-only">Select for SMS</span>
+                </th>
                 <th>Patient</th>
                 <th>Contact</th>
                 <th>Last Visit</th>
@@ -1167,6 +1424,14 @@ function viewTreatment(record) {
             </thead>
             <tbody>
               <tr v-for="patient in filteredPatients" :key="patient.id">
+                <td class="patient-directory-select-col">
+                  <input
+                    type="checkbox"
+                    :checked="selectedPatientIds.includes(patient.id)"
+                    :aria-label="`Select ${patient.name} for SMS`"
+                    @change="togglePatientSelection(patient.id, $event)"
+                  />
+                </td>
                 <td>
                   <strong>{{ patient.name }}</strong>
                   <div class="meta">{{ patient.email || "No email" }}</div>
@@ -1198,10 +1463,22 @@ function viewTreatment(record) {
                   </div>
                 </td>
               </tr>
+              <tr v-if="!filteredPatients.length">
+                <td colspan="6" class="table-empty">No matching patient records.</td>
+              </tr>
             </tbody>
           </table>
         </div>
         <div class="crud-dialog-actions">
+          <button
+            class="primary-button"
+            type="button"
+            :disabled="!selectedPatientCount"
+            @click="openBulkSms"
+          >
+            <Send :size="16" aria-hidden="true" />
+            Send SMS ({{ selectedPatientCount }})
+          </button>
           <button class="secondary-button" type="button" @click="patientListOpen = false">
             Close
           </button>

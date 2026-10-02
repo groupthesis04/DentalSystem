@@ -16,6 +16,8 @@ class AuditEvent(models.Model):
         PATIENT_CREATED = "PATIENT_CREATED", "Patient record created"
         PATIENT_UPDATED = "PATIENT_UPDATED", "Patient record updated"
         PATIENT_DELETED = "PATIENT_DELETED", "Patient record deleted"
+        SMS_CONSENT_RECORDED = "SMS_CONSENT_RECORDED", "Patient SMS choice recorded"
+        SMS_STOPPED = "SMS_STOPPED", "Patient SMS stopped"
         TREATMENT_CREATED = "TREATMENT_CREATED", "Treatment record created"
         TREATMENT_UPDATED = "TREATMENT_UPDATED", "Treatment record updated"
         TREATMENT_DELETED = "TREATMENT_DELETED", "Treatment record deleted"

@@ -2,6 +2,7 @@ import datetime as dt
 import hashlib
 import uuid
 
+from accounts.models import PatientProfile
 from django.conf import settings
 from django.core.cache import cache
 from django.db import transaction
@@ -14,7 +15,11 @@ from dental_backend.api import api_error, doctor_required, make_id, rate_limit, 
 
 from . import sms_provider
 from .models import SmsMessage, SmsRule, SmsTemplate, SmsWorker
-from .sms import PLACEHOLDERS, RULES, enqueue, ensure_rules, message_context, suppression_reason, validate_template
+from .sms import (
+    MANUAL_RULE_KEY, PLACEHOLDERS, RULES, enqueue, enqueue_manual,
+    ensure_manual_rule, ensure_rules, message_context, suppression_reason,
+    validate_template,
+)
 
 
 # Keep provider states for diagnostics while grouping the clinic-facing filters.
@@ -93,10 +98,11 @@ def resend_block_reason(item, resend_id=""):
 
 def message_payload(item, resend_id=""):
     reason = resend_block_reason(item, resend_id)
-    source = "test" if item.is_test else "manual" if item.event_key.startswith("resend:") else "automated"
+    source = "test" if item.is_test else "manual" if item.rule_id == MANUAL_RULE_KEY or item.event_key.startswith("resend:") else "automated"
+    name, trigger = ("Manual Clinic Message", "Sent by the clinic") if item.rule_id == MANUAL_RULE_KEY else RULES[item.rule_id][:2]
     return {
-        "id": item.pk, "rule": item.rule_id, "name": RULES[item.rule_id][0],
-        "trigger": RULES[item.rule_id][1], "source": source,
+        "id": item.pk, "rule": item.rule_id, "name": name,
+        "trigger": trigger, "source": source,
         "patient_name": item.patient_name, "phone": item.phone, "body": item.body,
         "status": item.status, "display_status": DISPLAY_STATUSES.get(item.status, "pending"),
         "error": item.error, "provider_id": item.provider_id, "is_test": item.is_test,
@@ -126,7 +132,7 @@ def dashboard(request):
         "rules": [rule_payload(rules[key]) for key in RULES],
         "placeholders": PLACEHOLDERS,
         "provider": {"name": "Semaphore", "ready": sms_provider.ready(), "sending_enabled": settings.SMS_ENABLED, "key_configured": bool(settings.SEMAPHORE_API_KEY), "sender_name": settings.SEMAPHORE_SENDER_NAME or "Account default", "worker_active": bool(last_run and last_run > timezone.now() - dt.timedelta(minutes=3)), "last_run_at": last_run.isoformat() if last_run else None, **credit},
-        "stats": {"active": sum(rule.enabled for rule in rules.values()), "sent_today": queryset.filter(status="sent", submitted_at__date=today).count(), "pending": queryset.filter(status__in=["queued", "processing", "submitted", "pending"]).count(), "success_rate": round(sent * 100 / decided) if decided else None},
+        "stats": {"active": sum(rules[key].enabled for key in RULES), "sent_today": queryset.filter(status="sent", submitted_at__date=today).count(), "pending": queryset.filter(status__in=["queued", "processing", "submitted", "pending"]).count(), "success_rate": round(sent * 100 / decided) if decided else None},
         "clinic_name": settings.SMS_CLINIC_NAME,
     })
 
@@ -152,7 +158,7 @@ def rules(request):
     except ValueError as exc:
         return api_error(str(exc))
     with transaction.atomic():
-        items = SmsRule.objects.select_for_update()
+        items = SmsRule.objects.select_for_update().filter(key__in=RULES)
         if key != "all":
             items = items.filter(pk=key)
         for item in items:
@@ -278,7 +284,7 @@ def logs(request):
         queryset = queryset.filter(status__in=STATUS_GROUPS.get(status, (status,)))
     key = request.GET.get("rule", "")
     if key:
-        if key not in RULES:
+        if key not in RULES and key != MANUAL_RULE_KEY:
             return api_error("Choose a valid message type.")
         queryset = queryset.filter(rule_id=key)
     search = request.GET.get("q", "").strip()[:120]
@@ -292,9 +298,9 @@ def logs(request):
     if source == "test":
         queryset = queryset.filter(is_test=True)
     elif source == "manual":
-        queryset = queryset.filter(is_test=False, event_key__startswith="resend:")
+        queryset = queryset.filter(is_test=False).filter(Q(rule_id=MANUAL_RULE_KEY) | Q(event_key__startswith="resend:"))
     elif source == "automated":
-        queryset = queryset.filter(is_test=False).exclude(event_key__startswith="resend:")
+        queryset = queryset.filter(is_test=False).exclude(Q(rule_id=MANUAL_RULE_KEY) | Q(event_key__startswith="resend:"))
     elif source:
         return api_error("Choose a valid message source.")
     if start_at:
@@ -308,7 +314,7 @@ def logs(request):
         scheduled=Count("pk", filter=Q(status="queued", scheduled_for__gt=timezone.now())),
     )
     ensure_rules()
-    stats["active_rules"] = SmsRule.objects.filter(enabled=True).count()
+    stats["active_rules"] = SmsRule.objects.filter(key__in=RULES, enabled=True).count()
     stats["total_rules"] = len(RULES)
     total = stats["total"]
     pages = max(1, (total + page_size - 1) // page_size)
@@ -353,13 +359,110 @@ def resend(request):
             context = message_context(original.patient, original.appointment.appointment_date, original.appointment.appointment_time)
         else:
             context = message_context(original.patient, original.record.next_visit if original.record_id and original.rule_id == "next_visit" else None)
-        item = enqueue(original.rule_id, original.patient, event_key, context,
-                       appointment=original.appointment, record=original.record,
-                       phone=original.phone if original.is_test else None, is_test=original.is_test)
+        if original.rule_id == MANUAL_RULE_KEY:
+            item = enqueue_manual(
+                original.patient, event_key,
+                original.context.get("ManualTemplate", original.body),
+                body=original.body, actor=request.user,
+            )
+        else:
+            item = enqueue(original.rule_id, original.patient, event_key, context,
+                           appointment=original.appointment, record=original.record,
+                           phone=original.phone if original.is_test else None, is_test=original.is_test)
         if original.is_test:
             item.body = original.body
             item.save(update_fields=["body"])
     return JsonResponse({"message": message_payload(item), "already_queued": False}, status=201)
+
+
+def bulk_doctor_rate_limit(doctor):
+    """Limit fresh bulk sends per doctor while allowing safe idempotent retries."""
+    digest = hashlib.sha256(str(doctor.pk).encode("utf-8")).hexdigest()[:32]
+    key = f"communications:bulk-sms:{digest}"
+    if cache.add(key, 1, timeout=60):
+        return None
+    try:
+        attempts = cache.incr(key)
+    except ValueError:
+        cache.set(key, 1, timeout=60)
+        attempts = 1
+    if attempts > 3:
+        return api_error("Too many requests. Please wait and try again.", 429, retry_after=60)
+    return None
+
+
+@require_http_methods(["POST"])
+def bulk(request):
+    if not doctor_required(request):
+        return api_error("Doctor access is required.", 403)
+    try:
+        payload = read_json(request)
+        patient_ids = payload.get("patient_ids")
+        if not isinstance(patient_ids, list) or not 1 <= len(patient_ids) <= 50:
+            raise ValueError("Choose 1 to 50 patients.")
+        if any(not isinstance(pk, str) or not pk or len(pk) > 64 or pk.strip() != pk for pk in patient_ids):
+            raise ValueError("Choose valid patient records.")
+        if len(set(patient_ids)) != len(patient_ids):
+            raise ValueError("Choose each patient only once.")
+        template = validate_template(payload.get("body"))
+        request_id = payload.get("request_id")
+        if not isinstance(request_id, str):
+            raise ValueError("A valid request ID is required.")
+        try:
+            request_id = str(uuid.UUID(request_id))
+        except ValueError:
+            raise ValueError("A valid request ID is required.") from None
+    except ValueError as exc:
+        return api_error(str(exc))
+
+    prefix = f"manual:{request_id}:"
+    with transaction.atomic():
+        rule = ensure_manual_rule()
+        rule = SmsRule.objects.select_for_update().get(pk=rule.pk)
+        existing = {
+            item.event_key[len(prefix):]: item
+            for item in SmsMessage.objects.filter(event_key__startswith=prefix)
+        }
+        if existing:
+            if set(existing) != set(patient_ids) or any(
+                item.context.get("ManualTemplate") != template
+                or item.context.get("ManualSenderId") != request.user.pk
+                for item in existing.values()
+            ):
+                return api_error("This request ID was already used for a different bulk message.", 409)
+            items = [existing[pk] for pk in patient_ids]
+            already_queued = True
+        else:
+            patients = {
+                patient.pk: patient
+                for patient in PatientProfile.objects.select_for_update().select_related("user").filter(
+                    pk__in=patient_ids
+                ).order_by("pk")
+            }
+            if len(patients) != len(patient_ids):
+                return api_error("One or more selected patient records were not found.")
+            if not sms_provider.ready():
+                return api_error("SMS delivery is inactive. Configure Semaphore on the server first.", 409)
+            limited = bulk_doctor_rate_limit(request.user)
+            if limited:
+                return limited
+            items = [
+                enqueue_manual(
+                    patients[pk], prefix + pk, template, rule=rule, actor=request.user
+                )
+                for pk in patient_ids
+            ]
+            already_queued = False
+    skipped = [
+        {"patient_id": pk, "reason": item.context.get("ManualSkipReason", "")}
+        for pk, item in zip(patient_ids, items)
+        if not item.context.get("ManualAccepted")
+    ]
+    return JsonResponse({
+        "queued_count": len(items) - len(skipped),
+        "skipped": skipped,
+        "already_queued": already_queued,
+    }, status=200 if already_queued else 201)
 
 
 @require_http_methods(["POST"])

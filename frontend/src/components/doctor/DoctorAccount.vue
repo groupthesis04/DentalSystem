@@ -121,7 +121,6 @@ const smsPreferenceLoaded = ref(false);
 const smsPreferenceBusy = ref(false);
 const smsChoice = ref(null);
 const smsPreferenceAt = ref(null);
-const privacyConsentAt = ref(null);
 const editing = ref(false);
 const editingRecovery = ref(false);
 const fileInput = ref(null);
@@ -249,9 +248,8 @@ async function loadSmsPreference(showErrors = false) {
   if (!isPatient.value) return;
   try {
     const data = await apiRequest("/api/account/sms-preference");
-    smsChoice.value = data.sms_consent;
+    smsChoice.value = data.sms_consent_at ? data.sms_consent : null;
     smsPreferenceAt.value = data.sms_consent_at;
-    privacyConsentAt.value = data.privacy_consent_at;
     smsPreferenceLoaded.value = true;
   } catch (error) {
     if (showErrors) showToast(error.message, "error");
@@ -821,12 +819,12 @@ async function saveNotifications() {
             <form class="patient-sms-preference" @submit.prevent="saveSmsPreference">
               <h3>SMS messages</h3>
               <p>
-                Choose whether to receive appointment, next-visit, and payment reminder SMS
-                messages.
+                Choose whether to receive appointment reminders, follow-up notices, payment
+                reminders, and clinic-related SMS messages.
               </p>
               <p v-if="smsPreferenceLoaded && smsChoice === null" class="patient-sms-legacy-note">
-                No SMS choice was recorded for this older account. Existing reminders continue until
-                you make a choice.
+                No SMS preference has been saved. Automated messages are off until you choose to
+                receive them.
               </p>
               <div
                 class="patient-sms-options"
@@ -837,27 +835,25 @@ async function saveNotifications() {
                   <input
                     v-model="smsChoice"
                     type="radio"
+                    name="sms-preference"
                     :value="true"
                     :disabled="!smsPreferenceLoaded || smsPreferenceBusy"
                   />
-                  Yes, send me SMS messages
+                  <span>Yes, send me SMS messages</span>
                 </label>
                 <label>
                   <input
                     v-model="smsChoice"
                     type="radio"
+                    name="sms-preference"
                     :value="false"
                     :disabled="!smsPreferenceLoaded || smsPreferenceBusy"
                   />
-                  No, stop SMS messages
+                  <span>No, stop SMS messages</span>
                 </label>
               </div>
               <small v-if="smsPreferenceAt"
                 >Choice saved {{ formatAccountDateTime(smsPreferenceAt) }}.</small
-              >
-              <small v-if="privacyConsentAt"
-                >Patient information agreement recorded
-                {{ formatAccountDateTime(privacyConsentAt) }}.</small
               >
               <button
                 class="account-save-button"

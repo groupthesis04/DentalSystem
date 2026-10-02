@@ -48,6 +48,7 @@ const types = {
   next_visit: "Next Visit Reminder",
   balance: "Payment Reminder",
   cancellation: "Appointment Cancelled",
+  manual: "Manual Clinic Message",
 };
 const statuses = {
   pending: "Pending",
@@ -56,7 +57,7 @@ const statuses = {
   failed: "Failed",
   not_sent: "Not Sent",
 };
-const sources = { automated: "Automated", manual: "Manual resend", test: "Test SMS" };
+const sources = { automated: "Automated", manual: "Manual send", test: "Test SMS" };
 const messages = computed(() => result.value?.messages || []);
 const selected = computed(() => messages.value.find((item) => item.id === selectedId.value));
 const total = computed(() => result.value?.total || 0);
@@ -566,7 +567,9 @@ onBeforeUnmount(() => {
               <div>
                 <dt><MessageCircleMore :size="14" />Message Type</dt>
                 <dd>
-                  <span class="log-type" :class="selected.rule">{{ types[selected.rule] }}</span>
+                  <span class="log-type" :class="selected.rule">{{
+                    types[selected.rule] || selected.name || selected.rule
+                  }}</span>
                 </dd>
               </div>
               <div>

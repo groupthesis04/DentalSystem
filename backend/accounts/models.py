@@ -78,10 +78,21 @@ class PatientProfile(models.Model):
     privacy_consent_given = models.BooleanField(default=False)
     privacy_consent_at = models.DateTimeField(null=True, blank=True)
     privacy_version = models.CharField(max_length=40, blank=True)
+    privacy_consent_recorded_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="privacy_consent_recordings",
+    )
     # NULL marks pre-consent records whose historic choice was not recorded.
     # Newly created profiles default to False until the patient opts in.
     sms_consent = models.BooleanField(default=False, null=True)
     sms_consent_at = models.DateTimeField(null=True, blank=True)
+    sms_consent_method = models.CharField(max_length=16, blank=True)
+    sms_consent_recorded_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="sms_consent_recordings",
+    )
+    sms_stop_reason = models.CharField(max_length=32, blank=True)
+    sms_stop_reason_detail = models.CharField(max_length=300, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     legacy_payload = models.JSONField(default=dict, blank=True)
@@ -111,6 +122,46 @@ class PatientProfile(models.Model):
 
     def __str__(self):
         return self.name
+
+
+class PatientConsentRecord(models.Model):
+    """Append-only evidence of a patient choice or an operational SMS stop."""
+
+    class Kind(models.TextChoices):
+        PRIVACY = "privacy", "Privacy agreement"
+        SMS = "sms", "SMS messages"
+
+    class Action(models.TextChoices):
+        RECORDED = "recorded", "Patient choice recorded"
+        STOPPED = "stopped", "SMS stopped"
+
+    patient = models.ForeignKey(
+        PatientProfile, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="consent_records",
+    )
+    patient_id_snapshot = models.CharField(max_length=64, db_index=True)
+    kind = models.CharField(max_length=8, choices=Kind.choices)
+    action = models.CharField(max_length=8, choices=Action.choices)
+    # A stop can be operational (for example, a wrong number), so it does not
+    # assert a new patient choice. NULL distinguishes that from a decline.
+    consent_given = models.BooleanField(null=True)
+    patient_choice_confirmed = models.BooleanField(default=False)
+    method = models.CharField(max_length=16, blank=True)
+    purpose = models.CharField(max_length=200, blank=True)
+    notice_version = models.CharField(max_length=40, blank=True)
+    stop_reason = models.CharField(max_length=32, blank=True)
+    stop_reason_detail = models.CharField(max_length=300, blank=True)
+    actor = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="patient_consent_records",
+    )
+    actor_id_snapshot = models.CharField(max_length=64, blank=True)
+    actor_role = models.CharField(max_length=16, blank=True)
+    recorded_at = models.DateTimeField(default=timezone.now, db_index=True)
+
+    class Meta:
+        ordering = ["-recorded_at", "-id"]
+        indexes = [models.Index(fields=["patient", "-recorded_at"], name="consent_patient_date_idx")]
 
 
 class PatientAccountVerification(models.Model):

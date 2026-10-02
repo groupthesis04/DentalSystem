@@ -42,6 +42,10 @@ from .identity import (
     normalized_full_name,
 )
 from .audit import record_audit_event
+from .consent import (
+    record_sms_choice,
+    sms_consent_status,
+)
 from .lockout import (
     account_lock_seconds,
     clear_failed_attempts,
@@ -56,9 +60,6 @@ OTP_RESEND_COOLDOWN = dt.timedelta(seconds=60)
 OTP_HOURLY_LIMIT = 5
 OTP_MAX_ATTEMPTS = 5
 MATCH_REVIEW_MESSAGE = "A patient record may already exist. Contact the clinic to verify your details."
-PRIVACY_NOTICE_VERSION = "registration-2026-10-01"
-
-
 def patient_payload(profile):
     return {
         "id": profile.id,
@@ -81,11 +82,6 @@ def patient_payload(profile):
         "profile_image": profile.user.profile_image if profile.user_id else "",
         "role": profile.user.role if profile.user_id else "patient",
         "account_active": profile.user.is_active if profile.user_id else None,
-        "privacy_consent_given": profile.privacy_consent_given,
-        "privacy_consent_at": profile.privacy_consent_at.isoformat() if profile.privacy_consent_at else None,
-        "privacy_version": profile.privacy_version,
-        "sms_consent": profile.sms_consent,
-        "sms_consent_at": profile.sms_consent_at.isoformat() if profile.sms_consent_at else None,
         "created_at": profile.created_at.isoformat(),
         "updated_at": profile.updated_at.isoformat(),
     }
@@ -193,8 +189,7 @@ def verification_response(token, phone):
 
 
 def create_verification(profile, *, email, first_name, middle_name, last_name,
-                        birthdate, password_hash, profile_image, remember, phone,
-                        privacy_version, sms_consent):
+                        birthdate, password_hash, profile_image, remember, phone):
     now = timezone.now()
     recent = PatientAccountVerification.objects.filter(
         patient=profile, created_at__gte=now - dt.timedelta(hours=1)
@@ -224,8 +219,6 @@ def create_verification(profile, *, email, first_name, middle_name, last_name,
         password_hash=password_hash,
         profile_image=profile_image,
         remember=remember,
-        privacy_version=privacy_version,
-        sms_consent=sms_consent,
         expires_at=now + OTP_LIFETIME,
     )
     return token, code
@@ -286,13 +279,6 @@ def register(request):
         return api_error(str(error))
     if str(payload.get("role", "patient")).strip().lower() != "patient":
         return api_error("New accounts must be patient accounts.", 403)
-    if payload.get("privacy_consent_given") is not True:
-        return api_error("Please agree to the patient information notice to create an account.")
-    if payload.get("privacy_version") != PRIVACY_NOTICE_VERSION:
-        return api_error("The registration notice has changed. Refresh and review it before continuing.", 409)
-    if "sms_consent" in payload and not isinstance(payload["sms_consent"], bool):
-        return api_error("Choose whether to receive appointment and account-related SMS messages.")
-    sms_consent = payload.get("sms_consent", False)
     if User.objects.filter(email__iexact=email).exists():
         return api_error("An account already uses this email.", 409)
     try:
@@ -347,8 +333,6 @@ def register(request):
                     profile_image=profile_image,
                     remember=remember,
                     phone=stored_phone,
-                    privacy_version=PRIVACY_NOTICE_VERSION,
-                    sms_consent=sms_consent,
                 )
                 verification = (stored_phone, token, code)
             else:
@@ -372,11 +356,6 @@ def register(request):
                     age=calculate_age(birthdate),
                     phone_number=phone,
                     mobile_number=phone,
-                    privacy_consent_given=True,
-                    privacy_consent_at=timezone.now(),
-                    privacy_version=PRIVACY_NOTICE_VERSION,
-                    sms_consent=sms_consent,
-                    sms_consent_at=timezone.now(),
                 )
                 record_audit_event(
                     "PATIENT_CREATED", actor=user, target=profile,
@@ -452,8 +431,6 @@ def verify_account(request):
                 return api_error("This verification code has already been used.", 409)
             if verification.expires_at <= timezone.now():
                 return api_error("Verification code expired. Request a new code.", 410)
-            if verification.privacy_version != PRIVACY_NOTICE_VERSION:
-                return api_error("The registration notice has changed. Please register again.", 409)
             if not re.fullmatch(r"[0-9]{6}", code) or not check_password(code, verification.code_hash):
                 verification.attempts += 1
                 verification.save(update_fields=["attempts"])
@@ -479,12 +456,6 @@ def verify_account(request):
             )
             profile.user = user
             changed = ["user", "updated_at"]
-            profile.privacy_consent_given = True
-            profile.privacy_consent_at = timezone.now()
-            profile.privacy_version = verification.privacy_version
-            profile.sms_consent = verification.sms_consent
-            profile.sms_consent_at = timezone.now()
-            changed.extend(["privacy_consent_given", "privacy_consent_at", "privacy_version", "sms_consent", "sms_consent_at"])
             if not profile.email:
                 profile.email = verification.email
                 changed.append("email")
@@ -493,11 +464,6 @@ def verify_account(request):
                 "PATIENT_UPDATED", actor=user, target=profile,
                 metadata={"origin": "patient"},
             )
-            if not profile.sms_consent:
-                from communications.models import SmsMessage
-                SmsMessage.objects.filter(patient=profile, status="queued", is_test=False).update(
-                    status="suppressed", error="Patient SMS consent is not active."
-                )
             verification.is_used = True
             verification.code_hash = ""
             verification.password_hash = ""
@@ -537,8 +503,6 @@ def resend_account_code(request):
                 return api_error("This verification code has already been used.", 409)
             if previous.created_at < timezone.now() - dt.timedelta(days=1):
                 return api_error("Verification request expired. Please register again.", 410)
-            if previous.privacy_version != PRIVACY_NOTICE_VERSION:
-                return api_error("The registration notice has changed. Please register again.", 409)
             if profile.user_id:
                 return api_error("This patient record is already linked to an account.", 409)
             if User.objects.filter(email__iexact=previous.email).exists():
@@ -557,8 +521,6 @@ def resend_account_code(request):
                 profile_image=previous.profile_image,
                 remember=previous.remember,
                 phone=stored_phone,
-                privacy_version=previous.privacy_version,
-                sms_consent=previous.sms_consent,
             )
     except VerificationCooldown as error:
         return api_error("Resend available in 60 seconds." if error.seconds <= 60 else "Too many codes requested. Please try again later.", 429, retry_after=error.seconds)
@@ -677,18 +639,6 @@ def profile(request):
     return JsonResponse({"user": authenticated_user_payload(user)})
 
 
-def update_sms_consent(patient, consent):
-    """Persist an explicit patient choice and stop unsent messages on opt-out."""
-    patient.sms_consent = consent
-    patient.sms_consent_at = timezone.now()
-    patient.save(update_fields=["sms_consent", "sms_consent_at", "updated_at"])
-    if not consent:
-        from communications.models import SmsMessage
-        SmsMessage.objects.filter(patient=patient, status="queued", is_test=False).update(
-            status="suppressed", error="Patient SMS consent is not active."
-        )
-
-
 @require_http_methods(["GET", "PATCH"])
 def sms_preference(request):
     if not request.user.is_authenticated or request.user.role != "patient":
@@ -700,9 +650,13 @@ def sms_preference(request):
         return JsonResponse({
             "sms_consent": patient.sms_consent,
             "sms_consent_at": patient.sms_consent_at.isoformat() if patient.sms_consent_at else None,
-            "privacy_consent_given": patient.privacy_consent_given,
-            "privacy_consent_at": patient.privacy_consent_at.isoformat() if patient.privacy_consent_at else None,
-            "privacy_version": patient.privacy_version,
+            "sms_consent_status": sms_consent_status(patient),
+            "sms_consent_method": patient.sms_consent_method,
+            "sms_consent_recorded_by": (
+                patient.sms_consent_recorded_by.name if patient.sms_consent_recorded_by_id else ""
+            ),
+            "sms_stop_reason": patient.sms_stop_reason,
+            "sms_stop_reason_detail": patient.sms_stop_reason_detail,
         })
     try:
         payload = read_json(request)
@@ -712,11 +666,25 @@ def sms_preference(request):
         return api_error("Choose whether to receive SMS messages.")
     with transaction.atomic():
         patient = PatientProfile.objects.select_for_update().get(pk=patient.pk)
-        update_sms_consent(patient, payload["sms_consent"])
-        record_audit_event("PATIENT_UPDATED", actor=request.user, target=patient, request=request, metadata={"origin": "patient"})
+        if patient.sms_consent is True and payload["sms_consent"] is False:
+            record_sms_choice(
+                patient, False, request.user, stop_reason="patient_withdrew",
+            )
+        else:
+            record_sms_choice(patient, payload["sms_consent"], request.user, method="electronic")
+        record_audit_event(
+            "SMS_STOPPED" if patient.sms_stop_reason else "SMS_CONSENT_RECORDED",
+            actor=request.user, target=patient, request=request,
+            metadata={"origin": "patient"},
+        )
     return JsonResponse({
         "sms_consent": patient.sms_consent,
         "sms_consent_at": patient.sms_consent_at.isoformat(),
+        "sms_consent_status": sms_consent_status(patient),
+        "sms_consent_method": patient.sms_consent_method,
+        "sms_consent_recorded_by": request.user.name,
+        "sms_stop_reason": patient.sms_stop_reason,
+        "sms_stop_reason_detail": patient.sms_stop_reason_detail,
     })
 
 
@@ -826,18 +794,8 @@ def patients(request):
                 )
         return JsonResponse({"patient": patient_payload(patient)})
 
-    if request.method == "PATCH" and payload.get("action") == "sms_consent":
-        if not isinstance(payload.get("sms_consent"), bool):
-            return api_error("Record the patient's SMS choice before saving.")
-        with transaction.atomic():
-            patient = PatientProfile.objects.select_for_update().select_related("user").filter(
-                pk=str(payload.get("id", "")).strip()
-            ).first()
-            if not patient:
-                return api_error("Patient not found.", 404)
-            update_sms_consent(patient, payload["sms_consent"])
-            record_audit_event("PATIENT_UPDATED", actor=request.user, target=patient, request=request, metadata={"origin": "doctor"})
-        return JsonResponse({"patient": patient_payload(patient)})
+    if request.method == "PATCH" and payload.get("action"):
+        return api_error("Unknown patient action.")
 
     if request.method == "DELETE":
         with transaction.atomic():

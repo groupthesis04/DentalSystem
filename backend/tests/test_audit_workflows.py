@@ -35,9 +35,6 @@ class AuditWorkflowTests(TestCase):
             "birthdate": "2000-04-12",
             "password": "NewPatient123!",
             "role": "patient",
-            "privacy_version": "registration-2026-10-01",
-            "privacy_consent_given": True,
-            "sms_consent": False,
         }
         response = Client().post("/api/register", data=payload, content_type="application/json")
         self.assertEqual(response.status_code, 201, response.content)
@@ -121,6 +118,9 @@ class AuditWorkflowTests(TestCase):
         self.assertEqual(event.metadata, {})
 
     def test_sms_gateway_acceptance_records_no_phone_or_message_body(self):
+        self.profile.sms_consent = True
+        self.profile.sms_consent_at = timezone.now()
+        self.profile.save(update_fields=["sms_consent", "sms_consent_at"])
         TreatmentRecord.objects.create(
             id="rec_audit_balance",
             patient=self.profile,

@@ -22,8 +22,8 @@ class Migration(migrations.Migration):
             name="privacy_version",
             field=models.CharField(blank=True, max_length=40),
         ),
-        # Existing patients retain their existing reminder behavior and show
-        # "not recorded" until they make a choice. New profiles default false.
+        # Existing patients show "not recorded" until they make a choice.
+        # New profiles default false, and automated SMS requires explicit opt-in.
         migrations.AddField(
             model_name="patientprofile",
             name="sms_consent",

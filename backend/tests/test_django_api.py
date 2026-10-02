@@ -130,9 +130,6 @@ class DentalApiTests(TestCase):
                 "birthdate": "2000-04-12",
                 "password": "NewPatient123!",
                 "role": "patient",
-                "privacy_consent_given": True,
-                "privacy_version": "registration-2026-10-01",
-                "sms_consent": False,
             },
         )
         self.assertEqual(response.status_code, 201)
