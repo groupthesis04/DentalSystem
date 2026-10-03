@@ -112,6 +112,24 @@ No provider keys are returned through these APIs.
 
 ## Claiming a clinic-created patient record
 
+Patient registration checks email reputation through Abstract before creating
+an account or starting the existing Semaphore identity challenge. The Django
+backend calls `https://emailreputation.abstractapi.com/v1` with the Email
+Reputation API key. In `backend/.env`, use
+`ABSTRACT_EMAIL_REPUTATION_API_KEY=your-key`. On Railway, add that same variable
+under **Backend service → Variables → New Variable**, then deploy the backend
+service with the updated code. Remove the former Email Validation key variable
+after the new variable is set. Keep the real key only in the backend environment;
+do not add it to Vue/Vite variables or browser code.
+
+The frontend posts the address to `POST /api/email-validation` after the email
+field loses focus, and `POST /api/register` independently enforces the same
+check. Both endpoints return sanitized statuses; uncertain or catch-all results
+are distinct from an explicitly invalid address. A missing key or provider
+outage pauses new registration with a temporary error, while existing account
+login is unaffected. The backend briefly caches results and rate-limits check
+requests. This feature needs no migration or additional Python package.
+
 Registration creates a new account immediately only when no clinic patient record
 matches. An unlinked clinic record starts a five-minute SMS code challenge instead.
 The code is sent directly through the existing Semaphore transport to the mobile

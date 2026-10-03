@@ -151,14 +151,10 @@ const accountCopy = computed(() =>
     ? {
         fallbackName: "Patient",
         role: "Patient",
-        contactDescription: "Patient contact information",
         roleValue: "Patient",
         secondaryField: "Portal Access",
         secondaryValue: "Appointments & Records",
         accessLevel: "Patient",
-        securityDescription: "Patient account protection",
-        accountProtectionTitle: "Patient account",
-        accountProtectionNote: "Personal portal access",
         notificationDescription: "Appointment and dental record alerts",
         recordAlertTitle: "Dental records",
         recordAlertNote: "Treatment record updates",
@@ -166,17 +162,10 @@ const accountCopy = computed(() =>
     : {
         fallbackName: "Clinic administrator",
         role: "Administrator",
-        contactDescription: "Administrator contact information",
         roleValue: "Dentist / Administrator",
         secondaryField: "Department",
         secondaryValue: "General Dentistry",
         accessLevel: "Administrator",
-        securityDescription: "Administrator account protection",
-        accountProtectionTitle: "Administrator account",
-        accountProtectionNote: "New doctor accounts are disabled",
-        notificationDescription: "Clinic transaction alerts",
-        recordAlertTitle: "Patient records",
-        recordAlertNote: "New treatment transactions",
       },
 );
 const displayName = computed(() => form.name.trim() || accountCopy.value.fallbackName);
@@ -188,7 +177,6 @@ const lastLoginLabel = computed(() =>
       : "No login recorded",
 );
 const accountStatusLabel = computed(() => {
-  if (isPatient.value) return "Active";
   if (securityData.is_active === null) return "Unavailable";
   return securityData.is_active ? "Active" : "Inactive";
 });
@@ -213,7 +201,6 @@ function formatAccountDateTime(value) {
 }
 
 async function loadSecurity(showErrors = false) {
-  if (isPatient.value) return;
   try {
     const data = await apiRequest("/api/account/security");
     securityData.is_active = typeof data.is_active === "boolean" ? data.is_active : null;
@@ -275,8 +262,8 @@ async function saveSmsPreference() {
 }
 
 onMounted(() => {
-  if (!isPatient.value) loadSecurity();
-  else loadSmsPreference();
+  loadSecurity();
+  if (isPatient.value) loadSmsPreference();
 });
 
 function syncForm() {
@@ -449,7 +436,7 @@ async function saveNotifications() {
   >
     <header class="account-page-heading">
       <div>
-        <h1 id="account-title">{{ isPatient ? "Account" : "My Profile" }}</h1>
+        <h1 id="account-title">My Profile</h1>
         <p>Manage your profile, security, and notifications.</p>
       </div>
       <div class="account-page-user">
@@ -606,180 +593,148 @@ async function saveNotifications() {
       </form>
 
       <div v-else-if="activeTab === 'security'" class="account-settings-view">
-        <template v-if="isPatient">
-          <section class="account-panel account-settings-panel">
-            <header class="account-panel-heading">
-              <div class="account-heading-icon blue"><LockKeyhole :size="19" /></div>
-              <div>
-                <h2>Security</h2>
-                <p>{{ accountCopy.securityDescription }}</p>
-              </div>
-            </header>
-            <div class="account-setting-rows">
-              <article>
-                <KeyRound :size="19" aria-hidden="true" />
-                <span
-                  ><strong>Password authentication</strong
-                  ><small>Required at every login</small></span
-                >
-                <b>Enabled</b>
-              </article>
-              <article>
-                <ShieldCheck :size="19" aria-hidden="true" />
-                <span
-                  ><strong>Protected requests</strong><small>Security token validation</small></span
-                >
-                <b>Enabled</b>
-              </article>
+        <form class="account-panel account-security-card" @submit.prevent="changePassword">
+          <header class="account-panel-heading">
+            <div class="account-heading-icon blue">
+              <LockKeyhole :size="19" aria-hidden="true" />
             </div>
-          </section>
-        </template>
-        <template v-else>
-          <form class="account-panel account-security-card" @submit.prevent="changePassword">
-            <header class="account-panel-heading">
-              <div class="account-heading-icon blue">
-                <LockKeyhole :size="19" aria-hidden="true" />
-              </div>
-              <div>
-                <h2>Change Password</h2>
-                <p>Update your password to keep your account secure.</p>
-              </div>
-            </header>
-            <div class="account-security-fields">
-              <div class="account-field">
-                <label for="account-current-password">Current Password</label>
-                <div class="account-input-wrap account-password-wrap">
-                  <LockKeyhole :size="16" aria-hidden="true" />
-                  <input
-                    id="account-current-password"
-                    v-model="passwordForm.current_password"
-                    :type="passwordVisible.current ? 'text' : 'password'"
-                    autocomplete="current-password"
-                    placeholder="Enter current password"
-                    required
-                  />
-                  <button
-                    type="button"
-                    :aria-label="
-                      passwordVisible.current ? 'Hide current password' : 'Show current password'
-                    "
-                    @click="passwordVisible.current = !passwordVisible.current"
-                  >
-                    <EyeOff v-if="passwordVisible.current" :size="17" aria-hidden="true" />
-                    <Eye v-else :size="17" aria-hidden="true" />
-                  </button>
-                </div>
-              </div>
-              <div class="account-field">
-                <label for="account-new-password">New Password</label>
-                <div class="account-input-wrap account-password-wrap">
-                  <LockKeyhole :size="16" aria-hidden="true" />
-                  <input
-                    id="account-new-password"
-                    v-model="passwordForm.new_password"
-                    :type="passwordVisible.next ? 'text' : 'password'"
-                    autocomplete="new-password"
-                    placeholder="Enter new password"
-                    minlength="8"
-                    required
-                  />
-                  <button
-                    type="button"
-                    :aria-label="passwordVisible.next ? 'Hide new password' : 'Show new password'"
-                    @click="passwordVisible.next = !passwordVisible.next"
-                  >
-                    <EyeOff v-if="passwordVisible.next" :size="17" aria-hidden="true" />
-                    <Eye v-else :size="17" aria-hidden="true" />
-                  </button>
-                </div>
-              </div>
-              <div class="account-field">
-                <label for="account-confirm-password">Confirm New Password</label>
-                <div class="account-input-wrap account-password-wrap">
-                  <LockKeyhole :size="16" aria-hidden="true" />
-                  <input
-                    id="account-confirm-password"
-                    v-model="passwordForm.confirm_password"
-                    :type="passwordVisible.confirm ? 'text' : 'password'"
-                    autocomplete="new-password"
-                    placeholder="Confirm new password"
-                    required
-                  />
-                  <button
-                    type="button"
-                    :aria-label="
-                      passwordVisible.confirm
-                        ? 'Hide confirmed password'
-                        : 'Show confirmed password'
-                    "
-                    @click="passwordVisible.confirm = !passwordVisible.confirm"
-                  >
-                    <EyeOff v-if="passwordVisible.confirm" :size="17" aria-hidden="true" />
-                    <Eye v-else :size="17" aria-hidden="true" />
-                  </button>
-                </div>
-              </div>
+            <div>
+              <h2>Change Password</h2>
+              <p>Update your password to keep your account secure.</p>
             </div>
-            <div class="account-form-actions">
-              <div class="account-password-guidance">
-                <Info :size="17" aria-hidden="true" />
-                <div>
-                  <strong>Password Requirements:</strong>
-                  <ul>
-                    <li>At least 8 characters long</li>
-                    <li>Include uppercase and lowercase letters</li>
-                    <li>Include at least one number</li>
-                    <li>Include at least one special character (e.g. !@#$%)</li>
-                  </ul>
-                </div>
-              </div>
-              <button class="account-save-button" type="submit" :disabled="securityBusy">
+          </header>
+          <div class="account-security-fields">
+            <div class="account-field">
+              <label for="account-current-password">Current Password</label>
+              <div class="account-input-wrap account-password-wrap">
                 <LockKeyhole :size="16" aria-hidden="true" />
-                {{ securityBusy ? "Updating..." : "Update Password" }}
-              </button>
+                <input
+                  id="account-current-password"
+                  v-model="passwordForm.current_password"
+                  :type="passwordVisible.current ? 'text' : 'password'"
+                  autocomplete="current-password"
+                  placeholder="Enter current password"
+                  required
+                />
+                <button
+                  type="button"
+                  :aria-label="
+                    passwordVisible.current ? 'Hide current password' : 'Show current password'
+                  "
+                  @click="passwordVisible.current = !passwordVisible.current"
+                >
+                  <EyeOff v-if="passwordVisible.current" :size="17" aria-hidden="true" />
+                  <Eye v-else :size="17" aria-hidden="true" />
+                </button>
+              </div>
             </div>
-          </form>
-
-          <section
-            class="account-panel account-login-activity-card"
-            aria-labelledby="login-activity-title"
-          >
-            <header class="account-panel-heading">
-              <div class="account-heading-icon blue"><Monitor :size="19" aria-hidden="true" /></div>
+            <div class="account-field">
+              <label for="account-new-password">New Password</label>
+              <div class="account-input-wrap account-password-wrap">
+                <LockKeyhole :size="16" aria-hidden="true" />
+                <input
+                  id="account-new-password"
+                  v-model="passwordForm.new_password"
+                  :type="passwordVisible.next ? 'text' : 'password'"
+                  autocomplete="new-password"
+                  placeholder="Enter new password"
+                  minlength="8"
+                  required
+                />
+                <button
+                  type="button"
+                  :aria-label="passwordVisible.next ? 'Hide new password' : 'Show new password'"
+                  @click="passwordVisible.next = !passwordVisible.next"
+                >
+                  <EyeOff v-if="passwordVisible.next" :size="17" aria-hidden="true" />
+                  <Eye v-else :size="17" aria-hidden="true" />
+                </button>
+              </div>
+            </div>
+            <div class="account-field">
+              <label for="account-confirm-password">Confirm New Password</label>
+              <div class="account-input-wrap account-password-wrap">
+                <LockKeyhole :size="16" aria-hidden="true" />
+                <input
+                  id="account-confirm-password"
+                  v-model="passwordForm.confirm_password"
+                  :type="passwordVisible.confirm ? 'text' : 'password'"
+                  autocomplete="new-password"
+                  placeholder="Confirm new password"
+                  required
+                />
+                <button
+                  type="button"
+                  :aria-label="
+                    passwordVisible.confirm ? 'Hide confirmed password' : 'Show confirmed password'
+                  "
+                  @click="passwordVisible.confirm = !passwordVisible.confirm"
+                >
+                  <EyeOff v-if="passwordVisible.confirm" :size="17" aria-hidden="true" />
+                  <Eye v-else :size="17" aria-hidden="true" />
+                </button>
+              </div>
+            </div>
+          </div>
+          <div class="account-form-actions">
+            <div class="account-password-guidance">
+              <Info :size="17" aria-hidden="true" />
               <div>
-                <h2 id="login-activity-title">Login Activity</h2>
-                <p>Recent login history for your account.</p>
-              </div>
-            </header>
-            <div v-if="securityData.login_activity.length" class="account-activity-list">
-              <div class="account-activity-header" aria-hidden="true">
-                <span>Device</span>
-                <span>Date &amp; Time</span>
-              </div>
-              <div
-                v-for="entry in securityData.login_activity"
-                :key="entry.id"
-                class="account-activity-row"
-              >
-                <Monitor :size="18" aria-hidden="true" />
-                <span>
-                  <strong>{{ entry.device }}</strong>
-                  <small v-if="entry.is_current">Current Device</small>
-                </span>
-                <time :datetime="entry.created_at">{{
-                  formatAccountDateTime(entry.created_at)
-                }}</time>
+                <strong>Password Requirements:</strong>
+                <ul>
+                  <li>At least 8 characters long</li>
+                  <li>Include uppercase and lowercase letters</li>
+                  <li>Include at least one number</li>
+                  <li>Include at least one special character (e.g. !@#$%)</li>
+                </ul>
               </div>
             </div>
-            <p v-else class="account-empty-state">
-              {{
-                securityLoaded
-                  ? "No recent login activity is available."
-                  : "Loading login activity..."
-              }}
-            </p>
-          </section>
-        </template>
+            <button class="account-save-button" type="submit" :disabled="securityBusy">
+              <LockKeyhole :size="16" aria-hidden="true" />
+              {{ securityBusy ? "Updating..." : "Update Password" }}
+            </button>
+          </div>
+        </form>
+
+        <section
+          class="account-panel account-login-activity-card"
+          aria-labelledby="login-activity-title"
+        >
+          <header class="account-panel-heading">
+            <div class="account-heading-icon blue"><Monitor :size="19" aria-hidden="true" /></div>
+            <div>
+              <h2 id="login-activity-title">Login Activity</h2>
+              <p>Recent login history for your account.</p>
+            </div>
+          </header>
+          <div v-if="securityData.login_activity.length" class="account-activity-list">
+            <div class="account-activity-header" aria-hidden="true">
+              <span>Device</span>
+              <span>Date &amp; Time</span>
+            </div>
+            <div
+              v-for="entry in securityData.login_activity"
+              :key="entry.id"
+              class="account-activity-row"
+            >
+              <Monitor :size="18" aria-hidden="true" />
+              <span>
+                <strong>{{ entry.device }}</strong>
+                <small v-if="entry.is_current">Current Device</small>
+              </span>
+              <time :datetime="entry.created_at">{{
+                formatAccountDateTime(entry.created_at)
+              }}</time>
+            </div>
+          </div>
+          <p v-else class="account-empty-state">
+            {{
+              securityLoaded
+                ? "No recent login activity is available."
+                : "Loading login activity..."
+            }}
+          </p>
+        </section>
       </div>
 
       <div v-else class="account-settings-view">
@@ -797,64 +752,78 @@ async function saveNotifications() {
               </p>
             </div>
           </header>
-          <div v-if="isPatient">
-            <div class="account-setting-rows">
-              <article>
-                <CalendarDays :size="19" aria-hidden="true" />
-                <span
-                  ><strong>Appointment activity</strong
-                  ><small>Bookings and status changes in your dashboard</small></span
-                >
-                <b>Enabled</b>
+          <form
+            v-if="isPatient"
+            class="patient-notifications-form"
+            @submit.prevent="saveSmsPreference"
+          >
+            <div class="account-notification-list">
+              <article class="account-notification-row">
+                <span class="account-notification-icon blue">
+                  <CalendarDays :size="19" aria-hidden="true" />
+                </span>
+                <span class="account-notification-copy">
+                  <strong>Appointment activity</strong>
+                  <small>Bookings and status changes in your dashboard</small>
+                </span>
+                <span class="account-readonly-badge">Enabled</span>
               </article>
-              <article>
-                <UserRound :size="19" aria-hidden="true" />
-                <span
-                  ><strong>{{ accountCopy.recordAlertTitle }}</strong
-                  ><small>{{ accountCopy.recordAlertNote }}</small></span
-                >
-                <b>Enabled</b>
+              <article class="account-notification-row">
+                <span class="account-notification-icon purple">
+                  <UserRound :size="19" aria-hidden="true" />
+                </span>
+                <span class="account-notification-copy">
+                  <strong>{{ accountCopy.recordAlertTitle }}</strong>
+                  <small>{{ accountCopy.recordAlertNote }}</small>
+                </span>
+                <span class="account-readonly-badge">Enabled</span>
+              </article>
+              <article class="account-notification-row patient-sms-notification-row">
+                <span class="account-notification-icon teal">
+                  <MessageSquareText :size="19" aria-hidden="true" />
+                </span>
+                <span class="account-notification-copy">
+                  <strong>SMS reminders</strong>
+                  <small>Appointment, follow-up, payment, and clinic messages</small>
+                </span>
+                <span class="account-readonly-badge neutral">Your choice</span>
               </article>
             </div>
-            <form class="patient-sms-preference" @submit.prevent="saveSmsPreference">
-              <h3>SMS messages</h3>
-              <p>
-                Choose whether to receive appointment reminders, follow-up notices, payment
-                reminders, and clinic-related SMS messages.
-              </p>
-              <p v-if="smsPreferenceLoaded && smsChoice === null" class="patient-sms-legacy-note">
-                No SMS preference has been saved. Automated messages are off until you choose to
-                receive them.
-              </p>
-              <div
-                class="patient-sms-options"
-                role="radiogroup"
-                aria-label="SMS message preference"
-              >
-                <label>
-                  <input
-                    v-model="smsChoice"
-                    type="radio"
-                    name="sms-preference"
-                    :value="true"
-                    :disabled="!smsPreferenceLoaded || smsPreferenceBusy"
-                  />
-                  <span>Yes, send me SMS messages</span>
-                </label>
-                <label>
-                  <input
-                    v-model="smsChoice"
-                    type="radio"
-                    name="sms-preference"
-                    :value="false"
-                    :disabled="!smsPreferenceLoaded || smsPreferenceBusy"
-                  />
-                  <span>No, stop SMS messages</span>
-                </label>
+            <fieldset class="patient-sms-options">
+              <legend>SMS message preference</legend>
+              <label>
+                <input
+                  v-model="smsChoice"
+                  type="radio"
+                  name="sms-preference"
+                  :value="true"
+                  :disabled="!smsPreferenceLoaded || smsPreferenceBusy"
+                />
+                <span>Yes, send me SMS messages</span>
+              </label>
+              <label>
+                <input
+                  v-model="smsChoice"
+                  type="radio"
+                  name="sms-preference"
+                  :value="false"
+                  :disabled="!smsPreferenceLoaded || smsPreferenceBusy"
+                />
+                <span>No, stop SMS messages</span>
+              </label>
+            </fieldset>
+            <div class="account-notification-actions">
+              <div class="account-notification-note">
+                <Info :size="22" aria-hidden="true" />
+                <p>
+                  <strong>SMS Preference</strong>
+                  <span v-if="!smsPreferenceLoaded">Loading your SMS preference...</span>
+                  <span v-else-if="smsPreferenceAt">
+                    Choice saved {{ formatAccountDateTime(smsPreferenceAt) }}.
+                  </span>
+                  <span v-else> Automated SMS is off until you choose to receive it. </span>
+                </p>
               </div>
-              <small v-if="smsPreferenceAt"
-                >Choice saved {{ formatAccountDateTime(smsPreferenceAt) }}.</small
-              >
               <button
                 class="account-save-button"
                 type="submit"
@@ -863,10 +832,10 @@ async function saveNotifications() {
                 "
               >
                 <Save :size="16" aria-hidden="true" />
-                {{ smsPreferenceBusy ? "Saving..." : "Save SMS Preference" }}
+                {{ smsPreferenceBusy ? "Saving..." : "Save Changes" }}
               </button>
-            </form>
-          </div>
+            </div>
+          </form>
           <form v-else @submit.prevent="saveNotifications">
             <div class="account-notification-list">
               <article
@@ -918,7 +887,7 @@ async function saveNotifications() {
 
       <aside
         class="account-side-column"
-        :class="{ 'account-security-side': !isPatient && activeTab === 'security' }"
+        :class="{ 'account-security-side': activeTab === 'security' }"
       >
         <section class="account-panel account-overview-panel" aria-labelledby="overview-title">
           <header class="account-panel-heading">
@@ -937,7 +906,9 @@ async function saveNotifications() {
               /></span>
               <dt>Account Status</dt>
               <dd :class="{ active: accountStatusLabel === 'Active' }">{{ accountStatusLabel }}</dd>
-              <small v-if="!isPatient">Your account is in good standing.</small>
+              <small v-if="accountStatusLabel === 'Active'"
+                >Your account is in good standing.</small
+              >
             </div>
             <div>
               <span class="account-overview-icon purple"
@@ -952,12 +923,12 @@ async function saveNotifications() {
                 ><CalendarDays :size="17" aria-hidden="true"
               /></span>
               <dt>Last Login</dt>
-              <dd>{{ isPatient ? "Unavailable" : lastLoginLabel }}</dd>
+              <dd>{{ lastLoginLabel }}</dd>
             </div>
           </dl>
         </section>
 
-        <template v-if="!isPatient && activeTab === 'security'">
+        <template v-if="activeTab === 'security'">
           <section class="account-panel account-sessions-panel">
             <header class="account-panel-heading">
               <div class="account-heading-icon blue"><Monitor :size="19" aria-hidden="true" /></div>
@@ -1089,12 +1060,12 @@ async function saveNotifications() {
           <div class="account-quick-actions">
             <button type="button" class="security" @click="selectTab('security')">
               <span class="account-action-icon"><LockKeyhole :size="20" aria-hidden="true" /></span>
-              <span>{{ isPatient ? "Security" : "Change Password" }}</span>
+              <span>Change Password</span>
               <ChevronRight :size="19" aria-hidden="true" />
             </button>
             <button type="button" class="notifications" @click="selectTab('notifications')">
               <span class="account-action-icon"><Bell :size="20" aria-hidden="true" /></span>
-              <span>{{ isPatient ? "Notification Settings" : "Manage Notifications" }}</span>
+              <span>Manage Notifications</span>
               <ChevronRight :size="19" aria-hidden="true" />
             </button>
             <button type="button" class="profile" @click="selectTab('profile')">

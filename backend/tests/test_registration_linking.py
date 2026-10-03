@@ -12,6 +12,7 @@ from django.db import IntegrityError
 from django.test import TestCase, override_settings
 from django.utils import timezone
 
+from accounts.identity import canonical_mobile, normalize_ph_mobile_number
 from accounts.models import PatientAccountVerification, PatientProfile, User
 from accounts.management.commands.import_legacy_data import Command as LegacyImportCommand
 from clinic.models import Service
@@ -30,6 +31,16 @@ class RegistrationLinkingTests(TestCase):
     def setUp(self):
         cache.clear()
         self.birthdate = dt.date(2000, 1, 1)
+        validator = mock.patch(
+            "accounts.views.validate_email_address",
+            return_value={
+                "valid": True,
+                "status": "valid",
+                "message": "Email address is valid.",
+            },
+        )
+        self.email_validation = validator.start()
+        self.addCleanup(validator.stop)
         sender = mock.patch("accounts.views.sms_provider.send", return_value=("123", "submitted"))
         self.sms_send = sender.start()
         self.addCleanup(sender.stop)
@@ -170,6 +181,7 @@ class RegistrationLinkingTests(TestCase):
         profile.refresh_from_db()
         self.assertIsNotNone(profile.user_id)
         self.assertEqual(profile.user.email, "juan@example.com")
+        self.assertEqual(profile.user.phone, "+639123456789")
         self.assertEqual(profile.id, "pat_juan_existing")
         self.assertEqual(profile.mobile_number, "09123456789")
         self.assertEqual(profile.notes, "Existing clinic notes")
@@ -216,6 +228,49 @@ class RegistrationLinkingTests(TestCase):
         self.assertEqual(PatientProfile.objects.count(), 1)
         self.assertEqual(profile.birthdate, self.birthdate)
         self.assertEqual(profile.name, "Juan Dela Cruz")
+        self.assertEqual(user.phone, "+639123456789")
+        self.assertEqual(profile.mobile_number, "+639123456789")
+        self.assertEqual(profile.phone_number, "+639123456789")
+
+    def test_new_registration_normalizes_ten_digit_local_mobile(self):
+        response = self.register(phone="9123456789")
+
+        self.assertEqual(response.status_code, 201, response.content)
+        user = User.objects.get(email="juan@example.com")
+        profile = PatientProfile.objects.get(user=user)
+        self.assertEqual(user.phone, "+639123456789")
+        self.assertEqual(profile.mobile_number, "+639123456789")
+        self.assertEqual(profile.phone_number, "+639123456789")
+
+    def test_new_registration_normalizes_zero_prefixed_mobile(self):
+        response = self.register(phone="09123456789")
+
+        self.assertEqual(response.status_code, 201, response.content)
+        user = User.objects.get(email="juan@example.com")
+        self.assertEqual(user.phone, "+639123456789")
+        self.assertEqual(PatientProfile.objects.get(user=user).mobile_number, "+639123456789")
+
+    def test_register_api_rejects_malformed_mobile_without_creating_records(self):
+        for phone in (
+            "", "912345678", "91234567890", "091234567890", "+6309123456789",
+            "8123456789", "+63912345678", "6391234567890", "abc9123456789",
+            "9+123456789", "９１２３４５６７８９",
+        ):
+            with self.subTest(phone=phone):
+                cache.clear()
+                response = self.register(phone=phone)
+                self.assertEqual(response.status_code, 400, response.content)
+                self.assertEqual(response.json()["error"], "Enter a valid Philippine mobile number.")
+                self.assertEqual(User.objects.count(), 0)
+                self.assertEqual(PatientProfile.objects.count(), 0)
+        self.email_validation.assert_not_called()
+        self.sms_send.assert_not_called()
+
+    def test_mobile_normalizer_accepts_four_formats_and_keeps_match_key(self):
+        for value in ("9123456789", "09123456789", "639123456789", "+639123456789"):
+            with self.subTest(value=value):
+                self.assertEqual(normalize_ph_mobile_number(value), "+639123456789")
+                self.assertEqual(canonical_mobile(value), "639123456789")
 
     def test_old_pending_challenge_does_not_record_unseen_consent(self):
         profile = self.clinic_profile()
@@ -334,6 +389,20 @@ class RegistrationLinkingTests(TestCase):
         self.assertEqual(profile.mobile_number, "+639123456789")
         self.assertTrue(profile.user.check_password("NewPatient123!"))
 
+    def test_bare_ten_digit_registration_matches_legacy_local_record(self):
+        profile = self.clinic_profile(mobile_number="09123456789")
+
+        response = self.register(phone="9123456789")
+
+        self.assertEqual(response.status_code, 202, response.content)
+        self.assertEqual(self.sms_send.call_args.args[0], "639123456789")
+        self.assertEqual(self.verify(response).status_code, 201)
+        profile.refresh_from_db()
+        self.assertEqual(profile.id, "pat_juan_existing")
+        self.assertEqual(profile.mobile_number, "09123456789")
+        self.assertEqual(profile.user.phone, "+639123456789")
+        self.assertEqual(PatientProfile.objects.count(), 1)
+
     def test_changed_submitted_phone_cannot_redirect_code(self):
         profile = self.clinic_profile(mobile_number="09123456789")
         response = self.register(phone="09998887777")
@@ -443,7 +512,7 @@ class RegistrationLinkingTests(TestCase):
         response = self.register(email="JUAN@EXAMPLE.COM")
 
         self.assertEqual(response.status_code, 409)
-        self.assertEqual(response.json()["error"], "An account already uses this email.")
+        self.assertEqual(response.json()["error"], "An account already uses this email address.")
         self.assertEqual(User.objects.count(), 1)
         self.assertEqual(PatientProfile.objects.count(), 1)
         profile.refresh_from_db()

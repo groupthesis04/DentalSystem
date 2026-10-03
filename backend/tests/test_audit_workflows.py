@@ -26,7 +26,10 @@ class AuditWorkflowTests(TestCase):
             path, data=json.dumps(payload), content_type="application/json"
         )
 
-    def test_self_registration_records_creation_and_login_without_personal_details(self):
+    @patch("accounts.views.validate_email_address", return_value={
+        "valid": True, "status": "valid", "message": "Email address is valid.",
+    })
+    def test_self_registration_records_creation_and_login_without_personal_details(self, _email_validation):
         payload = {
             "first_name": "Audit",
             "last_name": "Patient",

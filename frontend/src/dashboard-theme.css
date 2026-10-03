@@ -6497,45 +6497,41 @@ html[data-dashboard-theme="dark"]
   font-size: 0.55rem;
 }
 
-.patient-sms-preference {
+.patient-notifications-form {
   display: grid;
-  gap: 10px;
-  margin-top: 16px;
-  padding: 16px;
-  border: 1px solid var(--dashboard-border);
-  border-radius: 10px;
-  background: #fafcff;
-  color: var(--dashboard-text);
+  gap: 12px;
 }
 
-.patient-sms-preference h3,
-.patient-sms-preference p {
-  margin: 0;
+.patient-account-page .account-readonly-badge {
+  padding: 5px 9px;
+  border-radius: 999px;
+  background: #dcfce7;
+  color: #15803d;
+  font-size: 0.68rem;
+  font-weight: 750;
+  white-space: nowrap;
 }
 
-.patient-sms-preference h3 {
-  font-size: 0.9rem;
-}
-
-.patient-sms-preference p,
-.patient-sms-preference small,
-.patient-sms-options {
-  font-size: 0.75rem;
-  line-height: 1.45;
-}
-
-.patient-sms-preference small {
-  color: var(--dashboard-muted);
-}
-
-.patient-sms-preference .patient-sms-legacy-note {
-  color: #8a5a00;
+.patient-account-page .account-readonly-badge.neutral {
+  background: #e7f0ff;
+  color: #1d4ed8;
 }
 
 .patient-sms-options {
   display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
-  width: min(100%, 440px);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.patient-sms-options legend {
+  margin-bottom: 7px;
+  color: var(--dashboard-text);
+  font-size: 0.72rem;
+  font-weight: 750;
 }
 
 .patient-sms-options label {
@@ -6585,10 +6581,6 @@ html[data-dashboard-theme="dark"]
 .patient-sms-options label:has(input:disabled) {
   opacity: 0.65;
   cursor: not-allowed;
-}
-
-.patient-sms-preference .account-save-button {
-  justify-self: start;
 }
 
 .account-theme-choice {
@@ -6907,95 +6899,95 @@ html[data-dashboard-theme="dark"]
   }
 }
 
-/* Doctor profile: compact layout for Profile, Security, and Notifications. */
-.doctor-account-page:not(.patient-account-page) {
+/* Shared compact profile layout for doctor and patient views. */
+.doctor-account-page {
   gap: 12px;
 }
 
-.doctor-account-page:not(.patient-account-page) .account-page-heading h1 {
+.doctor-account-page .account-page-heading h1 {
   font-size: 1.55rem;
   line-height: 1.18;
 }
 
-.doctor-account-page:not(.patient-account-page) .account-page-heading p {
+.doctor-account-page .account-page-heading p {
   margin-top: 4px;
   font-size: 0.84rem;
 }
 
-.doctor-account-page:not(.patient-account-page) .account-page-user {
+.doctor-account-page .account-page-user {
   gap: 12px;
 }
 
-.doctor-account-page:not(.patient-account-page) .account-page-user .profile-avatar {
+.doctor-account-page .account-page-user .profile-avatar {
   width: 44px;
   min-width: 44px;
   height: 44px;
 }
 
-.doctor-account-page:not(.patient-account-page) .account-page-user strong {
+.doctor-account-page .account-page-user strong {
   font-size: 0.82rem;
 }
 
-.doctor-account-page:not(.patient-account-page) .account-page-user small {
+.doctor-account-page .account-page-user small {
   margin-top: 2px;
   font-size: 0.76rem;
 }
 
-.doctor-account-page:not(.patient-account-page) .account-tabs {
+.doctor-account-page .account-tabs {
   width: min(720px, 100%);
   border-radius: 9px;
 }
 
-.doctor-account-page:not(.patient-account-page) .account-tabs button {
+.doctor-account-page .account-tabs button {
   min-height: 44px;
   gap: 8px;
   font-size: 0.8rem;
 }
 
-.doctor-account-page:not(.patient-account-page) .account-tabs button svg {
+.doctor-account-page .account-tabs button svg {
   width: 18px;
   height: 18px;
 }
 
-.doctor-account-page:not(.patient-account-page) .account-content-grid {
+.doctor-account-page .account-content-grid {
   grid-template-columns: minmax(0, 1.62fr) minmax(350px, 0.98fr);
   gap: 14px;
 }
 
-.doctor-account-page:not(.patient-account-page) .account-panel {
+.doctor-account-page .account-panel {
   padding: 16px;
   border-radius: 10px;
   box-shadow: 0 7px 24px rgb(36 62 100 / 4.5%);
 }
 
-.doctor-account-page:not(.patient-account-page) .account-panel-heading {
+.doctor-account-page .account-panel-heading {
   gap: 11px;
   margin-bottom: 12px;
 }
 
-.doctor-account-page:not(.patient-account-page) .account-panel-heading h2 {
+.doctor-account-page .account-panel-heading h2 {
   font-size: 0.98rem;
   line-height: 1.2;
 }
 
-.doctor-account-page:not(.patient-account-page) .account-panel-heading p {
+.doctor-account-page .account-panel-heading p {
   margin-top: 3px;
   font-size: 0.72rem;
   line-height: 1.32;
 }
 
-.doctor-account-page:not(.patient-account-page) .account-heading-icon {
+.doctor-account-page .account-heading-icon {
   width: 42px;
   height: 42px;
   border-radius: 10px;
 }
 
-.doctor-account-page:not(.patient-account-page) .account-heading-icon svg {
+.doctor-account-page .account-heading-icon svg {
   width: 21px;
   height: 21px;
 }
 
-.doctor-account-page:not(.patient-account-page) .account-edit-button {
+.doctor-account-page .account-edit-button {
   min-height: 40px;
   padding: 7px 13px;
   border: 0;
@@ -7005,39 +6997,39 @@ html[data-dashboard-theme="dark"]
   font-size: 0.8rem;
 }
 
-.doctor-account-page:not(.patient-account-page) .account-edit-button svg {
+.doctor-account-page .account-edit-button svg {
   width: 17px;
   height: 17px;
 }
 
-.doctor-account-page:not(.patient-account-page) .account-edit-button:hover {
+.doctor-account-page .account-edit-button:hover {
   background: #05a8c0;
   color: #062046;
 }
 
-.doctor-account-page:not(.patient-account-page) .account-personal-panel {
+.doctor-account-page .account-personal-panel {
   min-height: 0;
 }
 
-.doctor-account-page:not(.patient-account-page) .account-personal-layout {
+.doctor-account-page .account-personal-layout {
   grid-template-columns: 150px minmax(0, 1fr);
   gap: 16px;
   align-items: start;
 }
 
-.doctor-account-page:not(.patient-account-page) .account-photo-column {
+.doctor-account-page .account-photo-column {
   align-self: start;
   gap: 9px;
   padding-top: 18px;
 }
 
-.doctor-account-page:not(.patient-account-page) .account-photo-preview .profile-avatar.large {
+.doctor-account-page .account-photo-preview .profile-avatar.large {
   width: 118px;
   height: 118px;
   border: 4px solid #f2f6fc;
 }
 
-.doctor-account-page:not(.patient-account-page) .account-photo-mark {
+.doctor-account-page .account-photo-mark {
   right: -3px;
   bottom: 3px;
   width: 35px;
@@ -7046,29 +7038,29 @@ html[data-dashboard-theme="dark"]
   background: #2563eb;
 }
 
-.doctor-account-page:not(.patient-account-page) .account-photo-mark:disabled {
+.doctor-account-page .account-photo-mark:disabled {
   cursor: default;
 }
 
-.doctor-account-page:not(.patient-account-page) .account-photo-column > small {
+.doctor-account-page .account-photo-column > small {
   max-width: 155px;
   font-size: 0.7rem;
 }
 
-.doctor-account-page:not(.patient-account-page) .account-form-grid {
+.doctor-account-page .account-form-grid {
   gap: 12px 14px;
 }
 
-.doctor-account-page:not(.patient-account-page) .account-field {
+.doctor-account-page .account-field {
   gap: 5px;
 }
 
-.doctor-account-page:not(.patient-account-page) .account-field > span,
-.doctor-account-page:not(.patient-account-page) .account-field > label {
+.doctor-account-page .account-field > span,
+.doctor-account-page .account-field > label {
   font-size: 0.72rem;
 }
 
-.doctor-account-page:not(.patient-account-page) .account-input-wrap {
+.doctor-account-page .account-input-wrap {
   min-height: 42px;
   gap: 10px;
   padding-inline: 12px;
@@ -7077,32 +7069,32 @@ html[data-dashboard-theme="dark"]
   background: #f7f9fc;
 }
 
-.doctor-account-page:not(.patient-account-page) .account-input-wrap > svg {
+.doctor-account-page .account-input-wrap > svg {
   width: 18px;
   height: 18px;
   color: #61799e;
 }
 
-.doctor-account-page:not(.patient-account-page) .account-input-wrap input {
+.doctor-account-page .account-input-wrap input {
   height: 40px;
   font-size: 0.8rem;
   font-weight: 500;
 }
 
-.doctor-account-page:not(.patient-account-page) .account-input-wrap:has(input:disabled) {
+.doctor-account-page .account-input-wrap:has(input:disabled) {
   background: #f7f9fc;
 }
 
-.doctor-account-page:not(.patient-account-page) .account-side-column,
-.doctor-account-page:not(.patient-account-page) .account-settings-view {
+.doctor-account-page .account-side-column,
+.doctor-account-page .account-settings-view {
   gap: 12px;
 }
 
-.doctor-account-page:not(.patient-account-page) .account-overview-list {
+.doctor-account-page .account-overview-list {
   gap: 7px;
 }
 
-.doctor-account-page:not(.patient-account-page) .account-overview-list > div {
+.doctor-account-page .account-overview-list > div {
   grid-template-columns: 38px minmax(0, 1fr);
   grid-template-rows: auto auto auto;
   column-gap: 10px;
@@ -7113,39 +7105,39 @@ html[data-dashboard-theme="dark"]
   background: #f8fbff;
 }
 
-.doctor-account-page:not(.patient-account-page) .account-overview-icon {
+.doctor-account-page .account-overview-icon {
   grid-row: 1 / span 3;
   width: 38px;
   height: 38px;
   border-radius: 9px;
 }
 
-.doctor-account-page:not(.patient-account-page) .account-overview-icon svg {
+.doctor-account-page .account-overview-icon svg {
   width: 20px;
   height: 20px;
 }
 
-.doctor-account-page:not(.patient-account-page) .account-overview-list dt {
+.doctor-account-page .account-overview-list dt {
   font-size: 0.7rem;
   font-weight: 500;
 }
 
-.doctor-account-page:not(.patient-account-page) .account-overview-list dd {
+.doctor-account-page .account-overview-list dd {
   font-size: 0.8rem;
   line-height: 1.3;
 }
 
-.doctor-account-page:not(.patient-account-page) .account-overview-list small {
+.doctor-account-page .account-overview-list small {
   grid-column: 2;
   color: var(--dashboard-muted);
   font-size: 0.68rem;
 }
 
-.doctor-account-page:not(.patient-account-page) .account-quick-actions {
+.doctor-account-page .account-quick-actions {
   gap: 6px;
 }
 
-.doctor-account-page:not(.patient-account-page) .account-quick-actions button {
+.doctor-account-page .account-quick-actions button {
   min-height: 45px;
   gap: 8px;
   padding: 6px 9px;
@@ -7153,11 +7145,11 @@ html[data-dashboard-theme="dark"]
   font-size: 0.72rem;
 }
 
-.doctor-account-page:not(.patient-account-page) .account-quick-actions button > span:nth-child(2) {
+.doctor-account-page .account-quick-actions button > span:nth-child(2) {
   flex: 1;
 }
 
-.doctor-account-page:not(.patient-account-page) .account-action-icon {
+.doctor-account-page .account-action-icon {
   display: grid;
   width: 31px;
   height: 31px;
@@ -7168,84 +7160,77 @@ html[data-dashboard-theme="dark"]
   color: #2563eb;
 }
 
-.doctor-account-page:not(.patient-account-page) .account-quick-actions .security,
-.doctor-account-page:not(.patient-account-page) .account-quick-actions .profile {
+.doctor-account-page .account-quick-actions .security,
+.doctor-account-page .account-quick-actions .profile {
   border-color: #e2e9f4;
   background: #f8fbff;
   color: var(--dashboard-text);
 }
 
-.doctor-account-page:not(.patient-account-page) .account-quick-actions .notifications {
+.doctor-account-page .account-quick-actions .notifications {
   border-color: #bfd8ff;
   background: #eaf3ff;
   color: #1557e8;
 }
 
-.doctor-account-page:not(.patient-account-page)
-  .account-content-grid:has(.account-profile-form)
-  .account-quick-actions {
+.doctor-account-page .account-content-grid:has(.account-profile-form) .account-quick-actions {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
-.doctor-account-page:not(.patient-account-page)
+.doctor-account-page
   .account-content-grid:has(.account-profile-form)
   .account-quick-actions
   .profile {
   display: none;
 }
 
-.doctor-account-page:not(.patient-account-page) .account-save-bar {
+.doctor-account-page .account-save-bar {
   padding: 14px;
 }
 
-.doctor-account-page:not(.patient-account-page) .account-save-button,
-.doctor-account-page:not(.patient-account-page) .account-cancel-button {
+.doctor-account-page .account-save-button,
+.doctor-account-page .account-cancel-button {
   min-height: 42px;
   font-size: 0.78rem;
 }
 
-.doctor-account-page:not(.patient-account-page) .account-security-card .account-panel-heading {
+.doctor-account-page .account-security-card .account-panel-heading {
   margin-bottom: 12px;
 }
 
-.doctor-account-page:not(.patient-account-page) .account-security-fields {
+.doctor-account-page .account-security-fields {
   gap: 11px;
 }
 
-.doctor-account-page:not(.patient-account-page)
-  .account-security-card
-  > form.account-security-fields {
+.doctor-account-page .account-security-card > form.account-security-fields {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
-.doctor-account-page:not(.patient-account-page)
-  .account-security-card
-  > form.account-security-fields
-  > :nth-child(n + 3) {
+.doctor-account-page .account-security-card > form.account-security-fields > :nth-child(n + 3) {
   grid-column: 1 / -1;
 }
 
-.doctor-account-page:not(.patient-account-page) .account-password-wrap {
+.doctor-account-page .account-password-wrap {
   grid-template-columns: minmax(0, 1fr) auto;
   min-height: 42px;
 }
 
-.doctor-account-page:not(.patient-account-page) .account-password-wrap > svg {
+.doctor-account-page .account-password-wrap > svg {
   display: none;
 }
 
-.doctor-account-page:not(.patient-account-page) .account-password-wrap input {
+.doctor-account-page .account-password-wrap input {
   height: 40px;
   font-size: 0.8rem;
 }
 
-.doctor-account-page:not(.patient-account-page) .account-form-actions {
+.doctor-account-page .account-form-actions {
   align-items: flex-end;
   margin-top: 13px;
 }
 
-.doctor-account-page:not(.patient-account-page) .account-password-guidance,
-.doctor-account-page:not(.patient-account-page) .account-notification-note {
+.doctor-account-page .account-password-guidance,
+.doctor-account-page .account-notification-note {
   display: flex;
   align-items: flex-start;
   gap: 10px;
@@ -7256,22 +7241,22 @@ html[data-dashboard-theme="dark"]
   color: #2563eb;
 }
 
-.doctor-account-page:not(.patient-account-page) .account-password-guidance {
+.doctor-account-page .account-password-guidance {
   max-width: 420px;
 }
 
-.doctor-account-page:not(.patient-account-page) .account-password-guidance > svg,
-.doctor-account-page:not(.patient-account-page) .account-notification-note > svg {
+.doctor-account-page .account-password-guidance > svg,
+.doctor-account-page .account-notification-note > svg {
   flex: none;
   margin-top: 1px;
 }
 
-.doctor-account-page:not(.patient-account-page) .account-password-guidance strong,
-.doctor-account-page:not(.patient-account-page) .account-notification-note strong {
+.doctor-account-page .account-password-guidance strong,
+.doctor-account-page .account-notification-note strong {
   font-size: 0.76rem;
 }
 
-.doctor-account-page:not(.patient-account-page) .account-password-guidance ul {
+.doctor-account-page .account-password-guidance ul {
   margin: 4px 0 0;
   padding-left: 19px;
   color: #516584;
@@ -7279,15 +7264,15 @@ html[data-dashboard-theme="dark"]
   line-height: 1.38;
 }
 
-.doctor-account-page:not(.patient-account-page) .account-form-actions .account-save-button {
+.doctor-account-page .account-form-actions .account-save-button {
   min-width: 185px;
 }
 
-.doctor-account-page:not(.patient-account-page) .account-activity-list {
+.doctor-account-page .account-activity-list {
   border-radius: 6px;
 }
 
-.doctor-account-page:not(.patient-account-page) .account-activity-header {
+.doctor-account-page .account-activity-header {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 10px;
@@ -7299,34 +7284,31 @@ html[data-dashboard-theme="dark"]
   text-transform: uppercase;
 }
 
-.doctor-account-page:not(.patient-account-page) .account-activity-row {
+.doctor-account-page .account-activity-row {
   min-height: 54px;
   padding: 8px 14px;
 }
 
-.doctor-account-page:not(.patient-account-page) .account-activity-row strong,
-.doctor-account-page:not(.patient-account-page) .account-activity-row small,
-.doctor-account-page:not(.patient-account-page) .account-activity-row time {
+.doctor-account-page .account-activity-row strong,
+.doctor-account-page .account-activity-row small,
+.doctor-account-page .account-activity-row time {
   font-size: 0.78rem;
 }
 
-.doctor-account-page:not(.patient-account-page) .account-activity-row time {
+.doctor-account-page .account-activity-row time {
   max-width: 170px;
   text-align: right;
 }
 
-.doctor-account-page:not(.patient-account-page)
-  .account-security-side
-  .account-security-card
-  > form.account-security-fields {
+.doctor-account-page .account-security-side .account-security-card > form.account-security-fields {
   grid-template-columns: minmax(0, 1fr);
 }
 
-.doctor-account-page:not(.patient-account-page) > .activity-log {
+.doctor-account-page > .activity-log {
   margin-top: 14px;
 }
 
-.doctor-account-page:not(.patient-account-page) .account-current-session {
+.doctor-account-page .account-current-session {
   display: flex;
   align-items: center;
   gap: 9px;
@@ -7338,7 +7320,7 @@ html[data-dashboard-theme="dark"]
   background: #eff7ff;
 }
 
-.doctor-account-page:not(.patient-account-page) .account-current-session-icon {
+.doctor-account-page .account-current-session-icon {
   display: grid;
   width: 40px;
   height: 40px;
@@ -7349,22 +7331,22 @@ html[data-dashboard-theme="dark"]
   color: #2563eb;
 }
 
-.doctor-account-page:not(.patient-account-page) .account-current-session > span:nth-child(2) {
+.doctor-account-page .account-current-session > span:nth-child(2) {
   display: grid;
   gap: 4px;
   min-width: 0;
 }
 
-.doctor-account-page:not(.patient-account-page) .account-current-session strong {
+.doctor-account-page .account-current-session strong {
   font-size: 0.8rem;
 }
 
-.doctor-account-page:not(.patient-account-page) .account-current-session small {
+.doctor-account-page .account-current-session small {
   color: var(--dashboard-muted);
   font-size: 0.7rem;
 }
 
-.doctor-account-page:not(.patient-account-page) .account-current-session b {
+.doctor-account-page .account-current-session b {
   flex: none;
   align-self: flex-start;
   padding: 5px 8px;
@@ -7374,7 +7356,7 @@ html[data-dashboard-theme="dark"]
   font-size: 0.7rem;
 }
 
-.doctor-account-page:not(.patient-account-page) .account-logout-devices {
+.doctor-account-page .account-logout-devices {
   min-height: 44px;
   border-color: #fb5264;
   background: #fff6f7;
@@ -7382,7 +7364,7 @@ html[data-dashboard-theme="dark"]
   font-size: 0.82rem;
 }
 
-.doctor-account-page:not(.patient-account-page) .account-session-help {
+.doctor-account-page .account-session-help {
   display: block;
   margin-top: 9px;
   color: #e11d48;
@@ -7390,11 +7372,11 @@ html[data-dashboard-theme="dark"]
   text-align: center;
 }
 
-.doctor-account-page:not(.patient-account-page) .account-notification-list {
+.doctor-account-page .account-notification-list {
   gap: 2px;
 }
 
-.doctor-account-page:not(.patient-account-page) .account-notification-row {
+.doctor-account-page .account-notification-row {
   grid-template-columns: 34px minmax(0, 1fr) auto;
   min-height: 52px;
   gap: 9px;
@@ -7403,60 +7385,57 @@ html[data-dashboard-theme="dark"]
   background: #ffffff;
 }
 
-.doctor-account-page:not(.patient-account-page) .account-notification-icon {
+.doctor-account-page .account-notification-icon {
   width: 34px;
   height: 34px;
   border-radius: 10px;
 }
 
-.doctor-account-page:not(.patient-account-page) .account-notification-icon svg {
+.doctor-account-page .account-notification-icon svg {
   width: 18px;
   height: 18px;
 }
 
-.doctor-account-page:not(.patient-account-page) .account-notification-icon.teal {
+.doctor-account-page .account-notification-icon.teal {
   background: #d6f7f6;
   color: #0faeb4;
 }
 
-.doctor-account-page:not(.patient-account-page) .account-notification-copy {
+.doctor-account-page .account-notification-copy {
   gap: 3px;
 }
 
-.doctor-account-page:not(.patient-account-page) .account-notification-copy strong {
+.doctor-account-page .account-notification-copy strong {
   font-size: 0.75rem;
   line-height: 1.2;
 }
 
-.doctor-account-page:not(.patient-account-page) .account-notification-copy small {
+.doctor-account-page .account-notification-copy small {
   font-size: 0.68rem;
   line-height: 1.25;
 }
 
-.doctor-account-page:not(.patient-account-page) .account-notification-switch {
+.doctor-account-page .account-notification-switch {
   width: 40px;
   height: 22px;
 }
 
-.doctor-account-page:not(.patient-account-page)
-  .account-notification-switch
-  input:checked
-  + span::after {
+.doctor-account-page .account-notification-switch input:checked + span::after {
   transform: translateX(18px);
 }
 
-.doctor-account-page:not(.patient-account-page) .account-notification-actions {
+.doctor-account-page .account-notification-actions {
   gap: 12px;
   margin-top: 15px;
 }
 
-.doctor-account-page:not(.patient-account-page) .account-notification-note {
+.doctor-account-page .account-notification-note {
   flex: 1;
   min-height: 0;
   align-items: center;
 }
 
-.doctor-account-page:not(.patient-account-page) .account-notification-note p {
+.doctor-account-page .account-notification-note p {
   display: grid;
   gap: 4px;
   max-width: none;
@@ -7465,19 +7444,19 @@ html[data-dashboard-theme="dark"]
   color: #2563eb;
 }
 
-.doctor-account-page:not(.patient-account-page) .account-notification-note span {
+.doctor-account-page .account-notification-note span {
   color: #516584;
   font-size: 0.7rem;
   line-height: 1.3;
 }
 
-.doctor-account-page:not(.patient-account-page) .account-notification-actions .account-save-button {
+.doctor-account-page .account-notification-actions .account-save-button {
   min-width: 170px;
   min-height: 44px;
 }
 
 html[data-dashboard-theme="dark"]
-  .doctor-account-page:not(.patient-account-page)
+  .doctor-account-page
   :is(
     .account-notification-row,
     .account-current-session,
@@ -7492,25 +7471,43 @@ html[data-dashboard-theme="dark"]
 }
 
 html[data-dashboard-theme="dark"]
-  .doctor-account-page:not(.patient-account-page)
+  .doctor-account-page
   :is(.account-notification-note span, .account-password-guidance ul) {
   color: #b8c2d0;
 }
 
+html[data-dashboard-theme="dark"] .patient-account-page .patient-sms-options label {
+  border-color: #334155;
+  background: #162131;
+}
+
+html[data-dashboard-theme="dark"]
+  .patient-account-page
+  .patient-sms-options
+  label:has(input:checked) {
+  border-color: #3b82f6;
+  background: #1b3456;
+}
+
+html[data-dashboard-theme="dark"] .patient-account-page .account-readonly-badge.neutral {
+  background: #1d3555;
+  color: #93c5fd;
+}
+
 @media (max-width: 1120px) {
-  .doctor-account-page:not(.patient-account-page) .account-content-grid {
+  .doctor-account-page .account-content-grid {
     grid-template-columns: 1fr;
   }
 
-  .doctor-account-page:not(.patient-account-page) .account-side-column {
+  .doctor-account-page .account-side-column {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .doctor-account-page:not(.patient-account-page) .account-security-side .account-security-card {
+  .doctor-account-page .account-security-side .account-security-card {
     grid-column: 1 / -1;
   }
 
-  .doctor-account-page:not(.patient-account-page)
+  .doctor-account-page
     .account-security-side
     .account-security-card
     > form.account-security-fields {
@@ -7519,100 +7516,98 @@ html[data-dashboard-theme="dark"]
 }
 
 @media (max-width: 760px) {
-  .doctor-account-page:not(.patient-account-page) .account-side-column {
+  .doctor-account-page .account-side-column {
     grid-template-columns: 1fr;
   }
 
-  .doctor-account-page:not(.patient-account-page)
+  .doctor-account-page
     .account-security-side
     .account-security-card
     > form.account-security-fields {
     grid-template-columns: 1fr;
   }
 
-  .doctor-account-page:not(.patient-account-page) .account-personal-layout {
+  .doctor-account-page .account-personal-layout {
     grid-template-columns: 160px minmax(0, 1fr);
   }
 
-  .doctor-account-page:not(.patient-account-page) .account-photo-preview .profile-avatar.large {
+  .doctor-account-page .account-photo-preview .profile-avatar.large {
     width: 110px;
     height: 110px;
   }
 }
 
 @media (max-width: 560px) {
-  .doctor-account-page:not(.patient-account-page) .account-panel {
+  .patient-account-page .patient-sms-options {
+    grid-template-columns: 1fr;
+  }
+
+  .doctor-account-page .account-panel {
     padding: 16px;
   }
 
-  .doctor-account-page:not(.patient-account-page) .account-page-heading h1 {
+  .doctor-account-page .account-page-heading h1 {
     font-size: 1.38rem;
   }
 
-  .doctor-account-page:not(.patient-account-page) .account-page-heading p {
+  .doctor-account-page .account-page-heading p {
     font-size: 0.76rem;
   }
 
-  .doctor-account-page:not(.patient-account-page) .account-page-user .profile-avatar {
+  .doctor-account-page .account-page-user .profile-avatar {
     width: 42px;
     min-width: 42px;
     height: 42px;
   }
 
-  .doctor-account-page:not(.patient-account-page) .account-tabs button {
+  .doctor-account-page .account-tabs button {
     min-height: 44px;
     padding-inline: 5px;
     font-size: 0.72rem;
   }
 
-  .doctor-account-page:not(.patient-account-page) .account-tabs button svg {
+  .doctor-account-page .account-tabs button svg {
     width: 17px;
     height: 17px;
   }
 
-  .doctor-account-page:not(.patient-account-page) .account-personal-panel {
+  .doctor-account-page .account-personal-panel {
     min-height: 0;
   }
 
-  .doctor-account-page:not(.patient-account-page) .account-personal-layout {
+  .doctor-account-page .account-personal-layout {
     grid-template-columns: 1fr;
   }
 
-  .doctor-account-page:not(.patient-account-page) .account-photo-column {
+  .doctor-account-page .account-photo-column {
     padding-top: 0;
   }
 
-  .doctor-account-page:not(.patient-account-page) .account-form-grid {
+  .doctor-account-page .account-form-grid {
     grid-template-columns: 1fr;
   }
 
-  .doctor-account-page:not(.patient-account-page)
-    .account-security-card
-    > form.account-security-fields {
+  .doctor-account-page .account-security-card > form.account-security-fields {
     grid-template-columns: 1fr;
   }
 
-  .doctor-account-page:not(.patient-account-page) .account-notification-actions {
+  .doctor-account-page .account-notification-actions {
     align-items: stretch;
   }
 
-  .doctor-account-page:not(.patient-account-page)
-    .account-notification-actions
-    .account-save-button {
+  .doctor-account-page .account-notification-actions .account-save-button {
     width: 100%;
   }
 
-  .doctor-account-page:not(.patient-account-page)
-    .account-content-grid:has(.account-profile-form)
-    .account-quick-actions {
+  .doctor-account-page .account-content-grid:has(.account-profile-form) .account-quick-actions {
     grid-template-columns: 1fr;
   }
 
-  .doctor-account-page:not(.patient-account-page) .account-activity-header {
+  .doctor-account-page .account-activity-header {
     display: none;
   }
 
-  .doctor-account-page:not(.patient-account-page) .account-overview-list dd {
+  .doctor-account-page .account-overview-list dd {
     overflow: visible;
     text-overflow: initial;
     white-space: normal;
@@ -7620,26 +7615,26 @@ html[data-dashboard-theme="dark"]
 }
 
 @media (max-width: 420px) {
-  .doctor-account-page:not(.patient-account-page) .account-tabs {
+  .doctor-account-page .account-tabs {
     grid-template-columns: repeat(3, minmax(0, 1fr));
     overflow: hidden;
   }
 
-  .doctor-account-page:not(.patient-account-page) .account-tabs button {
+  .doctor-account-page .account-tabs button {
     min-width: 0;
     gap: 0;
     font-size: 0.7rem;
   }
 
-  .doctor-account-page:not(.patient-account-page) .account-tabs button svg {
+  .doctor-account-page .account-tabs button svg {
     display: none;
   }
 
-  .doctor-account-page:not(.patient-account-page) .account-current-session {
+  .doctor-account-page .account-current-session {
     flex-wrap: wrap;
   }
 
-  .doctor-account-page:not(.patient-account-page) .account-current-session b {
+  .doctor-account-page .account-current-session b {
     margin-left: 63px;
   }
 }

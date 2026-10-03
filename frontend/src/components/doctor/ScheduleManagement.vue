@@ -1,6 +1,7 @@
 <script setup>
 import {
   CalendarDays,
+  Check,
   ChevronLeft,
   ChevronDown,
   ChevronRight,
@@ -16,7 +17,7 @@ import {
   Trash2,
   UserRound,
 } from "lucide-vue-next";
-import { computed, reactive, ref, watch } from "vue";
+import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from "vue";
 
 import AvatarBadge from "../AvatarBadge.vue";
 import AddAppointmentModal from "./AddAppointmentModal.vue";
@@ -61,6 +62,19 @@ const serviceFilter = ref("");
 const statusFilter = ref("");
 const appointmentPage = ref(1);
 const appointmentPageSize = 7;
+const appointmentStatuses = [
+  { value: "pending", label: "Pending" },
+  { value: "approved", label: "Accepted" },
+  { value: "completed", label: "Completed" },
+  { value: "cancelled", label: "Cancelled" },
+];
+const openStatusId = ref("");
+const statusMenuRef = ref(null);
+const statusMenuTrigger = ref(null);
+const statusMenuStyle = ref({});
+const openStatusAppointment = computed(() =>
+  props.state.appointments.find((item) => item.id === openStatusId.value),
+);
 
 const selectedDoctor = computed(
   () => session.user?.name || props.state.clinicDoctor || "Clinic dentist",
@@ -158,6 +172,9 @@ watch([appointmentSearch, serviceFilter, statusFilter], () => {
 });
 watch(appointmentPageCount, (count) => {
   if (appointmentPage.value > count) appointmentPage.value = count;
+});
+watch([appointmentPage, appointmentSearch, serviceFilter, statusFilter, () => props.mode], () => {
+  closeStatusMenu();
 });
 watch(
   () => props.highlightedId,
@@ -278,6 +295,102 @@ function selectAppointmentPage(page) {
   appointmentPage.value = Math.min(Math.max(page, 1), appointmentPageCount.value);
 }
 
+function statusLabel(status) {
+  return appointmentStatuses.find((option) => option.value === status)?.label || status;
+}
+
+function closeStatusMenu(restoreFocus = false) {
+  const trigger = statusMenuTrigger.value;
+  openStatusId.value = "";
+  statusMenuTrigger.value = null;
+  if (restoreFocus) nextTick(() => trigger?.focus());
+}
+
+function focusStatusOption(index) {
+  nextTick(() => statusMenuRef.value?.querySelectorAll('[role="menuitemradio"]')[index]?.focus());
+}
+
+function openStatusMenu(item, event, focusIndex) {
+  if (openStatusId.value === item.id) {
+    closeStatusMenu(true);
+    return;
+  }
+
+  const trigger = event.currentTarget;
+  const rect = trigger.getBoundingClientRect();
+  const menuHeight = Math.min(176, Math.max(80, window.innerHeight - 16));
+  const menuWidth = Math.min(Math.max(158, rect.width), window.innerWidth - 16);
+  const openAbove =
+    rect.bottom + menuHeight + 6 > window.innerHeight - 8 && rect.top > menuHeight + 14;
+  const top = openAbove ? rect.top - menuHeight - 6 : rect.bottom + 6;
+  statusMenuStyle.value = {
+    top: `${Math.max(8, Math.min(top, window.innerHeight - menuHeight - 8))}px`,
+    left: `${Math.max(8, Math.min(rect.right - menuWidth, window.innerWidth - menuWidth - 8))}px`,
+    width: `${menuWidth}px`,
+    maxHeight: `${menuHeight}px`,
+  };
+  statusMenuTrigger.value = trigger;
+  openStatusId.value = item.id;
+  focusStatusOption(
+    focusIndex ??
+      Math.max(
+        0,
+        appointmentStatuses.findIndex((option) => option.value === item.status),
+      ),
+  );
+}
+
+function onStatusOptionKeydown(event, index) {
+  if (event.key === "Escape") {
+    event.preventDefault();
+    closeStatusMenu(true);
+  } else if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+    event.preventDefault();
+    const direction = event.key === "ArrowDown" ? 1 : -1;
+    focusStatusOption(
+      (index + direction + appointmentStatuses.length) % appointmentStatuses.length,
+    );
+  } else if (event.key === "Home" || event.key === "End") {
+    event.preventDefault();
+    focusStatusOption(event.key === "Home" ? 0 : appointmentStatuses.length - 1);
+  } else if (event.key === "Tab") {
+    closeStatusMenu();
+  }
+}
+
+function selectAppointmentStatus(item, nextStatus) {
+  closeStatusMenu(true);
+  if (item && nextStatus !== item.status) changeAppointmentStatus(item, nextStatus);
+}
+
+function onStatusPointerDown(event) {
+  if (
+    !statusMenuRef.value?.contains(event.target) &&
+    !statusMenuTrigger.value?.contains(event.target)
+  ) {
+    closeStatusMenu();
+  }
+}
+
+function onStatusScroll(event) {
+  if (!statusMenuRef.value?.contains(event.target)) closeStatusMenu();
+}
+
+function onStatusResize() {
+  closeStatusMenu();
+}
+
+onMounted(() => {
+  document.addEventListener("pointerdown", onStatusPointerDown);
+  window.addEventListener("scroll", onStatusScroll, true);
+  window.addEventListener("resize", onStatusResize);
+});
+onUnmounted(() => {
+  document.removeEventListener("pointerdown", onStatusPointerDown);
+  window.removeEventListener("scroll", onStatusScroll, true);
+  window.removeEventListener("resize", onStatusResize);
+});
+
 function manualAppointmentCreated(data) {
   addAppointmentOpen.value = false;
   if (data.appointment) {
@@ -298,14 +411,12 @@ function manualAppointmentCreated(data) {
   emit("refresh");
 }
 
-function changeAppointmentStatus(item, event) {
-  const nextStatus = event.target.value;
+function changeAppointmentStatus(item, nextStatus) {
   if (nextStatus !== "completed") {
     emit("status-change", item, nextStatus);
     return;
   }
 
-  event.target.value = item.status;
   if (item.date > today) {
     showToast("A future appointment cannot be marked completed yet.", "error");
     return;
@@ -665,21 +776,22 @@ function closeFollowUp() {
               <td data-label="Date">{{ formatDate(item.date) }}</td>
               <td data-label="Time">{{ formatClock(item.time) }}</td>
               <td data-label="Status">
-                <label class="appointment-status-control" :class="`status-${item.status}`">
-                  <span class="sr-only">Update status for {{ item.patient_name }}</span>
+                <button
+                  type="button"
+                  class="appointment-status-control"
+                  :class="`status-${item.status}`"
+                  :aria-label="`Update status for ${item.patient_name || 'patient'}, currently ${statusLabel(item.status)}`"
+                  aria-haspopup="menu"
+                  :aria-expanded="openStatusId === item.id"
+                  :aria-controls="openStatusId === item.id ? 'appointment-status-menu' : undefined"
+                  @click="openStatusMenu(item, $event)"
+                  @keydown.down.prevent="openStatusMenu(item, $event, 0)"
+                  @keydown.up.prevent="openStatusMenu(item, $event, appointmentStatuses.length - 1)"
+                >
                   <i aria-hidden="true"></i>
-                  <select
-                    :value="item.status"
-                    :aria-label="`Update status for ${item.patient_name || 'patient'}`"
-                    @change="changeAppointmentStatus(item, $event)"
-                  >
-                    <option value="pending">Pending</option>
-                    <option value="approved">Accepted</option>
-                    <option value="completed">Completed</option>
-                    <option value="cancelled">Cancelled</option>
-                  </select>
+                  <span>{{ statusLabel(item.status) }}</span>
                   <ChevronDown :size="14" aria-hidden="true" />
-                </label>
+                </button>
               </td>
             </tr>
             <tr v-if="!visibleAppointments.length" class="appointment-empty-row">
@@ -728,6 +840,41 @@ function closeFollowUp() {
         </nav>
       </footer>
     </section>
+
+    <Teleport to="body">
+      <div
+        v-if="mode === 'appointments' && openStatusId"
+        id="appointment-status-menu"
+        ref="statusMenuRef"
+        class="appointment-status-menu"
+        :style="statusMenuStyle"
+        role="menu"
+        aria-label="Appointment status"
+      >
+        <button
+          v-for="(option, index) in appointmentStatuses"
+          :key="option.value"
+          type="button"
+          class="appointment-status-option"
+          :class="[
+            `status-${option.value}`,
+            { selected: openStatusAppointment?.status === option.value },
+          ]"
+          role="menuitemradio"
+          :aria-checked="openStatusAppointment?.status === option.value"
+          @click="selectAppointmentStatus(openStatusAppointment, option.value)"
+          @keydown="onStatusOptionKeydown($event, index)"
+        >
+          <i aria-hidden="true"></i>
+          <span>{{ option.label }}</span>
+          <Check
+            v-if="openStatusAppointment?.status === option.value"
+            :size="15"
+            aria-hidden="true"
+          />
+        </button>
+      </div>
+    </Teleport>
 
     <AddAppointmentModal
       v-if="mode === 'appointments' && addAppointmentOpen"
@@ -1357,8 +1504,7 @@ function closeFollowUp() {
 }
 
 .appointment-search input,
-.appointment-filter select,
-.appointment-status-control select {
+.appointment-filter select {
   min-width: 0;
   color: inherit;
   border: 0;
@@ -1535,6 +1681,11 @@ function closeFollowUp() {
   border: 1px solid #ffdda0;
   border-radius: 6px;
   background: #fff5df;
+  font: inherit;
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-align: left;
+  cursor: pointer;
 }
 
 .appointment-status-control i {
@@ -1544,22 +1695,18 @@ function closeFollowUp() {
   background: #f5a000;
 }
 
-.appointment-status-control select {
-  width: 100%;
-  height: 100%;
-  overflow: visible;
-  appearance: none;
-  font-size: 0.68rem;
-  font-weight: 800;
+.appointment-status-control span {
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
-  cursor: pointer;
 }
 
 .appointment-status-control > svg {
   pointer-events: none;
 }
 
-.appointment-status-control:focus-within {
+.appointment-status-control:focus-visible {
+  outline: none;
   box-shadow: 0 0 0 3px rgb(23 137 210 / 12%);
 }
 
@@ -1591,6 +1738,83 @@ function closeFollowUp() {
 
 .appointment-status-control.status-cancelled i {
   background: #ef3c5d;
+}
+
+.appointment-status-menu {
+  position: fixed;
+  z-index: 1200;
+  display: grid;
+  gap: 2px;
+  overflow-y: auto;
+  padding: 5px;
+  border: 1px solid #d6e2ee;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 12px 32px rgb(20 42 72 / 20%);
+}
+
+.appointment-status-option {
+  display: grid;
+  min-height: 38px;
+  grid-template-columns: 8px minmax(0, 1fr) 15px;
+  align-items: center;
+  gap: 9px;
+  padding: 0 9px;
+  color: #263c5c;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  font: inherit;
+  font-size: 0.74rem;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+
+.appointment-status-option:hover,
+.appointment-status-option:focus-visible,
+.appointment-status-option.selected {
+  outline: none;
+  background: #edf5ff;
+}
+
+.appointment-status-option i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #f5a000;
+}
+
+.appointment-status-option.status-approved i {
+  background: #13ad7d;
+}
+
+.appointment-status-option.status-completed i {
+  background: #1597e5;
+}
+
+.appointment-status-option.status-cancelled i {
+  background: #ef3c5d;
+}
+
+.appointment-status-option > svg {
+  color: #096bd5;
+}
+
+:global(html[data-dashboard-theme="dark"]) .appointment-status-menu {
+  border-color: #43516a;
+  background: #1d2635;
+  box-shadow: 0 12px 32px rgb(0 0 0 / 40%);
+}
+
+:global(html[data-dashboard-theme="dark"]) .appointment-status-option {
+  color: #e8eef7;
+}
+
+:global(html[data-dashboard-theme="dark"]) .appointment-status-option:hover,
+:global(html[data-dashboard-theme="dark"]) .appointment-status-option:focus-visible,
+:global(html[data-dashboard-theme="dark"]) .appointment-status-option.selected {
+  background: #2a3c58;
 }
 
 .appointment-empty-row td {

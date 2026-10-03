@@ -11,14 +11,29 @@ class PatientIdentityConflict(ValueError):
     """An existing profile needs staff review before another is created."""
 
 
+def normalize_ph_mobile_number(value):
+    """Return a Philippine mobile number as +639XXXXXXXXX.
+
+    Historic clinic numbers may have ordinary display separators. The accepted
+    number itself must still be a ten-digit 9... mobile, with or without the
+    local 0 or country code prefix.
+    """
+    number = re.sub(r"[\s().-]", "", str(value or "").strip())
+    if re.fullmatch(r"9[0-9]{9}", number):
+        return "+63" + number
+    if re.fullmatch(r"09[0-9]{9}", number):
+        return "+63" + number[1:]
+    if re.fullmatch(r"(?:\+63|63)9[0-9]{9}", number):
+        return "+" + number.lstrip("+")
+    raise ValueError("Enter a valid Philippine mobile number.")
+
+
 def canonical_mobile(value):
-    """Return the same value for 09..., 639..., and +639... mobile numbers."""
-    digits = re.sub(r"\D", "", str(value or ""))
-    if len(digits) == 11 and digits.startswith("09"):
-        return "63" + digits[1:]
-    if len(digits) == 12 and digits.startswith("639"):
-        return digits
-    return ""
+    """Keep the existing 639... comparison format for legacy callers."""
+    try:
+        return normalize_ph_mobile_number(value)[1:]
+    except ValueError:
+        return ""
 
 
 def normalized_full_name(first_name, middle_name="", last_name=""):

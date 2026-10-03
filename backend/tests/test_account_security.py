@@ -1,4 +1,4 @@
-"""Doctor account security, login history, and session revocation."""
+"""Self-service account security, login history, and session revocation."""
 
 from django.core.cache import cache
 from django.test import Client, TestCase, override_settings
@@ -140,9 +140,104 @@ class AccountSecurityTests(TestCase):
         self.doctor.refresh_from_db()
         self.assertTrue(self.doctor.check_password("Doctor123!"))
 
-    def test_patient_cannot_use_doctor_security_controls_and_csrf_is_enforced(self):
+    def test_patient_security_shows_only_own_login_activity(self):
+        self.login()
+        patient_client, _ = self.login(user=self.patient, user_agent="Mozilla/5.0 (Linux; Android 15) Chrome/120.0")
+        self.patient.refresh_from_db()
+
+        response = patient_client.get("/api/account/security")
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertTrue(data["is_active"])
+        self.assertEqual(data["last_login"], self.patient.last_login.isoformat())
+        self.assertEqual(data["recovery_email"], self.patient.email)
+        self.assertEqual(data["other_sessions_count"], 0)
+        self.assertEqual(len(data["login_activity"]), 1)
+        self.assertEqual(data["login_activity"][0]["device"], "Android · Chrome")
+        self.assertTrue(data["login_activity"][0]["is_current"])
+        self.assertEqual(AccountLoginActivity.objects.filter(user=self.patient).count(), 1)
+        self.assertEqual(patient_client.get("/api/account/activity-log").status_code, 403)
+
+    def test_patient_can_change_own_password_and_other_patient_session_expires(self):
         patient_client, patient_token = self.login(user=self.patient)
-        self.assertEqual(patient_client.get("/api/account/security").status_code, 403)
-        self.assertEqual(self.post(patient_client, patient_token, "/api/account/logout-other-devices").status_code, 403)
+        other_patient_client, _ = self.login(user=self.patient)
         doctor_client, _ = self.login()
-        self.assertEqual(doctor_client.post("/api/account/logout-other-devices", data={}, content_type="application/json").status_code, 403)
+        endpoint = "/api/account/change-password"
+        payload = {
+            "current_password": "Patient123!",
+            "new_password": "NewPatient456!",
+            "confirm_password": "NewPatient456!",
+        }
+
+        self.assertEqual(self.post(patient_client, patient_token, endpoint, {
+            **payload, "current_password": "incorrect",
+        }).status_code, 400)
+        self.assertEqual(self.post(patient_client, patient_token, endpoint, {
+            **payload, "confirm_password": "Different456!",
+        }).status_code, 400)
+        response = self.post(patient_client, patient_token, endpoint, payload)
+        self.assertEqual(response.status_code, 200)
+        self.patient.refresh_from_db()
+        self.doctor.refresh_from_db()
+        self.assertTrue(self.patient.check_password("NewPatient456!"))
+        self.assertTrue(self.doctor.check_password("Doctor123!"))
+        self.assertEqual(patient_client.get("/api/session").json()["user"]["id"], self.patient.id)
+        self.assertIsNone(other_patient_client.get("/api/session").json()["user"])
+        self.assertEqual(doctor_client.get("/api/session").json()["user"]["id"], self.doctor.id)
+        self.assertTrue(any(
+            entry["is_current"]
+            for entry in patient_client.get("/api/account/security").json()["login_activity"]
+        ))
+
+    def test_patient_can_update_own_recovery_contact_with_password(self):
+        patient_client, patient_token = self.login(user=self.patient)
+        endpoint = "/api/account/recovery-contact"
+        payload = {
+            "email": "patient-recovery@example.com",
+            "mobile_number": "+639171112222",
+            "current_password": "Patient123!",
+        }
+        self.assertEqual(self.patch(patient_client, patient_token, endpoint, {
+            **payload, "current_password": "incorrect",
+        }).status_code, 400)
+        response = self.patch(patient_client, patient_token, endpoint, payload)
+        self.assertEqual(response.status_code, 200)
+        self.patient.refresh_from_db()
+        self.doctor.refresh_from_db()
+        self.assertEqual(self.patient.recovery_email, payload["email"])
+        self.assertEqual(self.patient.recovery_mobile_number, payload["mobile_number"])
+        self.assertEqual(self.patient.email, "patient@example.com")
+        self.assertEqual(self.doctor.recovery_email, "")
+
+    def test_patient_logout_other_devices_preserves_doctor_sessions(self):
+        patient_client, patient_token = self.login(user=self.patient)
+        other_patient_client, _ = self.login(user=self.patient)
+        doctor_client, _ = self.login()
+        self.assertEqual(patient_client.get("/api/account/security").json()["other_sessions_count"], 1)
+
+        response = self.post(patient_client, patient_token, "/api/account/logout-other-devices")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["revoked_count"], 1)
+        self.assertEqual(patient_client.get("/api/session").json()["user"]["id"], self.patient.id)
+        self.assertIsNone(other_patient_client.get("/api/session").json()["user"])
+        self.assertEqual(doctor_client.get("/api/session").json()["user"]["id"], self.doctor.id)
+        self.assertEqual(patient_client.get("/api/account/security").json()["other_sessions_count"], 0)
+
+    def test_security_controls_require_login_and_csrf(self):
+        anonymous = Client()
+        self.assertEqual(anonymous.get("/api/account/security").status_code, 401)
+        self.assertEqual(self.post(anonymous, "", "/api/account/change-password").status_code, 401)
+        self.assertEqual(self.patch(anonymous, "", "/api/account/recovery-contact", {}).status_code, 401)
+        self.assertEqual(self.post(anonymous, "", "/api/account/logout-other-devices").status_code, 401)
+
+        for account in (self.doctor, self.patient):
+            client, _ = self.login(user=account)
+            self.assertEqual(client.post(
+                "/api/account/change-password", data={}, content_type="application/json",
+            ).status_code, 403)
+            self.assertEqual(client.patch(
+                "/api/account/recovery-contact", data={}, content_type="application/json",
+            ).status_code, 403)
+            self.assertEqual(client.post(
+                "/api/account/logout-other-devices", data={}, content_type="application/json",
+            ).status_code, 403)

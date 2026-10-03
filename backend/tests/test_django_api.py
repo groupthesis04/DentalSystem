@@ -1,4 +1,5 @@
 import datetime as dt
+from unittest.mock import patch
 
 from django.core.cache import cache
 from django.test import Client, TestCase
@@ -116,7 +117,10 @@ class DentalApiTests(TestCase):
         self.assertEqual(logout.status_code, 200)
         self.assertIsNone(client.get("/api/session").json()["user"])
 
-    def test_patient_registration_creates_profile_and_session(self):
+    @patch("accounts.views.validate_email_address", return_value={
+        "valid": True, "status": "valid", "message": "Email address is valid.",
+    })
+    def test_patient_registration_creates_profile_and_session(self, _email_validation):
         client, token = self.csrf_client()
         response = self.post_json(
             client,

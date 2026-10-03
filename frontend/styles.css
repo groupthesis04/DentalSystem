@@ -1930,6 +1930,103 @@ td select {
   opacity: 1;
 }
 
+.register-mobile-prefix {
+  display: flex;
+  height: 100%;
+  min-width: 62px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border-right: 1px solid #d3deee;
+  border-radius: 9px 0 0 9px;
+  background: #f2f7fc;
+  color: #17243d;
+  font-size: 0.94rem;
+  font-weight: 750;
+  user-select: none;
+}
+
+.register-mobile-wrap input {
+  letter-spacing: 0.03em;
+}
+
+.register-mobile-feedback {
+  color: #b91c1c;
+  font-size: 0.8rem;
+  font-weight: 650;
+  line-height: 1.35;
+}
+
+.register-email-field {
+  display: grid;
+  min-width: 0;
+  align-content: start;
+  gap: 7px;
+}
+
+.register-email-feedback {
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 0;
+  font-size: 0.8rem;
+  font-weight: 650;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.register-email-feedback svg {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  margin-top: 1px;
+}
+
+.register-email-feedback.is-checking {
+  color: #52627c;
+}
+
+.register-email-feedback.is-valid {
+  color: #187347;
+}
+
+.register-email-feedback.is-error {
+  color: #b91c1c;
+}
+
+.email-check-spinner {
+  animation: register-email-spin 1s linear infinite;
+}
+
+.register-email-action {
+  width: fit-content;
+  max-width: 100%;
+  border: 0;
+  background: transparent;
+  color: #0c5c74;
+  padding: 0 0 0 22px;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-align: left;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+
+.register-email-action:focus-visible {
+  outline: 3px solid rgba(11, 107, 130, 0.2);
+  outline-offset: 3px;
+}
+
+@keyframes register-email-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .register-consent {
   display: grid;
   gap: 10px;
@@ -2089,6 +2186,10 @@ td select {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .email-check-spinner {
+    animation: none;
+  }
+
   .modal-backdrop,
   .auth-modal {
     animation: none;

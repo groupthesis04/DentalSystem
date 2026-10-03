@@ -2,19 +2,32 @@
 import {
   ArrowRight,
   CalendarDays,
+  CircleAlert,
+  CircleCheck,
   Eye,
   EyeOff,
+  LoaderCircle,
   LockKeyhole,
   Mail,
-  Phone,
   ShieldCheck,
   UserRound,
   X,
 } from "lucide-vue-next";
-import { computed, onBeforeUnmount, onMounted, reactive, ref } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref } from "vue";
 
 import { session, apiRequest } from "../services/api";
 import { validatedPayload } from "../services/validation";
+import {
+  createRegistrationEmailValidation,
+  normalizeRegistrationEmail,
+} from "../services/registrationEmailValidation";
+import {
+  internationalRegistrationMobile,
+  localMobileFromPaste,
+  MOBILE_LENGTH_MESSAGE,
+  MOBILE_PREFIX_MESSAGE,
+  registrationMobileError,
+} from "../services/registrationMobile";
 import { dashboardPath, navigate } from "../router";
 import { claimPendingAppointment } from "../services/pendingAppointment";
 import { showToast } from "../services/toast";
@@ -41,6 +54,51 @@ const register = reactive({
 });
 const confirmPassword = ref("");
 const passwordInput = ref(null);
+const emailInput = ref(null);
+const mobileTouched = ref(false);
+const mobileInputError = ref("");
+const mobileFeedback = computed(() => {
+  if (mobileInputError.value) return mobileInputError.value;
+  return mobileTouched.value ? registrationMobileError(register.phone) : "";
+});
+const {
+  checking: emailChecking,
+  status: emailStatus,
+  suggestedEmail,
+  clear: clearEmailValidation,
+  handleInput: handleRegisterEmailInput,
+  check: checkRegistrationEmail,
+  dispose: disposeEmailValidation,
+} = createRegistrationEmailValidation({
+  getEmail: () => register.email,
+  isValidFormat: hasBasicEmailFormat,
+  request: (email) => apiRequest("/api/email-validation", { method: "POST", body: { email } }),
+});
+const emailStatusText = computed(() => {
+  switch (emailStatus.value) {
+    case "checking":
+      return "Checking email address...";
+    case "valid":
+      return "Email address is valid.";
+    case "invalid_format":
+      return "Please enter a valid email address.";
+    case "disposable":
+      return "Temporary or disposable email addresses are not allowed.";
+    case "already_registered":
+      return "An account already uses this email address.";
+    case "unknown":
+      return "This email address could not be fully verified. Please check the address or try another email.";
+    case "service_unavailable":
+      return "Email validation is temporarily unavailable. Please try again.";
+    case "rate_limited":
+      return "Too many email checks. Please wait a few minutes and try again.";
+    case "suggestion":
+      return "Please check your email address.";
+    default:
+      return "This email address could not be verified. Please check the address and try again.";
+  }
+});
+let registerSubmissionPending = false;
 const verificationToken = ref("");
 const maskedMobile = ref("");
 const verificationCode = ref("");
@@ -76,9 +134,91 @@ onMounted(() => {
   countdownTimer = window.setInterval(() => (now.value = Date.now()), 1000);
 });
 onBeforeUnmount(() => {
+  disposeEmailValidation();
   document.body.classList.remove("modal-open");
   window.clearInterval(countdownTimer);
 });
+
+function normalizedRegistrationEmail(value = register.email) {
+  return normalizeRegistrationEmail(value);
+}
+
+function hasBasicEmailFormat(email) {
+  if (!email) return false;
+  try {
+    validatedPayload({ email });
+    return emailInput.value?.checkValidity() ?? true;
+  } catch {
+    return false;
+  }
+}
+
+async function useSuggestedEmail() {
+  if (!suggestedEmail.value) return;
+  register.email = suggestedEmail.value;
+  clearEmailValidation();
+  await nextTick();
+  void checkRegistrationEmail();
+}
+
+function retryEmailValidation() {
+  void checkRegistrationEmail({ force: true });
+}
+
+function setRegistrationMobile(value, input) {
+  const candidate = String(value ?? "");
+  if (!/^\d*$/.test(candidate) || candidate.length > 10) {
+    mobileInputError.value = MOBILE_LENGTH_MESSAGE;
+  } else if (candidate && !candidate.startsWith("9")) {
+    mobileInputError.value = MOBILE_PREFIX_MESSAGE;
+  } else {
+    register.phone = candidate;
+    mobileInputError.value = "";
+  }
+  if (input) input.value = register.phone;
+}
+
+function handleRegisterMobileBeforeInput(event) {
+  if (!event.inputType?.startsWith("insert") || !event.data) return;
+  if (!/^\d+$/.test(event.data)) {
+    event.preventDefault();
+    return;
+  }
+  const input = event.target;
+  const start = input.selectionStart ?? register.phone.length;
+  const end = input.selectionEnd ?? start;
+  const candidate = `${register.phone.slice(0, start)}${event.data}${register.phone.slice(end)}`;
+  if (candidate && !candidate.startsWith("9")) {
+    event.preventDefault();
+    mobileInputError.value = MOBILE_PREFIX_MESSAGE;
+  }
+}
+
+function handleRegisterMobileInput(event) {
+  const value = event.target.value;
+  setRegistrationMobile(localMobileFromPaste(value) ?? value, event.target);
+}
+
+function handleRegisterMobilePaste(event) {
+  event.preventDefault();
+  const pasted = event.clipboardData?.getData("text") ?? "";
+  const fullNumber = localMobileFromPaste(pasted);
+  if (fullNumber) {
+    setRegistrationMobile(fullNumber, event.target);
+    return;
+  }
+  if (!/^\d{1,10}$/.test(pasted)) {
+    mobileInputError.value = MOBILE_LENGTH_MESSAGE;
+    return;
+  }
+  const input = event.target;
+  const start = input.selectionStart ?? register.phone.length;
+  const end = input.selectionEnd ?? start;
+  setRegistrationMobile(
+    `${register.phone.slice(0, start)}${pasted}${register.phone.slice(end)}`,
+    input,
+  );
+}
 
 function switchTab(next) {
   tab.value = next;
@@ -146,16 +286,21 @@ async function submitLogin() {
 }
 
 async function submitRegister() {
+  if (registerSubmissionPending || busy.value) return;
+  registerSubmissionPending = true;
   errorMessage.value = "";
-  busy.value = true;
   try {
     if (!register.birthdate) throw new Error("Please select your birthdate.");
+    mobileTouched.value = true;
+    if (mobileInputError.value) throw new Error(mobileInputError.value);
+    const phone = internationalRegistrationMobile(register.phone);
     if (register.password !== confirmPassword.value) {
       throw new Error("Passwords do not match.");
     }
     const payload = validatedPayload(
       {
         ...register,
+        phone,
         name: [register.first_name, register.middle_name, register.last_name]
           .map((part) => part.trim())
           .filter(Boolean)
@@ -163,6 +308,12 @@ async function submitRegister() {
       },
       { registration: true },
     );
+    const emailAtSubmit = normalizedRegistrationEmail();
+    const mobileAtSubmit = register.phone;
+    if (!(await checkRegistrationEmail())) return;
+    if (normalizedRegistrationEmail() !== emailAtSubmit || emailStatus.value !== "valid") return;
+    if (register.phone !== mobileAtSubmit || mobileInputError.value) return;
+    busy.value = true;
     const data = await apiRequest("/api/register", { method: "POST", body: payload });
     if (data.verification_required) {
       showVerification(data);
@@ -175,6 +326,7 @@ async function submitRegister() {
     errorMessage.value = error.message;
   } finally {
     busy.value = false;
+    registerSubmissionPending = false;
   }
 }
 
@@ -218,6 +370,11 @@ async function resendVerification() {
 function handleRegisterInvalid(event) {
   if (event.target?.name === "birthdate") {
     errorMessage.value = "Please select your birthdate.";
+  } else if (event.target?.name === "phone") {
+    mobileTouched.value = true;
+    errorMessage.value = mobileInputError.value || registrationMobileError(register.phone);
+  } else if (event.target?.name === "email") {
+    emailStatus.value = "invalid_format";
   }
 }
 </script>
@@ -459,35 +616,96 @@ function handleRegisterInvalid(event) {
             </label>
             <label class="register-field">
               <span>Mobile Number</span>
-              <span class="register-input-wrap">
-                <Phone aria-hidden="true" />
+              <span class="register-input-wrap register-mobile-wrap">
+                <span class="register-mobile-prefix" aria-hidden="true">+63</span>
                 <input
-                  v-model="register.phone"
+                  :value="register.phone"
                   name="phone"
                   type="tel"
-                  autocomplete="tel"
-                  inputmode="tel"
-                  maxlength="24"
-                  placeholder="e.g. 0917 123 4567"
+                  autocomplete="tel-national"
+                  inputmode="numeric"
+                  maxlength="10"
+                  placeholder="917 123 4567"
+                  aria-label="Mobile number after plus sixty-three"
+                  :aria-invalid="mobileFeedback ? 'true' : undefined"
+                  :aria-describedby="mobileFeedback ? 'register-mobile-feedback' : undefined"
+                  @beforeinput="handleRegisterMobileBeforeInput"
+                  @input="handleRegisterMobileInput"
+                  @paste="handleRegisterMobilePaste"
+                  @blur="mobileTouched = true"
                   required
                 />
               </span>
+              <span
+                v-if="mobileFeedback"
+                id="register-mobile-feedback"
+                class="register-mobile-feedback"
+                role="alert"
+                >{{ mobileFeedback }}</span
+              >
             </label>
-            <label class="register-field">
-              <span>Email</span>
-              <span class="register-input-wrap">
-                <Mail aria-hidden="true" />
-                <input
-                  v-model="register.email"
-                  name="email"
-                  type="email"
-                  autocomplete="email"
-                  maxlength="254"
-                  placeholder="you@example.com"
-                  required
+            <div class="register-email-field">
+              <label class="register-field">
+                <span>Email</span>
+                <span class="register-input-wrap">
+                  <Mail aria-hidden="true" />
+                  <input
+                    ref="emailInput"
+                    v-model="register.email"
+                    name="email"
+                    type="email"
+                    autocomplete="email"
+                    maxlength="254"
+                    placeholder="you@example.com"
+                    :aria-describedby="emailStatus ? 'register-email-feedback' : undefined"
+                    :aria-invalid="
+                      emailStatus && !['valid', 'checking'].includes(emailStatus)
+                        ? 'true'
+                        : undefined
+                    "
+                    @input="handleRegisterEmailInput"
+                    @blur="checkRegistrationEmail()"
+                    required
+                  />
+                </span>
+              </label>
+              <p
+                v-if="emailStatus"
+                id="register-email-feedback"
+                class="register-email-feedback"
+                :class="{
+                  'is-valid': emailStatus === 'valid',
+                  'is-checking': emailStatus === 'checking',
+                  'is-error': !['valid', 'checking'].includes(emailStatus),
+                }"
+                aria-live="polite"
+              >
+                <LoaderCircle
+                  v-if="emailStatus === 'checking'"
+                  class="email-check-spinner"
+                  aria-hidden="true"
                 />
-              </span>
-            </label>
+                <CircleCheck v-else-if="emailStatus === 'valid'" aria-hidden="true" />
+                <CircleAlert v-else aria-hidden="true" />
+                <span>{{ emailStatusText }}</span>
+              </p>
+              <button
+                v-if="suggestedEmail"
+                class="register-email-action"
+                type="button"
+                @click="useSuggestedEmail"
+              >
+                Did you mean {{ suggestedEmail }}? Use this address
+              </button>
+              <button
+                v-if="emailStatus === 'service_unavailable'"
+                class="register-email-action"
+                type="button"
+                @click="retryEmailValidation"
+              >
+                Try again
+              </button>
+            </div>
             <label class="register-field">
               <span>Password</span>
               <span class="register-input-wrap">
@@ -522,7 +740,11 @@ function handleRegisterInvalid(event) {
             </label>
           </div>
           <p v-if="errorMessage" class="form-error" role="alert">{{ errorMessage }}</p>
-          <button class="primary-button register-submit full" type="submit" :disabled="busy">
+          <button
+            class="primary-button register-submit full"
+            type="submit"
+            :disabled="busy || emailChecking"
+          >
             <span>{{ busy ? "Creating..." : "Create Account" }}</span>
             <ArrowRight v-if="!busy" aria-hidden="true" />
           </button>

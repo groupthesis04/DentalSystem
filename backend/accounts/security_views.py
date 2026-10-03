@@ -1,4 +1,4 @@
-"""Authenticated doctor account security and session controls."""
+"""Authenticated account security and session controls."""
 
 import datetime as dt
 import hashlib
@@ -15,7 +15,7 @@ from django.utils import timezone
 from django.views.decorators.http import require_GET, require_http_methods, require_POST
 
 from dental_backend.api import (
-    api_error, doctor_required, rate_limit, read_json, validate_email,
+    api_error, rate_limit, read_json, validate_email,
     validate_password, validate_phone,
 )
 
@@ -65,10 +65,19 @@ def _active_user_sessions(user_id):
             yield session.session_key
 
 
+def _account_access_error(request):
+    if not request.user.is_authenticated:
+        return api_error("Authentication is required.", 401)
+    if request.user.role not in {"doctor", "patient"}:
+        return api_error("Account access is required.", 403)
+    return None
+
+
 @require_GET
 def security(request):
-    if not doctor_required(request):
-        return api_error("Doctor access is required.", 403)
+    access_error = _account_access_error(request)
+    if access_error is not None:
+        return access_error
 
     current_session = request.session.session_key
     current_hash = _session_hash(current_session)
@@ -100,8 +109,9 @@ def security(request):
 
 @require_POST
 def change_password(request):
-    if not doctor_required(request):
-        return api_error("Doctor access is required.", 403)
+    access_error = _account_access_error(request)
+    if access_error is not None:
+        return access_error
     limited = rate_limit(request, f"account-password:{request.user.pk}", 5, 15 * 60)
     if limited:
         return limited
@@ -144,8 +154,9 @@ def change_password(request):
 
 @require_http_methods(["PATCH"])
 def recovery_contact(request):
-    if not doctor_required(request):
-        return api_error("Doctor access is required.", 403)
+    access_error = _account_access_error(request)
+    if access_error is not None:
+        return access_error
     limited = rate_limit(request, f"account-recovery:{request.user.pk}", 10, 15 * 60)
     if limited:
         return limited
@@ -178,8 +189,9 @@ def recovery_contact(request):
 
 @require_POST
 def logout_other_devices(request):
-    if not doctor_required(request):
-        return api_error("Doctor access is required.", 403)
+    access_error = _account_access_error(request)
+    if access_error is not None:
+        return access_error
     current_session = request.session.session_key
     other_keys = [
         key for key in _active_user_sessions(request.user.pk) if key != current_session

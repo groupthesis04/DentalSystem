@@ -37,7 +37,10 @@ class PatientConsentStatusTests(TestCase):
         self.patient_client = Client()
         self.patient_client.force_login(self.user)
 
-    def test_registration_without_choice_fields_does_not_fabricate_consent(self):
+    @patch("accounts.views.validate_email_address", return_value={
+        "valid": True, "status": "valid", "message": "Email address is valid.",
+    })
+    def test_registration_without_choice_fields_does_not_fabricate_consent(self, _email_validation):
         payload = {
             "first_name": "New", "last_name": "Patient",
             "email": "new-consent@example.com", "phone": "09112223333",
@@ -60,7 +63,10 @@ class PatientConsentStatusTests(TestCase):
         )
         self.assertNotIn("consent", patient)
 
-    def test_legacy_registration_choice_fields_are_ignored(self):
+    @patch("accounts.views.validate_email_address", return_value={
+        "valid": True, "status": "valid", "message": "Email address is valid.",
+    })
+    def test_legacy_registration_choice_fields_are_ignored(self, _email_validation):
         response = self.client.post(
             "/api/register",
             data={

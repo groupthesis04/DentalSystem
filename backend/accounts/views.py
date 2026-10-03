@@ -39,6 +39,7 @@ from .identity import (
     canonical_mobile,
     creation_conflict,
     identity_candidates,
+    normalize_ph_mobile_number,
     normalized_full_name,
 )
 from .audit import record_audit_event
@@ -46,6 +47,7 @@ from .consent import (
     record_sms_choice,
     sms_consent_status,
 )
+from .email_validation import validate_email_address
 from .lockout import (
     account_lock_seconds,
     clear_failed_attempts,
@@ -60,6 +62,38 @@ OTP_RESEND_COOLDOWN = dt.timedelta(seconds=60)
 OTP_HOURLY_LIMIT = 5
 OTP_MAX_ATTEMPTS = 5
 MATCH_REVIEW_MESSAGE = "A patient record may already exist. Contact the clinic to verify your details."
+ACCOUNT_EMAIL_EXISTS_MESSAGE = "An account already uses this email address."
+
+
+@require_POST
+def email_validation(request):
+    """Check a registration email without exposing provider data or credentials."""
+    limited = rate_limit(request, "email_validation", 20, 15 * 60)
+    if limited:
+        return limited
+    try:
+        payload = read_json(request)
+        email = validate_email(payload.get("email"))
+    except ValueError:
+        return JsonResponse({
+            "valid": False,
+            "status": "invalid",
+            "message": "Please enter a valid email address.",
+        })
+    if User.objects.filter(email__iexact=email).exists():
+        return JsonResponse({
+            "valid": False,
+            "status": "already_registered",
+            "message": ACCOUNT_EMAIL_EXISTS_MESSAGE,
+        })
+
+    result = validate_email_address(email)
+    response = {key: result[key] for key in ("valid", "status", "message")}
+    if result.get("suggested_email"):
+        response["suggested_email"] = result["suggested_email"]
+    return JsonResponse(response)
+
+
 def patient_payload(profile):
     return {
         "id": profile.id,
@@ -280,7 +314,7 @@ def register(request):
     if str(payload.get("role", "patient")).strip().lower() != "patient":
         return api_error("New accounts must be patient accounts.", 403)
     if User.objects.filter(email__iexact=email).exists():
-        return api_error("An account already uses this email.", 409)
+        return api_error(ACCOUNT_EMAIL_EXISTS_MESSAGE, 409)
     try:
         if payload.get("first_name") or payload.get("last_name"):
             first_name = validate_name(payload.get("first_name"), "first name")
@@ -294,10 +328,9 @@ def register(request):
             first_name = validate_name(first_name, "first name")
             last_name = validate_name(last_name, "last name")
         name = " ".join(part for part in (first_name, middle_name, last_name) if part)
-        phone = validate_phone(payload.get("phone"), required=True)
-        mobile = canonical_mobile(phone)
-        if not mobile:
-            raise ValueError("Enter a valid Philippine mobile number.")
+        phone = normalize_ph_mobile_number(payload.get("phone"))
+        # Existing matching/import callers use 639... without the display '+'.
+        mobile = phone[1:]
         birthdate = parse_birthdate(payload.get("birthdate"))
         password = validate_password(payload.get("password"))
     except ValueError as error:
@@ -309,11 +342,15 @@ def register(request):
         return api_error("Choose a valid profile image.")
     full_name = normalized_full_name(first_name, middle_name, last_name)
     remember = str(payload.get("remember", "")).lower() in {"1", "true", "yes", "on"}
+    email_assessment = validate_email_address(email)
+    if email_assessment.get("status") != "valid" or email_assessment.get("valid") is not True:
+        status = 503 if email_assessment.get("status") == "service_unavailable" else 400
+        return api_error(email_assessment["message"], status)
     verification = None
     try:
         with transaction.atomic():
             if User.objects.filter(email__iexact=email).exists():
-                return api_error("An account already uses this email.", 409)
+                return api_error(ACCOUNT_EMAIL_EXISTS_MESSAGE, 409)
             profile = registration_profile(email, mobile, birthdate, full_name)
             if profile:
                 if not sms_provider.ready():
@@ -363,7 +400,7 @@ def register(request):
                 )
     except IntegrityError:
         if User.objects.filter(email__iexact=email).exists():
-            return api_error("An account already uses this email.", 409)
+            return api_error(ACCOUNT_EMAIL_EXISTS_MESSAGE, 409)
         return api_error(MATCH_REVIEW_MESSAGE, 409)
     except VerificationCooldown as error:
         return api_error("Please wait before requesting another verification code.", 429, retry_after=error.seconds)
@@ -440,7 +477,7 @@ def verify_account(request):
             if profile.user_id:
                 return api_error("This patient record is already linked to an account.", 409)
             if User.objects.filter(email__iexact=verification.email).exists():
-                return api_error("An account already uses this email.", 409)
+                return api_error(ACCOUNT_EMAIL_EXISTS_MESSAGE, 409)
             if not verification_profile_unchanged(profile, verification):
                 return api_error(MATCH_REVIEW_MESSAGE, 409)
             user = User.objects.create(
@@ -450,7 +487,7 @@ def verify_account(request):
                 name=" ".join(filter(None, (
                     verification.first_name, verification.middle_name, verification.last_name
                 ))),
-                phone=verification.phone_number,
+                phone=normalize_ph_mobile_number(verification.phone_number),
                 role="patient",
                 profile_image=verification.profile_image,
             )
@@ -506,7 +543,7 @@ def resend_account_code(request):
             if profile.user_id:
                 return api_error("This patient record is already linked to an account.", 409)
             if User.objects.filter(email__iexact=previous.email).exists():
-                return api_error("An account already uses this email.", 409)
+                return api_error(ACCOUNT_EMAIL_EXISTS_MESSAGE, 409)
             if not verification_profile_unchanged(profile, previous):
                 return api_error(MATCH_REVIEW_MESSAGE, 409)
             stored_phone = previous.phone_number

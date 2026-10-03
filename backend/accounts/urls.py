@@ -6,6 +6,7 @@ from . import audit_views, security_views, views
 urlpatterns = [
     path("session", views.session, name="session"),
     path("register", views.register, name="register"),
+    path("email-validation", views.email_validation, name="email_validation"),
     path("account-verification/verify", views.verify_account, name="verify_account"),
     path("account-verification/resend", views.resend_account_code, name="resend_account_code"),
     path("login", views.login, name="login"),
