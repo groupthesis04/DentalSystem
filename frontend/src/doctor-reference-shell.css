@@ -1,0 +1,700 @@
+/* Doctor dashboard chrome shared by the Overview and Appointments screens. */
+html:not([data-dashboard-theme="dark"]) body[data-page="doctor"] .doctor-portal {
+  background: #fbf8f1;
+}
+
+html:not([data-dashboard-theme="dark"]) body[data-page="doctor"] .doctor-portal .portal-main {
+  background: linear-gradient(125deg, #fffefa 0%, #faf4e8 72%, #f6ead4 100%);
+}
+
+body[data-page="doctor"] .doctor-portal > .overview-navigation {
+  background: linear-gradient(150deg, #14120f 0%, #211d17 100%);
+  border-right-color: #483c2c;
+  padding-inline: 9px;
+}
+
+body[data-page="doctor"] .doctor-portal .sidebar-brand {
+  min-height: 146px;
+  gap: 4px;
+}
+
+body[data-page="doctor"] .doctor-portal .sidebar-brand img {
+  width: 78px;
+  height: 78px;
+  filter: brightness(0) saturate(100%) invert(79%) sepia(31%) saturate(805%) hue-rotate(349deg)
+    brightness(95%) contrast(92%);
+}
+
+body[data-page="doctor"] .doctor-portal .sidebar-brand-copy strong {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.42rem;
+  letter-spacing: 0.015em;
+}
+
+body[data-page="doctor"] .doctor-portal .sidebar-brand-copy small {
+  color: #e4c57c;
+  font-size: 0.69rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+
+body[data-page="doctor"] .doctor-portal .side-nav {
+  gap: 5px;
+}
+
+body[data-page="doctor"] .doctor-portal .side-nav button {
+  min-height: 53px;
+  color: #f4f0e9;
+  font-weight: 550;
+}
+
+body[data-page="doctor"] .doctor-portal .side-nav .sidebar-nav-label {
+  font-weight: 600;
+}
+
+body[data-page="doctor"] .doctor-portal .side-nav button.active {
+  border-color: #d9b86e;
+  background: linear-gradient(105deg, #fff0c5, #d6a74e);
+  color: #17130e;
+  box-shadow: 0 5px 17px rgba(9, 8, 6, 0.14);
+}
+
+body[data-page="doctor"] .doctor-portal .side-nav button.active .sidebar-icon-wrap {
+  background: transparent;
+}
+
+body[data-page="doctor"] .doctor-portal .sidebar-account {
+  border-top-color: #554835;
+}
+
+body[data-page="doctor"] .portal-header.dashboard-overview-header {
+  min-height: 184px;
+  grid-template-columns: minmax(0, 1.75fr) minmax(165px, 0.6fr) minmax(150px, 0.52fr);
+  gap: 22px;
+  overflow: visible;
+  padding: 34px 30px 24px;
+  border-bottom: 1px solid #e8dac1;
+  background: #fffdf8;
+  box-shadow: 0 5px 26px rgba(89, 64, 23, 0.06);
+}
+
+body[data-page="doctor"] .dashboard-overview-header::before {
+  z-index: -2;
+  inset: 0 0 0 52%;
+  background: url("/assets/dental-clinic-hero-luxury-v1.png") center 44% / cover no-repeat;
+  clip-path: none;
+  opacity: 0.78;
+  filter: sepia(0.25) saturate(0.65) brightness(1.45);
+}
+
+body[data-page="doctor"] .dashboard-overview-header::after {
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    #fffdf8 0%,
+    #fffdf8 40%,
+    rgba(255, 253, 248, 0.91) 53%,
+    rgba(255, 250, 239, 0.55) 73%,
+    rgba(255, 250, 239, 0.37) 100%
+  );
+  content: "";
+}
+
+body[data-page="doctor"] .dashboard-header-greeting {
+  position: relative;
+  z-index: 1;
+}
+
+body[data-page="doctor"] .dashboard-header-greeting > span {
+  color: #3c3328;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.1rem;
+}
+
+body[data-page="doctor"] .dashboard-header-greeting > strong {
+  overflow: visible;
+  color: #15120e;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(1.7rem, 2.35vw, 2.45rem);
+  font-weight: 700;
+  line-height: 1.16;
+  text-overflow: clip;
+  white-space: normal;
+}
+
+body[data-page="doctor"] .dashboard-header-greeting > small {
+  color: #514a40;
+  font-size: 0.88rem;
+  line-height: 1.4;
+}
+
+body[data-page="doctor"] .dashboard-header-date {
+  position: relative;
+  z-index: 1;
+  align-self: end;
+  padding-bottom: 16px;
+}
+
+body[data-page="doctor"] .dashboard-header-date strong {
+  color: #211c14;
+  font-size: 0.84rem;
+  line-height: 1.35;
+}
+
+body[data-page="doctor"] .dashboard-header-date span {
+  color: #5d5447;
+  font-size: 0.76rem;
+}
+
+body[data-page="doctor"] .dashboard-header-message {
+  position: relative;
+  z-index: 1;
+  align-self: end;
+  padding-bottom: 16px;
+  color: #32261a;
+  font-family: Georgia, "Times New Roman", serif;
+  line-height: 1.15;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+
+body[data-page="doctor"] .dashboard-header-message strong,
+body[data-page="doctor"] .dashboard-header-message span {
+  font-size: 1.04rem;
+  font-weight: 600;
+}
+
+body[data-page="doctor"] .dashboard-overview-header .auth-actions {
+  position: absolute;
+  top: 13px;
+  right: 18px;
+  z-index: 2;
+}
+
+body[data-page="doctor"] .dashboard-overview-header .notification-button,
+body[data-page="doctor"] .dashboard-overview-header .theme-toggle-button {
+  border-color: #decba7;
+  border-radius: 12px;
+  background: rgba(255, 254, 250, 0.95);
+  box-shadow: 0 4px 14px rgba(67, 47, 17, 0.1);
+}
+
+/* Preserve the existing dark-mode choice and its readable light-on-dark text. */
+html[data-dashboard-theme="dark"]
+  body[data-page="doctor"]
+  .portal-header.dashboard-overview-header {
+  min-height: 184px;
+  grid-template-columns: minmax(0, 1.75fr) minmax(165px, 0.6fr) minmax(150px, 0.52fr);
+  gap: 22px;
+  padding: 34px 30px 24px;
+  border-bottom-color: #4c402e;
+  background: #171511;
+}
+
+html[data-dashboard-theme="dark"] body[data-page="doctor"] .doctor-portal .side-nav button.active {
+  border-color: #d9b86e;
+  background: linear-gradient(105deg, #fff0c5, #d6a74e);
+  color: #17130e;
+}
+
+html[data-dashboard-theme="dark"] body[data-page="doctor"] .dashboard-overview-header::after {
+  display: none;
+}
+
+html[data-dashboard-theme="dark"] body[data-page="doctor"] .dashboard-overview-header::before {
+  opacity: 0.16;
+  filter: grayscale(1) sepia(0.3);
+}
+
+html[data-dashboard-theme="dark"] body[data-page="doctor"] .dashboard-header-greeting > span,
+html[data-dashboard-theme="dark"] body[data-page="doctor"] .dashboard-header-greeting > strong,
+html[data-dashboard-theme="dark"] body[data-page="doctor"] .dashboard-header-date strong {
+  color: #fffaf0;
+}
+
+html[data-dashboard-theme="dark"] body[data-page="doctor"] .dashboard-header-greeting > small,
+html[data-dashboard-theme="dark"] body[data-page="doctor"] .dashboard-header-date span {
+  color: #d7cbb5;
+}
+
+html[data-dashboard-theme="dark"] body[data-page="doctor"] .dashboard-header-message {
+  color: #edcf90;
+  text-shadow: none;
+}
+
+/* Keep the two reference screens legible when the existing dark theme is selected. */
+html[data-dashboard-theme="dark"] body[data-page="doctor"] .clinic-home-dashboard .home-metric-card,
+html[data-dashboard-theme="dark"]
+  body[data-page="doctor"]
+  .clinic-home-dashboard
+  .home-dashboard-panel,
+html[data-dashboard-theme="dark"]
+  body[data-page="doctor"]
+  .appointments-workspace
+  .appointment-list-panel {
+  color: #f6ead3;
+  border-color: #5c4d37;
+  background: #26221d;
+}
+
+html[data-dashboard-theme="dark"]
+  body[data-page="doctor"]
+  .clinic-home-dashboard
+  .home-metric-card.home-tone-appointments,
+html[data-dashboard-theme="dark"]
+  body[data-page="doctor"]
+  .clinic-home-dashboard
+  .home-metric-card.home-tone-treatments,
+html[data-dashboard-theme="dark"]
+  body[data-page="doctor"]
+  .clinic-home-dashboard
+  .home-metric-card.home-tone-collections {
+  border-color: #5c4d37;
+  background: #26221d;
+}
+
+html[data-dashboard-theme="dark"]
+  body[data-page="doctor"]
+  .clinic-home-dashboard
+  .home-metric-copy
+  > strong,
+html[data-dashboard-theme="dark"]
+  body[data-page="doctor"]
+  .clinic-home-dashboard
+  .home-panel-title
+  h2,
+html[data-dashboard-theme="dark"] body[data-page="doctor"] .clinic-home-dashboard .donut-center,
+html[data-dashboard-theme="dark"]
+  body[data-page="doctor"]
+  .clinic-home-dashboard
+  .appointment-legend
+  dt,
+html[data-dashboard-theme="dark"]
+  body[data-page="doctor"]
+  .clinic-home-dashboard
+  .appointment-legend
+  dd {
+  color: #fff4e2;
+}
+
+html[data-dashboard-theme="dark"]
+  body[data-page="doctor"]
+  .clinic-home-dashboard
+  .home-metric-copy
+  > small,
+html[data-dashboard-theme="dark"]
+  body[data-page="doctor"]
+  .clinic-home-dashboard
+  .home-panel-title
+  p,
+html[data-dashboard-theme="dark"]
+  body[data-page="doctor"]
+  .clinic-home-dashboard
+  .appointment-legend
+  dd
+  small,
+html[data-dashboard-theme="dark"]
+  body[data-page="doctor"]
+  .clinic-home-dashboard
+  .home-table-empty {
+  color: #d4c9b9;
+}
+
+html[data-dashboard-theme="dark"]
+  body[data-page="doctor"]
+  .clinic-home-dashboard
+  .home-metric-trend.up {
+  color: #75dba2;
+}
+
+html[data-dashboard-theme="dark"]
+  body[data-page="doctor"]
+  .clinic-home-dashboard
+  .home-metric-trend.down {
+  color: #ff9b9e;
+}
+
+html[data-dashboard-theme="dark"] body[data-page="doctor"] .clinic-home-dashboard .chart-axis-label,
+html[data-dashboard-theme="dark"]
+  body[data-page="doctor"]
+  .clinic-home-dashboard
+  .chart-month-label {
+  fill: #d4c9b9;
+}
+
+html[data-dashboard-theme="dark"] body[data-page="doctor"] .clinic-home-dashboard .chart-grid-line {
+  stroke: #665846;
+}
+
+html[data-dashboard-theme="dark"] body[data-page="doctor"] .clinic-home-dashboard .chart-line,
+html[data-dashboard-theme="dark"] body[data-page="doctor"] .clinic-home-dashboard .chart-point {
+  stroke: #e4bc74;
+}
+
+html[data-dashboard-theme="dark"]
+  body[data-page="doctor"]
+  .clinic-home-dashboard
+  .home-period-select,
+html[data-dashboard-theme="dark"] body[data-page="doctor"] .clinic-home-dashboard .donut-center {
+  color: #f1d8a4;
+  border-color: #5c4d37;
+  background: #29241d;
+}
+
+html[data-dashboard-theme="dark"]
+  body[data-page="doctor"]
+  .clinic-home-dashboard
+  .home-period-select
+  select {
+  color: #f1d8a4;
+  background: #29241d;
+}
+
+html[data-dashboard-theme="dark"] body[data-page="doctor"] .clinic-home-dashboard .home-data-table,
+html[data-dashboard-theme="dark"]
+  body[data-page="doctor"]
+  .clinic-home-dashboard
+  .home-data-table
+  td {
+  color: #f3e8d6;
+}
+
+html[data-dashboard-theme="dark"]
+  body[data-page="doctor"]
+  .clinic-home-dashboard
+  .home-data-table
+  th {
+  color: #e8d5b3;
+  background: #352d23;
+}
+
+html[data-dashboard-theme="dark"]
+  body[data-page="doctor"]
+  .clinic-home-dashboard
+  .home-data-table
+  td,
+html[data-dashboard-theme="dark"]
+  body[data-page="doctor"]
+  .clinic-home-dashboard
+  .appointment-legend
+  > div {
+  border-color: #5c4d37;
+}
+
+html[data-dashboard-theme="dark"]
+  body[data-page="doctor"]
+  .appointments-workspace
+  .appointment-list-heading,
+html[data-dashboard-theme="dark"]
+  body[data-page="doctor"]
+  .appointments-workspace
+  .appointment-list-toolbar,
+html[data-dashboard-theme="dark"]
+  body[data-page="doctor"]
+  .appointments-workspace
+  .appointment-list-footer,
+html[data-dashboard-theme="dark"]
+  body[data-page="doctor"]
+  .appointments-workspace
+  .appointment-table-wrap {
+  color: #f2e7d5;
+  border-color: #5c4d37;
+  background: #26221d;
+}
+
+html[data-dashboard-theme="dark"]
+  body[data-page="doctor"]
+  .appointments-workspace
+  .appointment-list-heading
+  h2,
+html[data-dashboard-theme="dark"]
+  body[data-page="doctor"]
+  .appointments-workspace
+  .appointment-patient
+  strong {
+  color: #fff4e2;
+}
+
+html[data-dashboard-theme="dark"]
+  body[data-page="doctor"]
+  .appointments-workspace
+  .appointment-list-heading
+  p,
+html[data-dashboard-theme="dark"]
+  body[data-page="doctor"]
+  .appointments-workspace
+  .add-appointment-action
+  small,
+html[data-dashboard-theme="dark"]
+  body[data-page="doctor"]
+  .appointments-workspace
+  .appointment-patient
+  small,
+html[data-dashboard-theme="dark"]
+  body[data-page="doctor"]
+  .appointments-workspace
+  .appointment-empty-row
+  td {
+  color: #d0c2af;
+}
+
+html[data-dashboard-theme="dark"]
+  body[data-page="doctor"]
+  .appointments-workspace
+  .appointment-search,
+html[data-dashboard-theme="dark"]
+  body[data-page="doctor"]
+  .appointments-workspace
+  .appointment-filter {
+  color: #f6ead3;
+  border-color: #66543a;
+  background: #30291f;
+}
+
+html[data-dashboard-theme="dark"]
+  body[data-page="doctor"]
+  .appointments-workspace
+  .appointment-search
+  input,
+html[data-dashboard-theme="dark"]
+  body[data-page="doctor"]
+  .appointments-workspace
+  .appointment-filter
+  select {
+  color: #f6ead3;
+  background: transparent;
+}
+
+html[data-dashboard-theme="dark"]
+  body[data-page="doctor"]
+  .appointments-workspace
+  .appointment-search
+  input::placeholder {
+  color: #c9bba4;
+}
+
+html[data-dashboard-theme="dark"]
+  body[data-page="doctor"]
+  .appointments-workspace
+  .appointment-filter
+  option {
+  color: #f6ead3;
+  background: #30291f;
+}
+
+html[data-dashboard-theme="dark"]
+  body[data-page="doctor"]
+  .appointments-workspace
+  .appointment-list-table
+  th {
+  color: #e6d4b4;
+  background: #352d23;
+}
+
+html[data-dashboard-theme="dark"]
+  body[data-page="doctor"]
+  .appointments-workspace
+  .appointment-list-table
+  tbody
+  tr {
+  border-color: #5c4d37;
+  background: #26221d;
+}
+
+html[data-dashboard-theme="dark"]
+  body[data-page="doctor"]
+  .appointments-workspace
+  .appointment-list-table
+  tbody
+  tr:not(.appointment-empty-row):hover {
+  background: #342b1f;
+}
+
+html[data-dashboard-theme="dark"]
+  body[data-page="doctor"]
+  .appointments-workspace
+  .appointment-list-table
+  td {
+  color: #f3e8d6;
+  border-color: #5c4d37;
+}
+
+html[data-dashboard-theme="dark"]
+  body[data-page="doctor"]
+  .appointments-workspace
+  .appointment-refresh-button,
+html[data-dashboard-theme="dark"]
+  body[data-page="doctor"]
+  .appointments-workspace
+  .appointment-pagination
+  button:not(.active) {
+  color: #f0d9ae;
+  border-color: #66543a;
+  background: #30291f;
+}
+
+html[data-dashboard-theme="dark"] body[data-page="doctor"] .appointment-status-menu {
+  border-color: #66543a;
+  background: #30291f;
+}
+
+html[data-dashboard-theme="dark"] body[data-page="doctor"] .appointment-status-option {
+  color: #f3e8d6;
+}
+
+html[data-dashboard-theme="dark"] body[data-page="doctor"] .appointment-status-option:hover,
+html[data-dashboard-theme="dark"] body[data-page="doctor"] .appointment-status-option:focus-visible,
+html[data-dashboard-theme="dark"] body[data-page="doctor"] .appointment-status-option.selected {
+  background: #453720;
+}
+
+@media (max-width: 1120px) {
+  body[data-page="doctor"] .portal-header.dashboard-overview-header {
+    grid-template-columns: minmax(0, 1fr) minmax(170px, 0.4fr);
+    gap: 14px;
+    padding-inline: 22px;
+  }
+
+  body[data-page="doctor"] .dashboard-header-message {
+    display: none;
+  }
+}
+
+@media (max-width: 720px) {
+  body[data-page="doctor"] .doctor-portal .sidebar-brand {
+    min-height: 98px;
+  }
+
+  body[data-page="doctor"] .doctor-portal .sidebar-brand img {
+    width: 58px;
+    height: 58px;
+  }
+
+  body[data-page="doctor"] .doctor-portal .sidebar-brand-copy strong {
+    font-size: 1rem;
+  }
+
+  body[data-page="doctor"] .doctor-portal .sidebar-brand-copy small {
+    font-size: 0.55rem;
+  }
+
+  body[data-page="doctor"] .portal-header.dashboard-overview-header.mobile-dashboard-header {
+    min-height: 0;
+    grid-template-columns: minmax(0, 1fr) auto;
+    padding: 10px 12px 0;
+    background: #fbf8f1;
+  }
+
+  body[data-page="doctor"] .mobile-dashboard-header .dashboard-header-banner {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto 112px;
+    min-height: 0;
+    border: 1px solid #e9d8b9;
+    border-radius: 14px;
+    background: #fffdf8;
+  }
+
+  body[data-page="doctor"] .mobile-dashboard-header .dashboard-header-banner::before {
+    inset: auto 0 0;
+    height: 112px;
+    background: url("/assets/dental-clinic-hero-luxury-v1.png") center 46% / cover no-repeat;
+    opacity: 0.83;
+    filter: sepia(0.18) saturate(0.73) brightness(1.3);
+  }
+
+  body[data-page="doctor"] .mobile-dashboard-header .dashboard-header-greeting {
+    grid-column: 1;
+    grid-row: 1;
+    padding: 16px 17px 18px;
+  }
+
+  body[data-page="doctor"] .mobile-dashboard-header .dashboard-header-greeting > span {
+    color: #44382b;
+    font-size: 0.92rem;
+  }
+
+  body[data-page="doctor"] .mobile-dashboard-header .dashboard-header-greeting > strong {
+    max-width: none;
+    color: #17130e;
+    font-size: clamp(1.35rem, 5.1vw, 1.8rem);
+  }
+
+  body[data-page="doctor"] .mobile-dashboard-header .dashboard-header-greeting > small {
+    max-width: 100%;
+    color: #514a40;
+    font-size: 0.75rem;
+  }
+
+  body[data-page="doctor"] .mobile-dashboard-header .dashboard-header-message {
+    display: grid;
+    grid-column: 1;
+    grid-row: 2;
+    align-self: end;
+    justify-self: end;
+    margin: 0 12px 11px 0;
+    border-radius: 8px;
+    background: rgba(255, 250, 238, 0.91);
+    padding: 6px 9px;
+    transform: none;
+  }
+
+  body[data-page="doctor"] .mobile-dashboard-header .dashboard-header-message strong,
+  body[data-page="doctor"] .mobile-dashboard-header .dashboard-header-message span {
+    font-size: 0.72rem;
+  }
+
+  body[data-page="doctor"] .mobile-dashboard-header.dashboard-overview-header .auth-actions {
+    position: static;
+  }
+
+  body[data-page="doctor"] .doctor-portal .portal-main {
+    padding: 14px 12px 32px;
+  }
+
+  html[data-dashboard-theme="dark"]
+    body[data-page="doctor"]
+    .portal-header.dashboard-overview-header.mobile-dashboard-header {
+    min-height: 0;
+    grid-template-columns: minmax(0, 1fr) auto;
+    padding: 10px 12px 0;
+    background: #171511;
+  }
+
+  html[data-dashboard-theme="dark"]
+    body[data-page="doctor"]
+    .mobile-dashboard-header
+    .dashboard-header-banner {
+    border-color: #5b4930;
+    background: #1d1914;
+  }
+
+  html[data-dashboard-theme="dark"]
+    body[data-page="doctor"]
+    .mobile-dashboard-header
+    .dashboard-header-greeting
+    > span,
+  html[data-dashboard-theme="dark"]
+    body[data-page="doctor"]
+    .mobile-dashboard-header
+    .dashboard-header-greeting
+    > strong {
+    color: #fffaf0;
+  }
+
+  html[data-dashboard-theme="dark"]
+    body[data-page="doctor"]
+    .mobile-dashboard-header
+    .dashboard-header-greeting
+    > small {
+    color: #d7cbb5;
+  }
+
+  html[data-dashboard-theme="dark"]
+    body[data-page="doctor"]
+    .mobile-dashboard-header
+    .dashboard-header-message {
+    background: rgba(28, 24, 18, 0.9);
+  }
+}

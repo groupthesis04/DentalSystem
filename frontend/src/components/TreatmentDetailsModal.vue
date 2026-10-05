@@ -35,7 +35,13 @@ const fields = computed(() => {
     .toLowerCase();
   const treatmentStatus = status && status !== "paid" && status !== "unpaid" ? status : "completed";
   const statusTone =
-    treatmentStatus === "completed" ? "green" : treatmentStatus === "cancelled" ? "red" : "amber";
+    treatmentStatus === "completed"
+      ? "green"
+      : treatmentStatus === "cancelled"
+        ? "red"
+        : ["approved", "accepted"].includes(treatmentStatus)
+          ? "blue"
+          : "amber";
   const statusIcon =
     treatmentStatus === "completed"
       ? CircleCheck
@@ -145,9 +151,9 @@ const fields = computed(() => {
 <style scoped>
 :global(.crud-dialog.treatment-details-dialog) {
   width: min(1000px, calc(100% - 16px));
-  border: 1px solid #dbe6f2;
+  border: 1px solid #e8dfd0;
   border-radius: 15px;
-  color: #0e224b;
+  color: #171511;
 }
 
 :global(.treatment-details-dialog .crud-dialog-header) {
@@ -166,8 +172,8 @@ const fields = computed(() => {
   flex: 0 0 80px;
   place-items: center;
   border-radius: 50%;
-  background: #e7f2ff;
-  color: #1675ea;
+  background: #f8f1e2;
+  color: #9d7428;
 }
 
 .treatment-details-header-icon svg {
@@ -176,7 +182,7 @@ const fields = computed(() => {
 }
 
 :global(.treatment-details-dialog .section-kicker) {
-  color: #81afe5;
+  color: #9d7428;
   font-size: 0.76rem;
   font-weight: 850;
   letter-spacing: 0.05em;
@@ -185,14 +191,14 @@ const fields = computed(() => {
 
 :global(.treatment-details-dialog .crud-dialog-header h2) {
   margin: 3px 0 0;
-  color: #0d2050;
+  color: #171511;
   font-size: 1.9rem;
   line-height: 1.08;
 }
 
 .treatment-details-subtitle {
   margin: 5px 0 0;
-  color: #667594;
+  color: #706b61;
   font-size: 0.96rem;
   line-height: 1.35;
 }
@@ -201,10 +207,10 @@ const fields = computed(() => {
   width: 44px;
   height: 44px;
   flex-basis: 44px;
-  border-color: #dce6f1;
+  border-color: #e8dfd0;
   border-radius: 12px;
-  background: #f4f7fb;
-  color: #293c60;
+  background: #fcfbf8;
+  color: #29241d;
 }
 
 .treatment-detail-grid {
@@ -220,9 +226,9 @@ const fields = computed(() => {
   min-height: 80px;
   align-items: center;
   gap: 24px;
-  border: 1px solid #dde8f3;
+  border: 1px solid #e8dfd0;
   border-radius: 13px;
-  background: linear-gradient(115deg, #fbfdff 0%, #ffffff 65%, #f9fbfe 100%);
+  background: linear-gradient(115deg, #fcfbf8 0%, #ffffff 65%, #faf6ef 100%);
   padding: 10px 14px;
 }
 
@@ -245,23 +251,23 @@ const fields = computed(() => {
 }
 
 .tone-blue {
-  background: #e9f3ff;
-  color: #1375ec;
+  background: #e9f5fc;
+  color: #12659e;
 }
 
 .tone-green {
-  background: #e5f9ef;
-  color: #078447;
+  background: #e9f9ef;
+  color: #147347;
 }
 
 .tone-amber {
-  background: #fff1dc;
-  color: #c77605;
+  background: #fff4db;
+  color: #865500;
 }
 
 .tone-purple {
-  background: #f0ebff;
-  color: #5c3bd7;
+  background: #eeeae2;
+  color: #625845;
 }
 
 .tone-red {
@@ -278,7 +284,7 @@ const fields = computed(() => {
 }
 
 .treatment-detail-label {
-  color: #66738f;
+  color: #706b61;
   font-size: 0.71rem;
   font-weight: 850;
   line-height: 1.1;
@@ -286,7 +292,7 @@ const fields = computed(() => {
 }
 
 .treatment-detail-value {
-  color: #0d2050;
+  color: #171511;
   font-size: 1.05rem;
   font-weight: 850;
   line-height: 1.25;
@@ -305,25 +311,25 @@ const fields = computed(() => {
 
 :global(html[data-dashboard-theme="dark"] .crud-dialog.treatment-details-dialog),
 :global(html[data-dashboard-theme="dark"] .treatment-details-dialog .crud-dialog-header) {
-  border-color: #33455e;
-  background: #192536;
-  color: #ecf4ff;
+  border-color: #594b35;
+  background: #171511;
+  color: #f8f1e2;
 }
 
 :global(html[data-dashboard-theme="dark"] .treatment-details-dialog .crud-dialog-header h2),
 :global(html[data-dashboard-theme="dark"] .treatment-detail-value) {
-  color: #f1f6ff;
+  color: #f8f1e2;
 }
 
 :global(html[data-dashboard-theme="dark"] .treatment-details-dialog .icon-button),
 :global(html[data-dashboard-theme="dark"] .treatment-detail-card) {
-  border-color: #344861;
-  background: #202f42;
+  border-color: #594b35;
+  background: #29251e;
 }
 
 :global(html[data-dashboard-theme="dark"] .treatment-details-subtitle),
 :global(html[data-dashboard-theme="dark"] .treatment-detail-label) {
-  color: #adbed6;
+  color: #b9aa90;
 }
 
 @media (max-width: 640px) {

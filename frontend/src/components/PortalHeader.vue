@@ -113,7 +113,8 @@ const currentDate = computed(() =>
   gap: 22px;
   overflow: visible;
   padding: 18px 28px;
-  background: #f3faff;
+  border-bottom-color: #3b3224;
+  background: #171511;
 }
 
 .dashboard-overview-header::before {
@@ -123,7 +124,8 @@ const currentDate = computed(() =>
   background: url("/assets/dental-about-v1.png") center 48% / cover no-repeat;
   clip-path: polygon(15% 0, 100% 0, 100% 100%, 0 100%);
   content: "";
-  opacity: 0.28;
+  opacity: 0.16;
+  filter: grayscale(1) sepia(0.35);
 }
 
 .dashboard-header-greeting,
@@ -135,13 +137,13 @@ const currentDate = computed(() =>
 }
 
 .dashboard-header-greeting > span {
-  color: #233b61;
+  color: #dbc8a0;
   font-size: 0.95rem;
 }
 
 .dashboard-header-greeting > strong {
   overflow: hidden;
-  color: #10274b;
+  color: #ffffff;
   font-size: clamp(1.45rem, 2.5vw, 2rem);
   line-height: 1.15;
   text-overflow: ellipsis;
@@ -150,7 +152,7 @@ const currentDate = computed(() =>
 
 .dashboard-header-greeting > small {
   margin-top: 5px;
-  color: #425879;
+  color: #e1d8c8;
   font-size: 0.78rem;
 }
 
@@ -159,18 +161,18 @@ const currentDate = computed(() =>
 }
 
 .dashboard-header-date strong {
-  color: #253b5d;
+  color: #f4ede1;
   font-size: 0.73rem;
 }
 
 .dashboard-header-date span {
-  color: #71809a;
+  color: #b9aa90;
   font-size: 0.7rem;
 }
 
 .dashboard-header-message {
   justify-items: center;
-  color: #078ba4;
+  color: #dfb967;
   font-style: italic;
   line-height: 1.25;
   text-align: center;
@@ -188,23 +190,25 @@ const currentDate = computed(() =>
 }
 
 :global(html[data-dashboard-theme="dark"]) .portal-header.dashboard-overview-header {
-  background: #182332;
+  background: #0f0e0c;
 }
 
 :global(html[data-dashboard-theme="dark"]) .dashboard-header-greeting > span,
 :global(html[data-dashboard-theme="dark"]) .dashboard-header-greeting > strong,
 :global(html[data-dashboard-theme="dark"]) .dashboard-header-date strong {
-  color: #edf4ff;
+  color: #ffffff;
 }
 
 :global(html[data-dashboard-theme="dark"]) .dashboard-header-greeting > small,
 :global(html[data-dashboard-theme="dark"]) .dashboard-header-date span {
-  color: #aebbd0;
+  color: #c8baa2;
 }
 
 @media (max-width: 1120px) {
   .portal-header.dashboard-overview-header {
-    grid-template-columns: minmax(300px, 1fr) minmax(180px, 0.6fr) auto;
+    grid-template-columns: minmax(190px, 1fr) minmax(130px, 0.6fr) auto;
+    gap: 12px;
+    padding-inline: 16px;
   }
 
   .dashboard-header-message {
@@ -295,7 +299,7 @@ const currentDate = computed(() =>
     border: 0;
     background: none;
     padding: 0;
-    color: #0c2145;
+    color: #171511;
     text-align: left;
     cursor: pointer;
   }
@@ -338,11 +342,11 @@ const currentDate = computed(() =>
     height: 42px;
     flex: 0 0 42px;
     place-items: center;
-    border: 1px solid #e5edf7;
+    border: 1px solid #e8dfd0;
     border-radius: 50%;
     background: #fff;
-    color: #0c2145;
-    box-shadow: 0 2px 10px rgba(18, 39, 75, 0.06);
+    color: #171511;
+    box-shadow: 0 2px 10px rgba(23, 21, 17, 0.08);
   }
 
   .mobile-dashboard-header :deep(.notification-panel) {
@@ -360,8 +364,8 @@ const currentDate = computed(() =>
 
   .dashboard-mobile-menu-button:hover,
   .dashboard-mobile-menu-button:focus-visible {
-    outline: 2px solid #bfd4fb;
-    color: #155bdd;
+    outline: 2px solid #c49a46;
+    color: #9d7428;
   }
 
   .dashboard-header-banner {
@@ -374,7 +378,7 @@ const currentDate = computed(() =>
     min-height: 140px;
     overflow: hidden;
     border-radius: 13px;
-    background: linear-gradient(105deg, #edf7ff 0%, #f7fbff 68%, #edf7ff 100%);
+    background: linear-gradient(105deg, #171511 0%, #27231c 68%, #171511 100%);
   }
 
   .dashboard-header-banner::before {
@@ -382,7 +386,8 @@ const currentDate = computed(() =>
     inset: 0 0 0 48%;
     background: url("/assets/dental-about-v1.png") center / cover no-repeat;
     content: "";
-    opacity: 0.29;
+    opacity: 0.17;
+    filter: grayscale(1) sepia(0.35);
   }
 
   .mobile-dashboard-header .dashboard-header-greeting {
@@ -452,7 +457,7 @@ const currentDate = computed(() =>
 
 @media (max-width: 720px) {
   :global(html[data-dashboard-theme="dark"] .mobile-dashboard-header .dashboard-mobile-brand) {
-    color: #edf4ff;
+    color: #f8f1e2;
   }
 
   :global(html[data-dashboard-theme="dark"] .mobile-dashboard-header .dashboard-mobile-brand img) {
@@ -464,9 +469,9 @@ const currentDate = computed(() =>
   :global(
     html[data-dashboard-theme="dark"] .mobile-dashboard-header .dashboard-mobile-menu-button
   ) {
-    border-color: #3a4554;
-    background: #1c2430;
-    color: #f3f6fb;
+    border-color: #594b35;
+    background: #27221b;
+    color: #f8f1e2;
   }
 }
 </style>

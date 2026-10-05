@@ -230,6 +230,9 @@ function submitClear() {
           </span>
           <input v-model="notifyPatients" type="checkbox" role="switch" />
           <i aria-hidden="true"></i>
+          <small class="clear-notify-state" aria-hidden="true">{{
+            notifyPatients ? "ON" : "OFF"
+          }}</small>
         </label>
 
         <label class="clear-message-field">
@@ -265,7 +268,7 @@ function submitClear() {
 <style scoped>
 :global(.clear-appointments-dialog) {
   width: min(960px, calc(100% - 32px));
-  border-color: #d6e3ed;
+  border-color: #f4e7cd;
 }
 
 .clear-appointments-form {
@@ -280,7 +283,7 @@ function submitClear() {
 }
 
 .clear-calendar-section {
-  border-right: 1px solid #e0e8ef;
+  border-right: 1px solid #e8dfd0;
 }
 
 .clear-options-section {
@@ -299,7 +302,7 @@ function submitClear() {
 
 .clear-calendar-heading h3 {
   margin: 0;
-  color: #14284b;
+  color: #171511;
   font-size: 1.25rem;
   text-align: center;
 }
@@ -309,10 +312,10 @@ function submitClear() {
   width: 44px;
   height: 44px;
   place-items: center;
-  color: #173052;
-  border: 1px solid #d5e1ec;
+  color: #171511;
+  border: 1px solid #f4e7cd;
   border-radius: 7px;
-  background: #fff;
+  background: #ffffff;
   cursor: pointer;
 }
 
@@ -330,8 +333,8 @@ function submitClear() {
 
 .clear-calendar-weekdays {
   margin-bottom: 8px;
-  color: #536987;
-  font-size: 0.69rem;
+  color: #514b42;
+  font-size: 0.72rem;
   font-weight: 800;
   text-align: center;
   text-transform: uppercase;
@@ -343,18 +346,18 @@ function submitClear() {
   min-width: 0;
   min-height: 54px;
   place-items: center;
-  color: #172c4d;
-  border: 1px solid #d5e1ec;
+  color: #171511;
+  border: 1px solid #f4e7cd;
   border-radius: 7px;
-  background: #fff;
+  background: #ffffff;
   font-size: 0.78rem;
   font-weight: 800;
   cursor: pointer;
 }
 
 .clear-calendar-grid button.available {
-  border-color: #b7ddcf;
-  background: #edf9f5;
+  border-color: #dfc48a;
+  background: #f8f1e2;
 }
 
 .clear-calendar-grid button.fully-booked {
@@ -364,16 +367,16 @@ function submitClear() {
 }
 
 .clear-calendar-grid button.selected {
-  color: #0757c5;
-  border-color: #4b9af1;
-  background: #d9ecff;
-  box-shadow: inset 0 0 0 1px #8fc4fa;
+  color: #8a6526;
+  border-color: #c49a46;
+  background: #f4e7cd;
+  box-shadow: inset 0 0 0 1px #dfc48a;
 }
 
 .clear-calendar-grid button.unavailable {
-  color: #aeb9c8;
-  border-color: #edf1f5;
-  background: #f3f6f9;
+  color: #cfc5b3;
+  border-color: #f5f2eb;
+  background: #f5f2eb;
 }
 
 .clear-calendar-grid button:disabled {
@@ -388,10 +391,10 @@ function submitClear() {
   width: 19px;
   height: 19px;
   place-items: center;
-  color: #fff;
+  color: #ffffff;
   border-radius: 50%;
-  background: #0876e8;
-  font-size: 0.66rem;
+  background: #8a6526;
+  font-size: 0.72rem;
   font-style: normal;
 }
 
@@ -401,8 +404,8 @@ function submitClear() {
   gap: 12px 22px;
   margin-top: 18px;
   padding-top: 16px;
-  color: #2a4161;
-  border-top: 1px solid #e1e9f0;
+  color: #171511;
+  border-top: 1px solid #f5f2eb;
   font-size: 0.7rem;
   font-weight: 700;
 }
@@ -416,18 +419,18 @@ function submitClear() {
 .clear-calendar-legend i {
   width: 18px;
   height: 18px;
-  border: 1px solid #bfd0df;
+  border: 1px solid #cfc5b3;
   border-radius: 5px;
 }
 
 .clear-calendar-legend i.selected {
-  border-color: #0876e8;
-  background: #0876e8;
+  border-color: #8a6526;
+  background: #8a6526;
 }
 
 .clear-calendar-legend i.available {
-  border-color: #9bd8c1;
-  background: #dff5ed;
+  border-color: #dfc48a;
+  background: #f4e7cd;
 }
 
 .clear-calendar-legend i.fully-booked {
@@ -436,8 +439,8 @@ function submitClear() {
 }
 
 .clear-calendar-legend i.unavailable {
-  border-color: #d9e1e9;
-  background: #dfe6ed;
+  border-color: #e8dfd0;
+  background: #e8dfd0;
 }
 
 .clear-selection-summary,
@@ -451,8 +454,8 @@ function submitClear() {
 }
 
 .clear-selection-summary {
-  color: #1b4d8d;
-  background: #edf6ff;
+  color: #8a6526;
+  background: #f8f1e2;
 }
 
 .clear-selection-summary > span {
@@ -461,12 +464,12 @@ function submitClear() {
   height: 48px;
   place-items: center;
   border-radius: 8px;
-  background: #dceeff;
+  background: #f4e7cd;
 }
 
 .clear-selection-summary strong,
 .clear-warning strong {
-  color: #152b4d;
+  color: #171511;
   font-size: 0.9rem;
 }
 
@@ -475,13 +478,13 @@ function submitClear() {
   display: block;
   margin: 4px 0 0;
   overflow-wrap: anywhere;
-  color: #506783;
+  color: #514b42;
   font-size: 0.7rem;
   line-height: 1.45;
 }
 
 .clear-selection-summary small {
-  color: #29639d;
+  color: #8a6526;
   font-weight: 700;
 }
 
@@ -506,10 +509,10 @@ function submitClear() {
 
 .clear-notify-control {
   position: relative;
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 46px 26px;
   align-items: center;
-  justify-content: space-between;
-  gap: 16px;
+  gap: 7px;
   cursor: pointer;
 }
 
@@ -519,20 +522,25 @@ function submitClear() {
 }
 
 .clear-notify-control strong {
-  color: #172c4d;
+  color: #171511;
   font-size: 0.82rem;
 }
 
 .clear-notify-control small {
-  color: #60728a;
-  font-size: 0.68rem;
+  color: #706b61;
+  font-size: 0.72rem;
 }
 
 .clear-notify-control input {
   position: absolute;
-  width: 1px;
-  height: 1px;
+  top: 50%;
+  right: 33px;
+  width: 46px;
+  height: 26px;
+  margin: 0;
   opacity: 0;
+  cursor: inherit;
+  transform: translateY(-50%);
 }
 
 .clear-notify-control > i {
@@ -540,9 +548,9 @@ function submitClear() {
   width: 46px;
   height: 26px;
   flex: 0 0 46px;
-  border-radius: 13px;
-  background: #cbd5df;
-  transition: background 140ms ease;
+  border-radius: 999px;
+  background: var(--switch-off, #8e939c);
+  transition: background-color 160ms ease;
 }
 
 .clear-notify-control > i::after {
@@ -552,14 +560,14 @@ function submitClear() {
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  background: #fff;
-  box-shadow: 0 1px 4px rgb(20 43 77 / 22%);
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(23, 21, 17, 15%);
   content: "";
-  transition: transform 140ms ease;
+  transition: transform 160ms ease;
 }
 
 .clear-notify-control input:checked + i {
-  background: #0876e8;
+  background: var(--switch-on, #07843d);
 }
 
 .clear-notify-control input:checked + i::after {
@@ -567,15 +575,25 @@ function submitClear() {
 }
 
 .clear-notify-control input:focus-visible + i {
-  outline: 3px solid rgb(8 118 232 / 20%);
+  outline: 3px solid var(--switch-focus, rgba(7, 132, 61, 0.35));
   outline-offset: 2px;
+}
+
+.clear-notify-control > .clear-notify-state {
+  color: var(--switch-off-label, #59616d);
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+
+.clear-notify-control input:checked ~ .clear-notify-state {
+  color: var(--switch-on-label, #08743a);
 }
 
 .clear-message-field {
   position: relative;
   display: grid;
   gap: 7px;
-  color: #172c4d;
+  color: #171511;
   font-size: 0.76rem;
   font-weight: 750;
 }
@@ -584,26 +602,26 @@ function submitClear() {
   min-height: 126px;
   resize: vertical;
   padding: 12px;
-  color: #283f60;
-  border: 1px solid #cfdae5;
+  color: #171511;
+  border: 1px solid #e8dfd0;
   border-radius: 7px;
-  background: #fff;
+  background: #ffffff;
   font: inherit;
   font-weight: 500;
   line-height: 1.5;
 }
 
 .clear-message-field textarea:disabled {
-  color: #8b98a8;
-  background: #f2f5f8;
+  color: #aaa194;
+  background: #f5f2eb;
 }
 
 .clear-message-field > small {
   position: absolute;
   right: 10px;
   bottom: 8px;
-  color: #6a7d94;
-  font-size: 0.65rem;
+  color: #706b61;
+  font-size: 0.72rem;
   font-weight: 600;
 }
 
@@ -624,7 +642,7 @@ function submitClear() {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  color: #fff;
+  color: #ffffff;
   border: 1px solid #e31d33;
   border-radius: 7px;
   background: #e51e35;
@@ -647,14 +665,14 @@ function submitClear() {
 
 :global(html[data-dashboard-theme="dark"]) .clear-calendar-section,
 :global(html[data-dashboard-theme="dark"]) .clear-options-section {
-  color: #d9e8f5;
-  background: #132235;
+  color: #edddbd;
+  background: #241e17;
 }
 
 :global(html[data-dashboard-theme="dark"]) .clear-calendar-heading h3,
 :global(html[data-dashboard-theme="dark"]) .clear-notify-control strong,
 :global(html[data-dashboard-theme="dark"]) .clear-message-field {
-  color: #e6f1fb;
+  color: #f8f1e2;
 }
 
 @media (max-width: 760px) {
@@ -668,7 +686,7 @@ function submitClear() {
 
   .clear-calendar-section {
     border-right: 0;
-    border-bottom: 1px solid #e0e8ef;
+    border-bottom: 1px solid #e8dfd0;
   }
 }
 
@@ -692,7 +710,7 @@ function submitClear() {
     bottom: 3px;
     width: 16px;
     height: 16px;
-    font-size: 0.56rem;
+    font-size: 0.72rem;
   }
 
   .clear-dialog-actions {

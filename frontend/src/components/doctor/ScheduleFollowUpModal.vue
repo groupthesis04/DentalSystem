@@ -328,8 +328,8 @@ async function scheduleFollowUp() {
   align-items: center;
   gap: 13px;
   padding: 16px 20px;
-  border-bottom: 1px solid #dce8e5;
-  background: #f0fbf7;
+  border-bottom: 1px solid #e8dfd0;
+  background: #f8f1e2;
 }
 
 .follow-up-intro > span {
@@ -339,8 +339,8 @@ async function scheduleFollowUp() {
   flex: 0 0 48px;
   place-items: center;
   border-radius: 7px;
-  background: #d8f5e9;
-  color: #07966d;
+  background: #f4e7cd;
+  color: #8a6526;
 }
 
 .follow-up-intro h3,
@@ -354,13 +354,13 @@ async function scheduleFollowUp() {
 }
 
 .follow-up-intro h3 {
-  color: #142b4d;
+  color: #171511;
   font-size: 0.96rem;
 }
 
 .follow-up-intro p {
   margin-top: 3px;
-  color: #647b98;
+  color: #706b61;
   font-size: 0.72rem;
 }
 
@@ -370,15 +370,15 @@ async function scheduleFollowUp() {
   gap: 10px;
   margin: 0;
   padding: 15px 20px;
-  border-bottom: 1px solid #e1e9f1;
+  border-bottom: 1px solid #f4e7cd;
 }
 
 .follow-up-patient-summary > div {
   min-width: 0;
   padding: 10px 12px;
-  border: 1px solid #dce6ef;
+  border: 1px solid #f4e7cd;
   border-radius: 6px;
-  background: #fff;
+  background: #ffffff;
 }
 
 .follow-up-patient-summary dt,
@@ -386,8 +386,8 @@ async function scheduleFollowUp() {
   display: flex;
   align-items: center;
   gap: 6px;
-  color: #6c8099;
-  font-size: 0.61rem;
+  color: #706b61;
+  font-size: 0.72rem;
   font-weight: 800;
   text-transform: uppercase;
 }
@@ -396,7 +396,7 @@ async function scheduleFollowUp() {
 .follow-up-success dd {
   overflow: hidden;
   margin: 5px 0 0;
-  color: #172d4e;
+  color: #171511;
   font-size: 0.73rem;
   font-weight: 800;
   text-overflow: ellipsis;
@@ -407,8 +407,8 @@ async function scheduleFollowUp() {
   display: block;
   overflow: hidden;
   margin-top: 3px;
-  color: #73849a;
-  font-size: 0.62rem;
+  color: #706b61;
+  font-size: 0.72rem;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -426,14 +426,14 @@ async function scheduleFollowUp() {
 }
 
 .follow-up-details h3 {
-  color: #162d50;
+  color: #171511;
   font-size: 0.88rem;
 }
 
 .follow-up-details header p {
   margin-top: 3px;
-  color: #7789a0;
-  font-size: 0.64rem;
+  color: #706b61;
+  font-size: 0.72rem;
 }
 
 .follow-up-change-date {
@@ -442,12 +442,12 @@ async function scheduleFollowUp() {
   align-items: center;
   gap: 6px;
   padding: 0 10px;
-  border: 1px solid #bddcf6;
+  border: 1px solid #f4e7cd;
   border-radius: 6px;
-  background: #f2f8ff;
-  color: #0875cf;
+  background: #f8f1e2;
+  color: #8a6526;
   font: inherit;
-  font-size: 0.66rem;
+  font-size: 0.72rem;
   font-weight: 800;
   cursor: pointer;
 }
@@ -462,8 +462,8 @@ async function scheduleFollowUp() {
 .follow-up-service-field {
   display: grid;
   gap: 6px;
-  color: #263e60;
-  font-size: 0.68rem;
+  color: #171511;
+  font-size: 0.72rem;
   font-weight: 800;
 }
 
@@ -473,13 +473,13 @@ async function scheduleFollowUp() {
 
 .follow-up-service-field :deep(.service-multi-trigger) {
   min-height: 42px;
-  border-color: #d3e0ec;
+  border-color: #f4e7cd;
   border-radius: 6px;
-  font-size: 0.68rem;
+  font-size: 0.72rem;
 }
 
 .follow-up-service-field :deep(.service-multi-option) {
-  font-size: 0.68rem;
+  font-size: 0.72rem;
 }
 
 .follow-up-date-display {
@@ -487,15 +487,15 @@ async function scheduleFollowUp() {
   display: flex;
   min-height: 42px;
   align-items: center;
-  border: 1px solid #d3e0ec;
+  border: 1px solid #f4e7cd;
   border-radius: 6px;
-  background: #fff;
+  background: #ffffff;
 }
 
 .follow-up-date-display {
   gap: 9px;
   padding: 0 12px;
-  color: #233b5d;
+  color: #171511;
 }
 
 .follow-up-slots-heading {
@@ -513,8 +513,8 @@ async function scheduleFollowUp() {
 }
 
 .follow-up-slots-heading span {
-  color: #71849b;
-  font-size: 0.63rem;
+  color: #706b61;
+  font-size: 0.72rem;
   font-weight: 750;
 }
 
@@ -529,30 +529,30 @@ async function scheduleFollowUp() {
   min-height: 42px;
   place-content: center;
   gap: 1px;
-  border: 1px solid #cdddea;
+  border: 1px solid #f4e7cd;
   border-radius: 6px;
-  background: #fff;
-  color: #1d385e;
+  background: #ffffff;
+  color: #171511;
   font: inherit;
-  font-size: 0.67rem;
+  font-size: 0.72rem;
   font-weight: 800;
   cursor: pointer;
 }
 
 .follow-up-slots button:hover,
 .follow-up-slots button.active {
-  border-color: #1183df;
-  background: #eaf4ff;
-  color: #086fc9;
+  border-color: #8a6526;
+  background: #f8f1e2;
+  color: #8a6526;
 }
 
 .follow-up-slots button.active {
-  box-shadow: 0 0 0 2px rgb(17 131 223 / 12%);
+  box-shadow: 0 0 0 2px rgba(138, 101, 38, 12%);
 }
 
 .follow-up-slots small {
-  color: #bf7a08;
-  font-size: 0.52rem;
+  color: #8a6526;
+  font-size: 0.72rem;
 }
 
 .follow-up-empty-slots {
@@ -561,20 +561,20 @@ async function scheduleFollowUp() {
   gap: 12px;
   min-height: 86px;
   padding: 14px;
-  border: 1px dashed #c9d9e7;
+  border: 1px dashed #f4e7cd;
   border-radius: 7px;
-  background: #f7fafc;
-  color: #7589a0;
+  background: #f8f1e2;
+  color: #706b61;
 }
 
 .follow-up-empty-slots strong {
-  color: #294565;
+  color: #171511;
   font-size: 0.71rem;
 }
 
 .follow-up-empty-slots p {
   margin-top: 4px;
-  font-size: 0.64rem;
+  font-size: 0.72rem;
 }
 
 .follow-up-slot-note,
@@ -584,18 +584,18 @@ async function scheduleFollowUp() {
   gap: 8px;
   margin: 13px 0 0;
   padding: 10px 12px;
-  border: 1px solid #c8e5fb;
+  border: 1px solid #f4e7cd;
   border-radius: 6px;
-  background: #edf8ff;
-  color: #3e658b;
-  font-size: 0.64rem;
+  background: #f8f1e2;
+  color: #8a6526;
+  font-size: 0.72rem;
   line-height: 1.45;
 }
 
 .follow-up-slot-warning {
-  border-color: #f5d492;
-  background: #fff7e6;
-  color: #9d6506;
+  border-color: #dfc48a;
+  background: #f8f1e2;
+  color: #8a6526;
 }
 
 .follow-up-error {
@@ -605,7 +605,7 @@ async function scheduleFollowUp() {
   border-radius: 6px;
   background: #fff1f3;
   color: #c52742;
-  font-size: 0.68rem;
+  font-size: 0.72rem;
   font-weight: 750;
 }
 
@@ -615,7 +615,7 @@ async function scheduleFollowUp() {
   gap: 10px;
   margin-top: 15px;
   padding: 14px 20px 18px;
-  border-top: 1px solid #e1e9f1;
+  border-top: 1px solid #f4e7cd;
 }
 
 .follow-up-actions button {
@@ -640,19 +640,19 @@ async function scheduleFollowUp() {
   height: 62px;
   place-items: center;
   border-radius: 50%;
-  background: #dff8ed;
-  color: #079669;
+  background: #f4e7cd;
+  color: #8a6526;
 }
 
 .follow-up-success > div h3 {
   margin-top: 13px;
-  color: #152f51;
+  color: #171511;
   font-size: 1rem;
 }
 
 .follow-up-success > div p {
   margin-top: 4px;
-  color: #6d8098;
+  color: #706b61;
   font-size: 0.7rem;
 }
 
@@ -666,9 +666,9 @@ async function scheduleFollowUp() {
 
 .follow-up-success dl > div {
   padding: 11px 12px;
-  border: 1px solid #dce6ef;
+  border: 1px solid #f4e7cd;
   border-radius: 6px;
-  background: #fff;
+  background: #ffffff;
   text-align: left;
 }
 
@@ -680,11 +680,11 @@ async function scheduleFollowUp() {
   gap: 8px;
   margin-top: 14px !important;
   padding: 11px;
-  border: 1px solid #c9eadc;
+  border: 1px solid #f4e7cd;
   border-radius: 6px;
-  background: #effbf6;
-  color: #267459;
-  font-size: 0.66rem;
+  background: #f8f1e2;
+  color: #8a6526;
+  font-size: 0.72rem;
   font-weight: 700;
 }
 
@@ -692,7 +692,7 @@ async function scheduleFollowUp() {
   width: 100%;
   margin-top: 18px;
   padding-top: 15px;
-  border-top: 1px solid #e1e9f1;
+  border-top: 1px solid #f4e7cd;
   text-align: right;
 }
 
@@ -704,7 +704,7 @@ async function scheduleFollowUp() {
 :global(html[data-dashboard-theme="dark"])
   :is(.follow-up-intro, .follow-up-slot-note, .follow-up-success-note) {
   border-color: var(--dashboard-border);
-  background: #1b2b3e;
+  background: #241e17;
 }
 
 :global(html[data-dashboard-theme="dark"])
@@ -731,7 +731,7 @@ async function scheduleFollowUp() {
     .follow-up-success dl > div,
     .follow-up-empty-slots
   ) {
-  background: #172334;
+  background: #241e17;
 }
 
 :global(html[data-dashboard-theme="dark"])

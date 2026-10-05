@@ -56,15 +56,15 @@ const emit = defineEmits(["login", "register", "back"]);
   width: 58px;
   height: 58px;
   place-items: center;
-  color: #087d94;
-  background: #e5f8fc;
+  color: #9d7428;
+  background: #f8f1e2;
   border-radius: 50%;
 }
 
 .booking-auth-content > p {
   max-width: 480px;
   margin: 0;
-  color: #415675;
+  color: #625845;
   font-size: 1rem;
   line-height: 1.65;
 }
@@ -100,7 +100,7 @@ const emit = defineEmits(["login", "register", "back"]);
   align-items: center;
   gap: 7px;
   padding: 5px;
-  color: #395372;
+  color: #625845;
   background: transparent;
   border: 0;
   font: inherit;
@@ -110,7 +110,7 @@ const emit = defineEmits(["login", "register", "back"]);
 
 .booking-auth-back:hover,
 .booking-auth-back:focus-visible {
-  color: #087d94;
+  color: #9d7428;
 }
 
 @media (max-width: 560px) {

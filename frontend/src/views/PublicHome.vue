@@ -371,6 +371,7 @@ function promoPresentation(promo) {
       icon: BadgePlus,
       tone: "mint",
       service: "Oral Prophylaxis",
+      artwork: "/assets/promo-new-patient-tooth-gold-v1.png",
       benefits: ["Initial consultation", "Oral examination", "Personalized treatment plan"],
     };
   }
@@ -381,6 +382,7 @@ function promoPresentation(promo) {
       icon: Sparkles,
       tone: "rose",
       service: "Teeth Whitening",
+      artwork: "/assets/promo-whitening-tooth-gold-v1.png",
       benefits: ["Dental consultation", "Professional teeth whitening", "Aftercare guide"],
     };
   }
@@ -790,7 +792,7 @@ onBeforeUnmount(() => {
       <div class="about-intro">
         <div class="about-copy">
           <span class="section-kicker">About us</span>
-          <h2>Care that keeps records <span>clear and visits on time.</span></h2>
+          <h2>Care that keeps <span>records clear and visits on time.</span></h2>
           <p>
             At BORJA Dental Clinic, we believe that a healthy smile leads to a brighter, more
             confident you. Our clinic provides quality dental care with modern technology, a
@@ -817,9 +819,12 @@ onBeforeUnmount(() => {
           </div>
         </div>
         <div class="about-visual">
-          <img src="/assets/dental-about-v1.png" alt="Bright modern BORJA dental treatment room" />
+          <img
+            src="/assets/dental-clinic-hero-luxury-v1.png"
+            alt="Warm, modern BORJA dental treatment room"
+          />
           <blockquote>
-            <span><Heart :size="22" /></span>
+            <span aria-hidden="true">&ldquo;</span>
             <p>&ldquo;A healthier smile for a brighter tomorrow.&rdquo;</p>
             <cite>BORJA Dental Clinic</cite>
           </blockquote>
@@ -917,7 +922,9 @@ onBeforeUnmount(() => {
             We offer a wide range of dental services for patients of all ages. Our clinic uses
             modern technology to provide safe, comfortable, and high-quality care.
           </p>
-          <p class="services-mobile-tagline" aria-hidden="true">A brighter you,<br />every day.</p>
+          <p class="services-photo-tagline" aria-hidden="true">
+            A healthier smile<br />for a brighter tomorrow.
+          </p>
         </div>
       </div>
       <div class="services-card-grid">
@@ -929,7 +936,11 @@ onBeforeUnmount(() => {
             <h3>{{ service.name }}</h3>
             <p>{{ service.description }}</p>
             <button type="button" @click="openServiceDetails(service)">
-              Learn More <ArrowRight :size="16" />
+              <span>Learn More</span>
+              <ArrowRight :size="18" aria-hidden="true" />
+              <span class="service-card-action-icon" aria-hidden="true">
+                <ArrowRight :size="20" />
+              </span>
             </button>
           </div>
         </article>
@@ -956,25 +967,33 @@ onBeforeUnmount(() => {
           :key="card.promo.id || card.promo.title"
           :class="`promo-tone-${card.display.tone}`"
         >
-          <header>
-            <span class="promo-card-icon">
-              <component :is="card.display.icon" :size="30" aria-hidden="true" />
+          <div class="promo-card-main">
+            <header>
+              <span class="promo-card-icon">
+                <component :is="card.display.icon" :size="30" aria-hidden="true" />
+              </span>
+              <div>
+                <span class="promo-label">{{ card.display.badge }}</span>
+                <h3>{{ card.promo.title }}</h3>
+                <p>{{ card.promo.description }}</p>
+              </div>
+            </header>
+            <ul>
+              <li v-for="benefit in card.display.benefits" :key="benefit">
+                <Check :size="15" />{{ benefit }}
+              </li>
+            </ul>
+            <button type="button" @click="bookService(card.display.service)">
+              Book Now <ArrowRight :size="17" />
+            </button>
+          </div>
+          <div class="promo-card-visual" aria-hidden="true">
+            <span class="promo-card-art">
+              <img v-if="card.display.artwork" :src="card.display.artwork" alt="" loading="lazy" />
+              <span v-else class="service-art" :class="serviceArt(card.display.service)"></span>
             </span>
-            <div>
-              <span class="promo-label">{{ card.display.badge }}</span>
-              <h3>{{ card.promo.title }}</h3>
-              <p>{{ card.promo.description }}</p>
-            </div>
             <strong>{{ card.display.highlight }}</strong>
-          </header>
-          <ul>
-            <li v-for="benefit in card.display.benefits" :key="benefit">
-              <Check :size="15" />{{ benefit }}
-            </li>
-          </ul>
-          <button type="button" @click="bookService(card.display.service)">
-            Book Now <ArrowRight :size="17" />
-          </button>
+          </div>
         </article>
       </div>
       <div class="promo-cta">
@@ -1000,7 +1019,7 @@ onBeforeUnmount(() => {
       <div class="feedback-banner">
         <div class="feedback-banner-copy">
           <span class="section-kicker">Patient feedback</span>
-          <h2>Patient <span>Experiences.</span></h2>
+          <h2>Patient <span>Experiences</span></h2>
           <p>
             Real stories from our valued patients. Your feedback helps us grow and continue
             providing dependable dental care.
@@ -1021,7 +1040,7 @@ onBeforeUnmount(() => {
                   <Star
                     v-for="star in ratingOptions"
                     :key="star"
-                    :size="18"
+                    :size="21"
                     :fill="star <= Number(item.rating) ? 'currentColor' : 'none'"
                     aria-hidden="true"
                   />

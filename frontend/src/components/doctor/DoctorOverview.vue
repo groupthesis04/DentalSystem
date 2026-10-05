@@ -1,5 +1,6 @@
 <script setup>
 import {
+  ArrowRight,
   CalendarDays,
   ChartNoAxesColumnIncreasing,
   CircleMinus,
@@ -110,7 +111,8 @@ function formatCompactMoney(value) {
 
 function statusLabel(status) {
   const labels = {
-    approved: "Confirmed",
+    approved: "Accepted",
+    accepted: "Accepted",
     pending: "Pending",
     completed: "Completed",
     cancelled: "Cancelled",
@@ -313,20 +315,24 @@ const appointmentsForOverview = computed(() =>
 const appointmentRangeLabel = computed(() => rangeLabel(appointmentRange.value));
 const appointmentStatus = computed(() => {
   const statuses = [
-    { key: "pending", label: "Pending", color: "#f59e0b" },
-    { key: "approved", label: "Confirmed", color: "#4c8df6" },
-    { key: "completed", label: "Completed", color: "#25b987" },
-    { key: "cancelled", label: "Cancelled", color: "#ef476f" },
+    { key: "pending", label: "Pending", color: "var(--status-pending)" },
+    { key: "approved", label: "Accepted", color: "var(--status-accepted)" },
+    { key: "completed", label: "Completed", color: "var(--status-completed)" },
+    { key: "cancelled", label: "Cancelled", color: "var(--status-cancelled)" },
   ];
   const total = appointmentsForOverview.value.length;
   return statuses.map((status) => {
-    const value = appointmentsForOverview.value.filter((item) => item.status === status.key).length;
+    const value = appointmentsForOverview.value.filter((item) =>
+      status.key === "approved"
+        ? ["approved", "accepted"].includes(item.status)
+        : item.status === status.key,
+    ).length;
     return { ...status, value, percent: total ? Math.round((value / total) * 100) : 0 };
   });
 });
 const appointmentTotal = computed(() => appointmentsForOverview.value.length);
 const donutStyle = computed(() => {
-  if (!appointmentTotal.value) return { background: "#e7edf4" };
+  if (!appointmentTotal.value) return { background: "#e8dfd0" };
   let start = 0;
   const segments = appointmentStatus.value.map((item) => {
     const end = start + (item.value / appointmentTotal.value) * 100;
@@ -363,6 +369,7 @@ function trendIcon(direction) {
             <component :is="trendIcon(card.direction)" :size="14" />{{ card.detail }}
           </span>
         </span>
+        <span class="home-metric-arrow" aria-hidden="true"><ArrowRight :size="19" /></span>
       </button>
     </section>
 
@@ -639,11 +646,11 @@ function trendIcon(direction) {
   align-items: center;
   gap: 14px;
   padding: 18px;
-  color: #172b4d;
+  color: #171511;
   text-align: left;
-  border: 1px solid #dbe8f6;
+  border: 1px solid #f4e7cd;
   border-radius: 8px;
-  background: #f2f7ff;
+  background: #f8f1e2;
   cursor: pointer;
   transition:
     transform 160ms ease,
@@ -653,25 +660,25 @@ function trendIcon(direction) {
 
 .home-metric-card:hover,
 .home-metric-card:focus-visible {
-  border-color: #9dbde8;
-  box-shadow: 0 8px 20px rgb(50 91 141 / 9%);
+  border-color: #dfc48a;
+  box-shadow: 0 8px 20px rgba(138, 101, 38, 9%);
   outline: none;
   transform: translateY(-2px);
 }
 
 .home-metric-card.home-tone-appointments {
-  border-color: #d4eee5;
-  background: #effaf6;
+  border-color: #f4e7cd;
+  background: #f8f1e2;
 }
 
 .home-metric-card.home-tone-treatments {
-  border-color: #f0dfd0;
-  background: #fff6ef;
+  border-color: #f4e7cd;
+  background: #f8f1e2;
 }
 
 .home-metric-card.home-tone-collections {
-  border-color: #e4dafa;
-  background: #f7f2ff;
+  border-color: #f4e7cd;
+  background: #f8f1e2;
 }
 
 .home-metric-icon {
@@ -679,24 +686,24 @@ function trendIcon(direction) {
   width: 58px;
   height: 58px;
   place-items: center;
-  color: #2f7de8;
+  color: #8a6526;
   border-radius: 50%;
-  background: #dceafe;
+  background: #f4e7cd;
 }
 
 .home-tone-appointments .home-metric-icon {
-  color: #0b9c6a;
-  background: #d8f4e9;
+  color: #8a6526;
+  background: #f4e7cd;
 }
 
 .home-tone-treatments .home-metric-icon {
-  color: #ef7c32;
-  background: #ffe6d4;
+  color: #8a6526;
+  background: #f4e7cd;
 }
 
 .home-tone-collections .home-metric-icon {
-  color: #7c4ee4;
-  background: #e9defe;
+  color: #8a6526;
+  background: #f4e7cd;
 }
 
 .home-metric-copy {
@@ -706,7 +713,7 @@ function trendIcon(direction) {
 }
 
 .home-metric-copy > small {
-  color: #405474;
+  color: #514b42;
   font-size: 0.77rem;
 }
 
@@ -724,13 +731,13 @@ function trendIcon(direction) {
   align-items: center;
   gap: 5px;
   margin-top: 6px;
-  color: #4f647f;
-  font-size: 0.68rem;
+  color: #514b42;
+  font-size: 0.74rem;
   font-weight: 650;
 }
 
 .home-metric-trend.up {
-  color: #0b9566;
+  color: #8a6526;
 }
 
 .home-metric-trend.down {
@@ -751,10 +758,10 @@ function trendIcon(direction) {
 .home-dashboard-panel {
   min-width: 0;
   overflow: hidden;
-  border: 1px solid #dfe8f0;
+  border: 1px solid #f4e7cd;
   border-radius: 8px;
-  background: #fff;
-  box-shadow: 0 5px 18px rgb(31 64 102 / 5%);
+  background: #ffffff;
+  box-shadow: 0 5px 18px rgba(23, 21, 17, 5%);
 }
 
 .home-panel-heading {
@@ -779,9 +786,9 @@ function trendIcon(direction) {
   height: 46px;
   flex: 0 0 46px;
   place-items: center;
-  color: #098ba2;
+  color: #8a6526;
   border-radius: 50%;
-  background: #ddf5f8;
+  background: #f4e7cd;
 }
 
 .home-panel-title h2,
@@ -790,12 +797,12 @@ function trendIcon(direction) {
 }
 
 .home-panel-title h2 {
-  color: #14284a;
+  color: #171511;
   font-size: 1rem;
 }
 
 .home-panel-title p {
-  color: #6d7e96;
+  color: #706b61;
   font-size: 0.72rem;
 }
 
@@ -805,10 +812,10 @@ function trendIcon(direction) {
   align-items: center;
   gap: 6px;
   padding: 0 8px;
-  color: #344e72;
-  border: 1px solid #cfdce8;
+  color: #8a6526;
+  border: 1px solid #f4e7cd;
   border-radius: 6px;
-  background: #fff;
+  background: #ffffff;
 }
 
 .home-period-select select {
@@ -846,34 +853,34 @@ function trendIcon(direction) {
 }
 
 .chart-grid-line {
-  stroke: #dfe8f0;
+  stroke: #f4e7cd;
   stroke-width: 1;
   stroke-dasharray: 4 4;
 }
 
 .chart-axis-label,
 .chart-month-label {
-  fill: #708099;
+  fill: #706b61;
   font-family: inherit;
   font-size: 10px;
 }
 
 .chart-area {
-  fill: #dff4f7;
+  fill: #f4e7cd;
   opacity: 0.8;
 }
 
 .chart-line {
   fill: none;
-  stroke: #078da4;
+  stroke: #8a6526;
   stroke-width: 3;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
 
 .chart-point {
-  fill: #fff;
-  stroke: #078da4;
+  fill: #ffffff;
+  stroke: #8a6526;
   stroke-width: 3;
 }
 
@@ -884,14 +891,14 @@ function trendIcon(direction) {
   display: grid;
   gap: 1px;
   padding: 7px 10px;
-  color: #fff;
+  color: #ffffff;
   border-radius: 6px;
-  background: #08798d;
+  background: #8a6526;
   pointer-events: none;
 }
 
 .collection-current-value small {
-  font-size: 0.57rem;
+  font-size: 0.7rem;
 }
 
 .collection-current-value strong {
@@ -921,9 +928,9 @@ function trendIcon(direction) {
   display: grid;
   place-items: center;
   align-content: center;
-  color: #14284a;
+  color: #171511;
   border-radius: 50%;
-  background: #fff;
+  background: #ffffff;
 }
 
 .donut-center strong {
@@ -933,7 +940,7 @@ function trendIcon(direction) {
 
 .donut-center small {
   margin-top: 4px;
-  font-size: 0.68rem;
+  font-size: 0.72rem;
 }
 
 .appointment-legend {
@@ -948,7 +955,7 @@ function trendIcon(direction) {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  border-bottom: 1px solid #e7edf3;
+  border-bottom: 1px solid #f5f2eb;
 }
 
 .appointment-legend > div:last-child {
@@ -964,7 +971,7 @@ function trendIcon(direction) {
 
 .appointment-legend dt {
   gap: 9px;
-  color: #243a5d;
+  color: #171511;
   font-size: 0.75rem;
 }
 
@@ -979,23 +986,23 @@ function trendIcon(direction) {
   min-width: 70px;
   justify-content: space-between;
   gap: 12px;
-  color: #14284a;
+  color: #171511;
   font-size: 0.72rem;
 }
 
 .appointment-legend dd small {
   min-width: 30px;
-  color: #718199;
+  color: #706b61;
   text-align: right;
 }
 
 .home-view-all {
   min-height: 34px;
   padding: 7px 13px;
-  color: #1d6fd8;
-  border: 1px solid #d7e7fb;
+  color: #8a6526;
+  border: 1px solid #f4e7cd;
   border-radius: 6px;
-  background: #f0f6ff;
+  background: #f8f1e2;
   font-size: 0.7rem;
   font-weight: 750;
   cursor: pointer;
@@ -1003,10 +1010,10 @@ function trendIcon(direction) {
 
 .home-view-all:hover,
 .home-view-all:focus-visible {
-  color: #fff;
-  border-color: #2563eb;
+  color: #ffffff;
+  border-color: #8a6526;
   outline: none;
-  background: #2563eb;
+  background: #8a6526;
 }
 
 .home-table-scroll {
@@ -1018,15 +1025,15 @@ function trendIcon(direction) {
   width: 100%;
   min-width: 560px;
   border-collapse: collapse;
-  color: #263b5c;
+  color: #171511;
   font-size: 0.72rem;
 }
 
 .home-data-table th {
   padding: 7px 11px;
-  color: #5a6e89;
-  background: #edf3f8;
-  font-size: 0.63rem;
+  color: #514b42;
+  background: #f8f1e2;
+  font-size: 0.72rem;
   text-align: left;
   text-transform: uppercase;
 }
@@ -1043,7 +1050,7 @@ function trendIcon(direction) {
   max-width: 210px;
   overflow: hidden;
   padding: 8px 11px;
-  border-bottom: 1px solid #e7edf3;
+  border-bottom: 1px solid #f5f2eb;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -1059,24 +1066,36 @@ function trendIcon(direction) {
   align-items: center;
   justify-content: center;
   padding: 3px 10px;
-  color: #166534;
-  border: 1px solid #a7e4c1;
+  color: #8a6526;
+  border: 1px solid #dfc48a;
   border-radius: 999px;
-  background: #e9f9f0;
-  font-size: 0.62rem;
+  background: #f8f1e2;
+  font-size: 0.7rem;
   font-weight: 750;
 }
 
 .home-status.pending {
-  color: #c25b08;
-  border-color: #f7c486;
-  background: #fff7e9;
+  color: #8a6526;
+  border-color: #dfc48a;
+  background: #f8f1e2;
 }
 
 .home-status.approved {
-  color: #1d6fd8;
-  border-color: #a8c9f8;
-  background: #edf5ff;
+  color: #12659e;
+  border-color: #a6d4ed;
+  background: #e9f5fc;
+}
+
+.home-status.accepted {
+  color: #12659e;
+  border-color: #a6d4ed;
+  background: #e9f5fc;
+}
+
+.home-status.completed {
+  color: #147347;
+  border-color: #a7dcc0;
+  background: #e9f9ef;
 }
 
 .home-status.cancelled {
@@ -1096,9 +1115,9 @@ function trendIcon(direction) {
   width: 32px;
   height: 32px;
   flex: 0 0 32px;
-  color: #1d5d92;
-  background: #dff3fa;
-  font-size: 0.65rem;
+  color: #8a6526;
+  background: #f4e7cd;
+  font-size: 0.72rem;
 }
 
 .home-patient-cell strong {
@@ -1109,15 +1128,15 @@ function trendIcon(direction) {
 
 .home-table-empty {
   height: 104px;
-  color: #77879b;
+  color: #706b61;
   text-align: center;
 }
 
 :global(html[data-dashboard-theme="dark"]) .home-metric-card,
 :global(html[data-dashboard-theme="dark"]) .home-dashboard-panel {
-  color: #e8edf6;
-  border-color: #344154;
-  background: #1d2635;
+  color: #edddbd;
+  border-color: #514b42;
+  background: #28241e;
 }
 
 :global(html[data-dashboard-theme="dark"]) .home-metric-copy > small,
@@ -1126,27 +1145,32 @@ function trendIcon(direction) {
 :global(html[data-dashboard-theme="dark"]) .appointment-legend dt,
 :global(html[data-dashboard-theme="dark"]) .home-data-table,
 :global(html[data-dashboard-theme="dark"]) .home-data-table th {
-  color: #aebbd0;
+  color: #cfc5b3;
 }
 
 :global(html[data-dashboard-theme="dark"]) .home-panel-title h2,
 :global(html[data-dashboard-theme="dark"]) .donut-center,
 :global(html[data-dashboard-theme="dark"]) .appointment-legend dd {
-  color: #edf3fb;
+  color: #f8f1e2;
 }
 
 :global(html[data-dashboard-theme="dark"]) .donut-center,
 :global(html[data-dashboard-theme="dark"]) .home-period-select {
-  background: #202b3b;
+  background: #28241e;
 }
 
 :global(html[data-dashboard-theme="dark"]) .home-data-table th {
-  background: #263246;
+  background: #28241e;
 }
 
 :global(html[data-dashboard-theme="dark"]) .home-data-table td,
 :global(html[data-dashboard-theme="dark"]) .appointment-legend > div {
-  border-color: #344154;
+  border-color: #514b42;
+}
+
+:global(html[data-dashboard-theme="dark"]) .home-period-select,
+:global(html[data-dashboard-theme="dark"]) .home-metric-trend.up {
+  color: #e3c985;
 }
 
 @media (max-width: 1280px) {
@@ -1189,7 +1213,7 @@ function trendIcon(direction) {
   }
 
   .home-metric-copy > small {
-    font-size: 0.68rem;
+    font-size: 0.74rem;
   }
 
   .home-metric-copy > strong {
@@ -1209,7 +1233,7 @@ function trendIcon(direction) {
     align-items: flex-start;
     gap: 3px;
     margin-top: 4px;
-    font-size: 0.6rem;
+    font-size: 0.7rem;
     line-height: 1.25;
   }
 
@@ -1261,7 +1285,7 @@ function trendIcon(direction) {
   }
 
   .home-panel-title p {
-    font-size: 0.64rem;
+    font-size: 0.72rem;
     line-height: 1.3;
   }
 
@@ -1275,7 +1299,7 @@ function trendIcon(direction) {
 
   .home-period-select select {
     min-height: 34px;
-    font-size: 0.65rem;
+    font-size: 0.73rem;
   }
 
   .collection-chart-wrap {
@@ -1301,7 +1325,7 @@ function trendIcon(direction) {
   }
 
   .collection-current-value strong {
-    font-size: 0.66rem;
+    font-size: 0.75rem;
   }
 
   .appointment-overview-body {
@@ -1322,7 +1346,7 @@ function trendIcon(direction) {
 
   .appointment-legend dt {
     gap: 5px;
-    font-size: 0.65rem;
+    font-size: 0.73rem;
   }
 
   .appointment-legend dt span {
@@ -1334,7 +1358,7 @@ function trendIcon(direction) {
   .appointment-legend dd {
     min-width: 44px;
     gap: 5px;
-    font-size: 0.64rem;
+    font-size: 0.72rem;
   }
 
   .appointment-legend dd small {
@@ -1364,19 +1388,19 @@ function trendIcon(direction) {
   }
 
   .home-table-panel .home-panel-title h2 {
-    font-size: 0.67rem;
+    font-size: 0.72rem;
     line-height: 1.2;
   }
 
   .home-table-panel .home-panel-title p {
     margin-top: 2px;
-    font-size: 0.57rem;
+    font-size: 0.72rem;
   }
 
   .home-view-all {
     min-height: 25px;
     padding: 3px 5px;
-    font-size: 0.57rem;
+    font-size: 0.72rem;
     white-space: nowrap;
   }
 
@@ -1398,14 +1422,14 @@ function trendIcon(direction) {
     align-items: flex-start;
     gap: 5px;
     padding: 7px 0;
-    border-top: 1px solid #e7edf3;
+    border-top: 1px solid #f5f2eb;
   }
 
   .home-mobile-appointment-time {
     width: 30px;
     flex: 0 0 30px;
-    color: #14284a;
-    font-size: 0.61rem;
+    color: #171511;
+    font-size: 0.72rem;
     font-weight: 750;
     line-height: 1.2;
   }
@@ -1425,36 +1449,40 @@ function trendIcon(direction) {
   }
 
   .home-mobile-item-main strong {
-    color: #14284a;
-    font-size: 0.62rem;
+    color: #171511;
+    font-size: 0.72rem;
   }
 
   .home-mobile-item-main small {
-    color: #6d7e96;
-    font-size: 0.56rem;
+    color: #706b61;
+    font-size: 0.72rem;
   }
 
   .home-mobile-preview .home-status {
     min-width: 0;
     min-height: 20px;
     padding: 2px 4px;
-    font-size: 0.52rem;
+    font-size: 0.72rem;
   }
 
   .home-mobile-preview :deep(.profile-avatar) {
     width: 25px;
     height: 25px;
     flex: 0 0 25px;
-    font-size: 0.55rem;
+    font-size: 0.72rem;
   }
 
   .home-mobile-preview .home-mobile-empty {
-    color: #6d7e96;
-    font-size: 0.65rem;
+    color: #706b61;
+    font-size: 0.72rem;
   }
 }
 
 @media (max-width: 480px) {
+  .home-table-grid {
+    grid-template-columns: 1fr;
+  }
+
   .home-metric-card {
     grid-template-columns: 34px minmax(0, 1fr);
     gap: 6px;
@@ -1476,7 +1504,7 @@ function trendIcon(direction) {
   }
 
   .home-panel-title p {
-    font-size: 0.61rem;
+    font-size: 0.72rem;
   }
 
   .home-period-select,
@@ -1485,7 +1513,35 @@ function trendIcon(direction) {
   }
 
   .home-period-select select {
-    font-size: 0.61rem;
+    font-size: 0.73rem;
+  }
+
+  .home-table-panel .home-panel-heading {
+    align-items: center;
+    padding: 11px 12px;
+  }
+
+  .home-table-panel .home-panel-title h2,
+  .home-mobile-item-main strong {
+    font-size: 0.78rem;
+  }
+
+  .home-table-panel .home-panel-title p,
+  .home-mobile-item-main small,
+  .home-mobile-appointment-time,
+  .home-mobile-preview .home-status {
+    font-size: 0.72rem;
+  }
+
+  .home-view-all {
+    min-height: 32px;
+    padding: 6px 9px;
+    font-size: 0.72rem;
+  }
+
+  .home-mobile-appointment-time {
+    width: 42px;
+    flex-basis: 42px;
   }
 }
 
@@ -1499,7 +1555,489 @@ function trendIcon(direction) {
   }
 
   .home-mobile-preview .home-status {
-    font-size: 0.6rem;
+    font-size: 0.72rem;
   }
+}
+
+/* The overview uses the same quiet ivory and gold surfaces as the public pages. */
+.clinic-home-dashboard {
+  gap: 18px;
+}
+
+.home-metric-grid,
+.home-analytics-grid,
+.home-table-grid {
+  gap: 14px;
+}
+
+.home-metric-card {
+  position: relative;
+  grid-template-columns: 64px minmax(0, 1fr);
+  min-height: 134px;
+  gap: 15px;
+  overflow: hidden;
+  padding: 20px 22px;
+  border-color: #e9d9bc;
+  border-radius: 14px;
+  background: linear-gradient(145deg, #fffefa 0%, #ffffff 64%, #fbf4e7 100%);
+  box-shadow: 0 7px 22px rgba(73, 48, 17, 0.055);
+}
+
+.home-metric-card::after {
+  position: absolute;
+  right: -32px;
+  bottom: -54px;
+  width: 156px;
+  height: 78px;
+  border-top: 1px solid #eed7a8;
+  border-radius: 50%;
+  content: "";
+  pointer-events: none;
+  transform: rotate(-18deg);
+}
+
+.home-metric-card.home-tone-appointments,
+.home-metric-card.home-tone-treatments,
+.home-metric-card.home-tone-collections {
+  border-color: #e9d9bc;
+  background: linear-gradient(145deg, #fffefa 0%, #ffffff 64%, #fbf4e7 100%);
+}
+
+.home-metric-card:hover,
+.home-metric-card:focus-visible {
+  border-color: #bd9043;
+  box-shadow: 0 12px 28px rgba(88, 57, 20, 0.13);
+}
+
+.home-metric-icon,
+.home-tone-appointments .home-metric-icon,
+.home-tone-treatments .home-metric-icon,
+.home-tone-collections .home-metric-icon {
+  width: 64px;
+  height: 64px;
+  color: #8b5e17;
+  background: linear-gradient(135deg, #fff8e9, #f2d79b);
+}
+
+.home-metric-copy {
+  position: relative;
+  z-index: 1;
+  gap: 3px;
+}
+
+.home-metric-copy > small {
+  color: #474039;
+  font-size: 0.84rem;
+}
+
+.home-metric-copy > strong {
+  color: #11100e;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(1.75rem, 2.4vw, 2.15rem);
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  line-height: 1.05;
+}
+
+.home-tone-collections .home-metric-copy > strong {
+  font-size: clamp(1.3rem, 1.7vw, 1.75rem);
+  overflow: visible;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+  white-space: normal;
+}
+
+.home-metric-trend {
+  margin-top: 5px;
+  font-size: 0.79rem;
+  font-weight: 700;
+}
+
+.home-metric-trend.up {
+  color: #137a42;
+}
+
+.home-metric-trend.down {
+  color: #c83336;
+}
+
+.home-metric-arrow {
+  position: absolute;
+  z-index: 1;
+  right: 17px;
+  top: 50%;
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  color: #805412;
+  border-radius: 50%;
+  background: #f7e7c4;
+  transform: translateY(-50%);
+}
+
+@media (max-width: 1500px) {
+  .home-metric-arrow {
+    display: none;
+  }
+}
+
+.home-dashboard-panel {
+  border-color: #eee0cc;
+  border-radius: 14px;
+  background: #fffefa;
+  box-shadow: 0 8px 26px rgba(78, 52, 20, 0.055);
+}
+
+.home-panel-heading {
+  min-height: 86px;
+  padding: 18px 20px;
+}
+
+.home-panel-title {
+  gap: 12px;
+}
+
+.home-panel-title > span {
+  width: 58px;
+  height: 58px;
+  flex-basis: 58px;
+  color: #865815;
+  background: linear-gradient(135deg, #fcf3df, #f6dfac);
+}
+
+.home-panel-title h2 {
+  color: #14110e;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(1.17rem, 1.5vw, 1.48rem);
+  font-weight: 700;
+  letter-spacing: -0.025em;
+}
+
+.home-panel-title p {
+  margin-top: 4px;
+  color: #66615b;
+  font-size: 0.84rem;
+}
+
+.home-period-select {
+  min-width: 142px;
+  color: #734b16;
+  border-color: #e7cfaa;
+  border-radius: 8px;
+  background: #fffefa;
+}
+
+.home-period-select select {
+  min-height: 42px;
+  color: #32271a;
+  font-size: 0.79rem;
+}
+
+.collection-chart-wrap {
+  min-height: 255px;
+  padding: 2px 20px 10px;
+}
+
+.collection-chart {
+  height: 235px;
+}
+
+.chart-grid-line {
+  stroke: #e9e1d4;
+}
+
+.chart-area {
+  fill: #f2d69e;
+  opacity: 0.65;
+}
+
+.chart-line,
+.chart-point {
+  stroke: #926016;
+}
+
+.collection-current-value {
+  top: 3px;
+  right: 28px;
+  padding: 9px 12px;
+  border-radius: 7px;
+  background: #91601d;
+  box-shadow: 0 5px 12px rgba(76, 45, 9, 0.13);
+}
+
+.collection-current-value small,
+.collection-current-value strong {
+  font-size: 0.77rem;
+}
+
+.appointment-overview-body {
+  min-height: 255px;
+  padding: 10px 22px 28px;
+}
+
+.appointment-donut {
+  width: min(180px, 100%);
+}
+
+.donut-center {
+  inset: 29%;
+  background: #fffefa;
+}
+
+.donut-center strong {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.65rem;
+}
+
+.appointment-legend dt,
+.appointment-legend dd {
+  font-size: 0.82rem;
+}
+
+.home-view-all {
+  min-height: 39px;
+  padding: 8px 17px;
+  color: #ffffff;
+  border-color: #936118;
+  border-radius: 7px;
+  background: linear-gradient(115deg, #a2762e, #80541b);
+  box-shadow: 0 4px 10px rgba(94, 55, 11, 0.12);
+  font-size: 0.77rem;
+}
+
+.home-view-all:hover,
+.home-view-all:focus-visible {
+  border-color: #5c3b10;
+  background: #5c3b10;
+}
+
+.home-table-scroll {
+  padding: 0 18px 17px;
+}
+
+.home-data-table {
+  font-size: 0.78rem;
+}
+
+.home-data-table th {
+  padding: 11px 13px;
+  color: #3c352b;
+  background: #fbf2e4;
+  font-size: 0.72rem;
+}
+
+.home-data-table td {
+  padding: 11px 13px;
+  border-color: #eee6da;
+}
+
+.home-status.approved,
+.home-status.accepted {
+  color: #12659e;
+  border-color: #a6d4ed;
+  background: #e9f5fc;
+}
+
+.home-status.completed {
+  color: #147347;
+  border-color: #a7dcc0;
+  background: #e9f9ef;
+}
+
+.home-status.pending {
+  color: #865500;
+  border-color: #f0d496;
+  background: #fff4db;
+}
+
+.home-patient-cell :deep(.profile-avatar) {
+  width: 36px;
+  height: 36px;
+  flex-basis: 36px;
+  color: #805413;
+  background: #f9ebce;
+}
+
+@media (max-width: 1180px) {
+  .home-metric-card {
+    grid-template-columns: 54px minmax(0, 1fr);
+    min-height: 118px;
+    gap: 11px;
+    padding: 17px;
+  }
+
+  .home-metric-icon,
+  .home-tone-appointments .home-metric-icon,
+  .home-tone-treatments .home-metric-icon,
+  .home-tone-collections .home-metric-icon {
+    width: 54px;
+    height: 54px;
+  }
+
+  .home-metric-arrow {
+    right: 10px;
+    width: 28px;
+    height: 28px;
+  }
+}
+
+@media (max-width: 720px) {
+  .clinic-home-dashboard {
+    gap: 12px;
+  }
+
+  .home-metric-grid,
+  .home-analytics-grid,
+  .home-table-grid {
+    gap: 9px;
+  }
+
+  .home-metric-card {
+    grid-template-columns: 42px minmax(0, 1fr);
+    min-height: 105px;
+    gap: 9px;
+    padding: 11px;
+  }
+
+  .home-metric-icon,
+  .home-tone-appointments .home-metric-icon,
+  .home-tone-treatments .home-metric-icon,
+  .home-tone-collections .home-metric-icon {
+    width: 42px;
+    height: 42px;
+  }
+
+  .home-metric-copy > small {
+    font-size: 0.73rem;
+  }
+
+  .home-metric-copy > strong {
+    font-size: clamp(1.08rem, 4vw, 1.4rem);
+  }
+
+  .home-metric-trend {
+    font-size: 0.68rem;
+  }
+
+  .home-metric-arrow {
+    display: none;
+  }
+
+  .home-panel-heading {
+    min-height: 68px;
+    padding: 12px;
+  }
+
+  .home-panel-title > span {
+    width: 38px;
+    height: 38px;
+    flex-basis: 38px;
+  }
+
+  .home-panel-title h2 {
+    font-size: 1rem;
+  }
+
+  .home-panel-title p {
+    font-size: 0.73rem;
+  }
+
+  .home-period-select,
+  .home-period-select.compact {
+    min-width: 98px;
+  }
+
+  .home-period-select select {
+    min-height: 34px;
+    font-size: 0.73rem;
+  }
+
+  .collection-chart-wrap {
+    min-height: 0;
+    padding: 0 12px 7px;
+  }
+
+  .appointment-overview-body {
+    min-height: 0;
+    padding: 5px 13px 17px;
+  }
+
+  .appointment-donut {
+    width: min(138px, 100%);
+  }
+
+  .appointment-legend dt,
+  .appointment-legend dd {
+    font-size: 0.73rem;
+  }
+
+  .home-table-panel .home-panel-title h2 {
+    font-size: 0.77rem;
+  }
+
+  .home-view-all {
+    min-height: 31px;
+    padding: 5px 9px;
+    font-size: 0.71rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .home-metric-card {
+    grid-template-columns: 35px minmax(0, 1fr);
+    min-height: 103px;
+    gap: 7px;
+    padding: 9px;
+  }
+
+  .home-metric-icon,
+  .home-tone-appointments .home-metric-icon,
+  .home-tone-treatments .home-metric-icon,
+  .home-tone-collections .home-metric-icon {
+    width: 35px;
+    height: 35px;
+  }
+
+  .home-metric-copy > strong {
+    font-size: clamp(1rem, 4.2vw, 1.32rem);
+  }
+
+  .home-tone-collections .home-metric-copy > strong {
+    font-size: clamp(0.8rem, 3.5vw, 1.08rem);
+  }
+
+  .home-table-panel .home-panel-title h2 {
+    font-size: 0.96rem;
+  }
+}
+
+:global(html[data-dashboard-theme="dark"]) .home-metric-card,
+:global(html[data-dashboard-theme="dark"]) .home-metric-card.home-tone-appointments,
+:global(html[data-dashboard-theme="dark"]) .home-metric-card.home-tone-treatments,
+:global(html[data-dashboard-theme="dark"]) .home-metric-card.home-tone-collections,
+:global(html[data-dashboard-theme="dark"]) .home-dashboard-panel {
+  color: #f6ead3;
+  border-color: #5c4d37;
+  background: #26221d;
+}
+
+:global(html[data-dashboard-theme="dark"]) .home-metric-copy > strong,
+:global(html[data-dashboard-theme="dark"]) .home-panel-title h2 {
+  color: #fff4e2;
+}
+
+:global(html[data-dashboard-theme="dark"]) .home-metric-copy > small,
+:global(html[data-dashboard-theme="dark"]) .home-panel-title p {
+  color: #d4c9b9;
+}
+
+:global(html[data-dashboard-theme="dark"]) .home-period-select,
+:global(html[data-dashboard-theme="dark"]) .donut-center {
+  background: #29241d;
+}
+
+:global(html[data-dashboard-theme="dark"]) .home-period-select select {
+  color: #f1d8a4;
 }
 </style>

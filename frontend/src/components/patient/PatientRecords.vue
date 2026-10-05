@@ -350,7 +350,7 @@ watch(pageCount, (count) => {
 .patient-records-page {
   display: grid;
   gap: 14px;
-  color: #172d50;
+  color: #171511;
 }
 
 .patient-records-header {
@@ -359,8 +359,8 @@ watch(pageCount, (count) => {
   align-items: center;
   gap: 18px;
   padding: 16px 22px;
-  border-bottom: 1px solid #dce7f2;
-  background: #f8fbff;
+  border-bottom: 1px solid #e8dfd0;
+  background: #fcfbf8;
 }
 
 .patient-records-title-icon,
@@ -368,10 +368,10 @@ watch(pageCount, (count) => {
   display: grid;
   flex: 0 0 auto;
   place-items: center;
-  border: 1px solid #cfe3fb;
+  border: 1px solid #e8dfd0;
   border-radius: 8px;
-  background: #eaf4ff;
-  color: #1475e4;
+  background: #f8f1e2;
+  color: #7a581f;
 }
 
 .patient-records-title-icon {
@@ -388,7 +388,7 @@ watch(pageCount, (count) => {
 }
 
 .patient-records-kicker {
-  color: #1470dc;
+  color: #7a581f;
   font-size: 0.7rem;
   font-weight: 850;
   text-transform: uppercase;
@@ -396,7 +396,7 @@ watch(pageCount, (count) => {
 
 .patient-records-header h1 {
   margin-top: 2px;
-  color: #12294d;
+  color: #171511;
   font-size: 1.5rem;
   line-height: 1.18;
 }
@@ -404,7 +404,7 @@ watch(pageCount, (count) => {
 .patient-records-header p,
 .patient-history-heading p {
   margin-top: 4px;
-  color: #697e99;
+  color: #706b61;
   font-size: 0.74rem;
 }
 
@@ -420,10 +420,10 @@ watch(pageCount, (count) => {
 .patient-record-care-note {
   min-width: 0;
   overflow: hidden;
-  border: 1px solid #dce7f2;
+  border: 1px solid #e8dfd0;
   border-radius: 8px;
   background: #fff;
-  box-shadow: 0 6px 20px rgb(31 64 102 / 5%);
+  box-shadow: 0 6px 20px rgb(23 21 17 / 6%);
 }
 
 .patient-history-heading {
@@ -433,7 +433,7 @@ watch(pageCount, (count) => {
   justify-content: space-between;
   gap: 18px;
   padding: 15px 18px;
-  border-bottom: 1px solid #e4edf5;
+  border-bottom: 1px solid #e8dfd0;
 }
 
 .patient-history-title {
@@ -450,7 +450,7 @@ watch(pageCount, (count) => {
 
 .patient-history-heading h2,
 .patient-record-summary h2 {
-  color: #142c50;
+  color: #171511;
   font-size: 0.88rem;
 }
 
@@ -469,16 +469,16 @@ watch(pageCount, (count) => {
   align-items: center;
   gap: 9px;
   padding: 0 11px;
-  color: #55708f;
-  border: 1px solid #d7e3ef;
+  color: #706b61;
+  border: 1px solid #e8dfd0;
   border-radius: 7px;
   background: #fff;
 }
 
 .patient-record-search:focus-within,
 .patient-record-range:focus-within {
-  border-color: #1475e4;
-  box-shadow: 0 0 0 3px rgb(20 117 228 / 12%);
+  border-color: #c49a46;
+  box-shadow: 0 0 0 3px rgb(196 154 70 / 12%);
 }
 
 .patient-record-search input,
@@ -489,9 +489,9 @@ watch(pageCount, (count) => {
   border: 0;
   outline: 0;
   background: transparent;
-  color: #294261;
+  color: #171511;
   font: inherit;
-  font-size: 0.68rem;
+  font-size: 0.72rem;
 }
 
 .patient-record-range select {
@@ -514,22 +514,22 @@ watch(pageCount, (count) => {
   min-width: 900px;
   border-collapse: collapse;
   table-layout: fixed;
-  color: #2a4365;
-  font-size: 0.69rem;
+  color: #706b61;
+  font-size: 0.72rem;
 }
 
 .patient-records-table th,
 .patient-records-table td {
   padding: 11px 12px;
-  border-bottom: 1px solid #e5edf4;
+  border-bottom: 1px solid #e8dfd0;
   text-align: left;
   vertical-align: middle;
 }
 
 .patient-records-table th {
-  background: #eff5fa;
-  color: #536985;
-  font-size: 0.59rem;
+  background: #f8f1e2;
+  color: #706b61;
+  font-size: 0.72rem;
   font-weight: 850;
   text-transform: uppercase;
 }
@@ -559,7 +559,7 @@ watch(pageCount, (count) => {
 }
 
 .patient-records-table tbody tr:hover {
-  background: #f9fcff;
+  background: #fcfbf8;
 }
 
 .patient-record-number {
@@ -575,15 +575,15 @@ watch(pageCount, (count) => {
 }
 
 .patient-record-treatment strong {
-  color: #142e53;
+  color: #171511;
   line-height: 1.3;
 }
 
 .patient-record-treatment small,
 .patient-record-notes small {
   margin-top: 3px;
-  color: #70839b;
-  font-size: 0.61rem;
+  color: #706b61;
+  font-size: 0.72rem;
 }
 
 .patient-record-notes {
@@ -604,10 +604,10 @@ watch(pageCount, (count) => {
   min-width: 68px;
   min-height: 34px;
   padding: 6px 12px;
-  border: 1px solid #d4e7fb;
+  border: 1px solid #e8dfd0;
   border-radius: 6px;
-  background: #eef6ff;
-  color: #1170dd;
+  background: #f8f1e2;
+  color: #7a581f;
   font: inherit;
   font-weight: 800;
   cursor: pointer;
@@ -615,9 +615,9 @@ watch(pageCount, (count) => {
 
 .patient-record-actions button:hover,
 .patient-record-actions button:focus-visible {
-  border-color: #1475e4;
+  border-color: #c49a46;
   outline: 0;
-  background: #1475e4;
+  background: #171511;
   color: #fff;
 }
 
@@ -637,8 +637,8 @@ watch(pageCount, (count) => {
   margin: 0 auto 10px;
   place-items: center;
   border-radius: 8px;
-  background: #eaf4ff;
-  color: #1475e4;
+  background: #f8f1e2;
+  color: #7a581f;
 }
 
 .patient-records-empty-row strong,
@@ -648,7 +648,7 @@ watch(pageCount, (count) => {
 
 .patient-records-empty-row small {
   margin-top: 4px;
-  color: #70839b;
+  color: #706b61;
 }
 
 .patient-records-footer {
@@ -662,8 +662,8 @@ watch(pageCount, (count) => {
 
 .patient-records-footer p {
   margin: 0;
-  color: #657c98;
-  font-size: 0.68rem;
+  color: #706b61;
+  font-size: 0.72rem;
 }
 
 .patient-records-footer nav {
@@ -677,10 +677,10 @@ watch(pageCount, (count) => {
   height: 34px;
   place-items: center;
   padding: 0;
-  border: 1px solid #dce6f0;
+  border: 1px solid #e8dfd0;
   border-radius: 6px;
   background: #fff;
-  color: #3f5a7c;
+  color: #706b61;
   font: inherit;
   font-weight: 800;
   cursor: pointer;
@@ -689,14 +689,14 @@ watch(pageCount, (count) => {
 .patient-records-footer nav button:hover:not(:disabled),
 .patient-records-footer nav button:focus-visible,
 .patient-records-footer nav button.active {
-  border-color: #1475e4;
+  border-color: #c49a46;
   outline: 0;
-  background: #1475e4;
+  background: #171511;
   color: #fff;
 }
 
 .patient-records-footer nav button:disabled {
-  color: #b4c0ce;
+  color: #a9a39b;
   cursor: not-allowed;
 }
 
@@ -713,7 +713,7 @@ watch(pageCount, (count) => {
   display: flex;
   align-items: center;
   gap: 9px;
-  color: #1475e4;
+  color: #7a581f;
 }
 
 .patient-record-summary h2 {
@@ -739,21 +739,21 @@ watch(pageCount, (count) => {
   height: 42px;
   place-items: center;
   border-radius: 7px;
-  background: #eaf4ff;
-  color: #1475e4;
+  background: #f8f1e2;
+  color: #7a581f;
 }
 
 .patient-record-summary-list .tone-gold {
-  background: #fff3dd;
-  color: #d88900;
+  background: #f8f1e2;
+  color: #7a581f;
 }
 .patient-record-summary-list .tone-green {
-  background: #e2f8ed;
-  color: #0d9b5c;
+  background: #e9f9ef;
+  color: #147347;
 }
 .patient-record-summary-list .tone-cyan {
-  background: #e4f7fb;
-  color: #078ea7;
+  background: #f8f1e2;
+  color: #7a581f;
 }
 
 .patient-record-summary-list p,
@@ -764,14 +764,14 @@ watch(pageCount, (count) => {
 }
 
 .patient-record-summary-list strong {
-  color: #172d50;
+  color: #171511;
   font-size: 0.88rem;
 }
 
 .patient-record-summary-list small,
 .patient-record-care-note span {
-  color: #697e99;
-  font-size: 0.65rem;
+  color: #706b61;
+  font-size: 0.72rem;
 }
 
 .patient-record-balance {
@@ -781,8 +781,8 @@ watch(pageCount, (count) => {
   margin-top: 14px;
   padding: 10px;
   border-radius: 7px;
-  background: #f3f7fc;
-  color: #5b7190;
+  background: #f8f1e2;
+  color: #706b61;
 }
 
 .patient-record-balance span {
@@ -791,11 +791,11 @@ watch(pageCount, (count) => {
 }
 
 .patient-record-balance small {
-  font-size: 0.59rem;
+  font-size: 0.72rem;
 }
 
 .patient-record-balance strong {
-  color: #172d50;
+  color: #171511;
   font-size: 0.72rem;
 }
 
@@ -806,13 +806,13 @@ watch(pageCount, (count) => {
   align-items: center;
   gap: 11px;
   padding: 14px;
-  background: #eff7ff;
-  color: #1475e4;
+  background: #f8f1e2;
+  color: #7a581f;
 }
 
 .patient-record-care-note strong {
-  color: #174d9b;
-  font-size: 0.69rem;
+  color: #7a581f;
+  font-size: 0.72rem;
 }
 
 :global(html[data-dashboard-theme="dark"]) .patient-records-page {
@@ -851,19 +851,24 @@ watch(pageCount, (count) => {
 
 :global(html[data-dashboard-theme="dark"]) .patient-records-table th {
   color: var(--dashboard-muted);
-  background: #1e2d3f;
+  background: #24211c;
 }
 
 :global(html[data-dashboard-theme="dark"]) .patient-records-table {
-  color: #dce7f5;
+  color: #f8f1e2;
 }
 
 :global(html[data-dashboard-theme="dark"]) .patient-records-table tbody tr:hover {
-  background: #1b293a;
+  background: #24211c;
 }
 
 :global(html[data-dashboard-theme="dark"]) :is(.patient-record-balance, .patient-record-care-note) {
-  background: #1d2c3e;
+  background: #24211c;
+}
+
+:global(html[data-dashboard-theme="dark"])
+  :is(.patient-records-kicker, .patient-record-summary > header, .patient-record-care-note strong) {
+  color: #c49a46;
 }
 
 @media (max-width: 1180px) {
@@ -896,7 +901,7 @@ watch(pageCount, (count) => {
     min-height: 0;
     align-items: flex-start;
     gap: 12px;
-    border: 1px solid #dce7f2;
+    border: 1px solid #e8dfd0;
     border-radius: 8px;
     padding: 16px;
   }
@@ -918,7 +923,7 @@ watch(pageCount, (count) => {
   }
 
   .patient-history-heading {
-    border: 1px solid #dce7f2;
+    border: 1px solid #e8dfd0;
     border-radius: 8px;
     background: #fff;
     padding: 14px;
@@ -955,7 +960,7 @@ watch(pageCount, (count) => {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     overflow: hidden;
-    border: 1px solid #dce7f2;
+    border: 1px solid #e8dfd0;
     border-radius: 8px;
     background: #fff;
   }
@@ -971,8 +976,8 @@ watch(pageCount, (count) => {
   }
 
   .patient-records-table td::before {
-    color: #71849c;
-    font-size: 0.56rem;
+    color: #706b61;
+    font-size: 0.72rem;
     font-weight: 850;
     text-transform: uppercase;
     content: attr(data-label);
@@ -1024,7 +1029,7 @@ watch(pageCount, (count) => {
     align-items: stretch;
     flex-direction: column;
     margin-top: 10px;
-    border: 1px solid #dce7f2;
+    border: 1px solid #e8dfd0;
     border-radius: 8px;
     background: #fff;
   }

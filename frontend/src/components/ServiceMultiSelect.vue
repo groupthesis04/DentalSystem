@@ -129,7 +129,7 @@ onBeforeUnmount(() => {
 .service-multi-select {
   position: relative;
   min-width: 0;
-  color: #102849;
+  color: #171511;
   font: inherit;
 }
 
@@ -141,9 +141,9 @@ onBeforeUnmount(() => {
   justify-content: space-between;
   gap: 10px;
   padding: 10px 12px;
-  border: 1px solid #cfdee5;
+  border: 1px solid #e8dfd0;
   border-radius: 8px;
-  color: #263e55;
+  color: #29241d;
   background: #fff;
   font: inherit;
   text-align: left;
@@ -152,8 +152,8 @@ onBeforeUnmount(() => {
 
 .service-multi-trigger:hover,
 .service-multi-trigger:focus-visible {
-  border-color: #087e96;
-  outline: 3px solid rgb(8 126 150 / 14%);
+  border-color: #c49a46;
+  outline: 3px solid rgb(196 154 70 / 18%);
 }
 
 .service-multi-trigger[aria-invalid="true"] {
@@ -161,8 +161,8 @@ onBeforeUnmount(() => {
 }
 
 .service-multi-trigger:disabled {
-  color: #60728a;
-  background: #f4f7f9;
+  color: #817869;
+  background: #f4f1eb;
   cursor: not-allowed;
 }
 
@@ -182,10 +182,10 @@ onBeforeUnmount(() => {
   max-height: min(280px, 45vh);
   overflow-y: auto;
   padding: 5px;
-  border: 1px solid #cfdde8;
+  border: 1px solid #e8dfd0;
   border-radius: 8px;
   background: #fff;
-  box-shadow: 0 14px 28px rgb(16 40 73 / 16%);
+  box-shadow: 0 14px 28px rgb(23 21 17 / 16%);
 }
 
 .service-multi-option {
@@ -197,7 +197,7 @@ onBeforeUnmount(() => {
   padding: 7px 9px;
   border: 0;
   border-radius: 5px;
-  color: #102849;
+  color: #171511;
   background: transparent;
   font: inherit;
   text-align: left;
@@ -207,7 +207,7 @@ onBeforeUnmount(() => {
 .service-multi-option:hover,
 .service-multi-option:focus-visible {
   outline: 0;
-  background: #e9f5fa;
+  background: #f8f1e2;
 }
 
 .service-multi-check {
@@ -216,13 +216,13 @@ onBeforeUnmount(() => {
   height: 17px;
   flex: 0 0 auto;
   place-items: center;
-  border: 1px solid #8caac0;
+  border: 1px solid #b5a483;
   border-radius: 4px;
 }
 
 .service-multi-option[aria-checked="true"] .service-multi-check {
   color: #fff;
-  border-color: #087e96;
-  background: #087e96;
+  border-color: #9d7428;
+  background: #9d7428;
 }
 </style>

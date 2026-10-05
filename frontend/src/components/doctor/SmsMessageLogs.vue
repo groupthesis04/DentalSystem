@@ -1,12 +1,15 @@
 <script setup>
 import {
+  Bell,
   CalendarDays,
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
   Clock3,
+  CreditCard,
   Eye,
   FileText,
+  Filter,
   Info,
   MessageCircleMore,
   RefreshCw,
@@ -26,6 +29,8 @@ import { showToast } from "../../services/toast";
 
 const root = ref(null);
 const detailsPanel = ref(null);
+const filtersPanel = ref(null);
+const filtersExpanded = ref(false);
 const result = ref(null);
 const selectedId = ref("");
 const loading = ref(true);
@@ -49,6 +54,15 @@ const types = {
   balance: "Payment Reminder",
   cancellation: "Appointment Cancelled",
   manual: "Manual Clinic Message",
+};
+const typeIcons = {
+  booking: CalendarDays,
+  approval: CheckCircle2,
+  walk_in: UserRound,
+  next_visit: Bell,
+  balance: CreditCard,
+  cancellation: XCircle,
+  manual: MessageCircleMore,
 };
 const statuses = {
   pending: "Pending",
@@ -207,6 +221,13 @@ function refresh() {
 function clearFilters() {
   Object.assign(filters, { q: "", rule: "", status: "", source: "", date_from: "", date_to: "" });
 }
+async function openFilters() {
+  if (!filtersPanel.value) return;
+  filtersPanel.value.open = true;
+  await nextTick();
+  filtersPanel.value.scrollIntoView({ block: "start", behavior: "smooth" });
+  filtersPanel.value.querySelector("summary")?.focus({ preventScroll: true });
+}
 function changePage(value) {
   if (value < 1 || value > pages.value || loading.value) return;
   page.value = value;
@@ -287,81 +308,7 @@ onBeforeUnmount(() => {
 
 <template>
   <section ref="root" class="sms-log-page" aria-labelledby="message-log-title">
-    <header class="log-page-heading">
-      <MessageCircleMore :size="34" />
-      <div>
-        <h1 id="message-log-title">Message Log</h1>
-        <p>SMS activity, delivery status, and message history</p>
-      </div>
-    </header>
-
-    <div class="log-metrics">
-      <article v-for="metric in metrics" :key="metric.label">
-        <span class="log-metric-icon" :class="metric.color"
-          ><component :is="metric.icon" :size="25"
-        /></span>
-        <div>
-          <h2>{{ metric.label }}</h2>
-          <strong>{{ metric.value ?? "--" }}</strong
-          ><small>{{ metric.detail }}</small>
-        </div>
-      </article>
-    </div>
-
-    <form class="log-filters" aria-label="Filter SMS messages" @submit.prevent="refresh">
-      <label class="log-search"
-        >Recipient or mobile number
-        <span class="log-search-input"
-          ><Search :size="16" /><input
-            v-model="filters.q"
-            type="search"
-            maxlength="120"
-            placeholder="Search recipient or number..."
-        /></span>
-      </label>
-      <label
-        >Message Type<select v-model="filters.rule">
-          <option value="">All Types</option>
-          <option v-for="(label, key) in types" :key="key" :value="key">{{ label }}</option>
-        </select></label
-      >
-      <label
-        >Delivery Status<select v-model="filters.status">
-          <option value="">All Statuses</option>
-          <option v-for="(label, key) in statuses" :key="key" :value="key">{{ label }}</option>
-        </select></label
-      >
-      <label
-        >Source<select v-model="filters.source">
-          <option value="">All Sources</option>
-          <option v-for="(label, key) in sources" :key="key" :value="key">{{ label }}</option>
-        </select></label
-      >
-      <fieldset class="log-date-range">
-        <legend>Date Range</legend>
-        <div>
-          <input
-            v-model="filters.date_from"
-            type="date"
-            aria-label="From date"
-            :max="filters.date_to || undefined"
-          /><span aria-hidden="true">to</span
-          ><input
-            v-model="filters.date_to"
-            type="date"
-            aria-label="To date"
-            :min="filters.date_from || undefined"
-          />
-        </div>
-      </fieldset>
-      <div class="log-filter-actions">
-        <button type="button" :disabled="!hasFilters" @click="clearFilters">
-          <X :size="15" />Clear</button
-        ><button type="submit" class="primary" :disabled="loading || !!invalidDates">
-          <RefreshCw :size="15" :class="{ spinning: loading }" />Refresh
-        </button>
-      </div>
-    </form>
+    <h1 id="message-log-title" class="log-visually-hidden">Message Log</h1>
     <p v-if="invalidDates" class="log-error" role="alert">
       The start date must be on or before the end date.
     </p>
@@ -379,6 +326,16 @@ onBeforeUnmount(() => {
             </h2>
             <p>{{ hasFilters ? "Filtered SMS activity" : "All clinic SMS messages" }}</p>
           </div>
+          <button
+            type="button"
+            class="log-filter-shortcut"
+            aria-controls="log-tools"
+            aria-label="Open message filters and overview"
+            :aria-expanded="filtersExpanded"
+            @click="openFilters"
+          >
+            <Filter :size="15" /><span>Filters &amp; overview</span>
+          </button>
           <span v-if="loading" class="log-updating" role="status">Loading...</span>
         </header>
         <div class="log-table-scroll" tabindex="0" aria-label="SMS message table">
@@ -428,9 +385,14 @@ onBeforeUnmount(() => {
                 </td>
                 <td>
                   <span class="mobile-log-label">Message Type</span>
-                  <span class="log-type" :class="item.rule">{{
-                    types[item.rule] || item.name
-                  }}</span>
+                  <span class="log-type" :class="item.rule">
+                    <component
+                      :is="typeIcons[item.rule] || MessageCircleMore"
+                      :size="15"
+                      aria-hidden="true"
+                    />
+                    {{ types[item.rule] || item.name }}
+                  </span>
                 </td>
                 <td>
                   <span class="mobile-log-label">Message Preview</span>
@@ -630,6 +592,87 @@ onBeforeUnmount(() => {
       </aside>
     </div>
 
+    <details
+      id="log-tools"
+      ref="filtersPanel"
+      class="log-tools"
+      @toggle="filtersExpanded = $event.target.open"
+    >
+      <summary>
+        <Filter :size="17" />Search, filters &amp; SMS overview
+        <ChevronRight class="log-tools-chevron" :size="17" />
+      </summary>
+      <div class="log-tools-body">
+        <div class="log-metrics">
+          <article v-for="metric in metrics" :key="metric.label">
+            <span class="log-metric-icon" :class="metric.color"
+              ><component :is="metric.icon" :size="25"
+            /></span>
+            <div>
+              <h2>{{ metric.label }}</h2>
+              <strong>{{ metric.value ?? "--" }}</strong
+              ><small>{{ metric.detail }}</small>
+            </div>
+          </article>
+        </div>
+
+        <form class="log-filters" aria-label="Filter SMS messages" @submit.prevent="refresh">
+          <label class="log-search"
+            >Recipient or mobile number
+            <span class="log-search-input"
+              ><Search :size="16" /><input
+                v-model="filters.q"
+                type="search"
+                maxlength="120"
+                placeholder="Search recipient or number..."
+            /></span>
+          </label>
+          <label
+            >Message Type<select v-model="filters.rule">
+              <option value="">All Types</option>
+              <option v-for="(label, key) in types" :key="key" :value="key">{{ label }}</option>
+            </select></label
+          >
+          <label
+            >Delivery Status<select v-model="filters.status">
+              <option value="">All Statuses</option>
+              <option v-for="(label, key) in statuses" :key="key" :value="key">{{ label }}</option>
+            </select></label
+          >
+          <label
+            >Source<select v-model="filters.source">
+              <option value="">All Sources</option>
+              <option v-for="(label, key) in sources" :key="key" :value="key">{{ label }}</option>
+            </select></label
+          >
+          <fieldset class="log-date-range">
+            <legend>Date Range</legend>
+            <div>
+              <input
+                v-model="filters.date_from"
+                type="date"
+                aria-label="From date"
+                :max="filters.date_to || undefined"
+              /><span aria-hidden="true">to</span
+              ><input
+                v-model="filters.date_to"
+                type="date"
+                aria-label="To date"
+                :min="filters.date_from || undefined"
+              />
+            </div>
+          </fieldset>
+          <div class="log-filter-actions">
+            <button type="button" :disabled="!hasFilters" @click="clearFilters">
+              <X :size="15" />Clear</button
+            ><button type="submit" class="primary" :disabled="loading || !!invalidDates">
+              <RefreshCw :size="15" :class="{ spinning: loading }" />Refresh
+            </button>
+          </div>
+        </form>
+      </div>
+    </details>
+
     <BaseModal
       v-if="resendTarget"
       title="Resend Message"
@@ -663,9 +706,20 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .sms-log-page {
-  color: var(--dashboard-text, #132d50);
+  color: var(--dashboard-text, #171511);
   scroll-margin-top: 180px;
   letter-spacing: 0;
+}
+.log-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 .sms-log-page *,
 .log-resend-confirm * {
@@ -674,25 +728,8 @@ onBeforeUnmount(() => {
 .sms-log-page svg {
   flex-shrink: 0;
 }
-.log-page-heading {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  margin-bottom: 18px;
-}
-.log-page-heading > svg,
 .log-panel-heading > svg {
-  color: #0876ef;
-}
-.log-page-heading h1 {
-  font-size: 25px;
-  line-height: 1.25;
-  margin: 0;
-}
-.log-page-heading p {
-  font-size: 12px;
-  color: var(--dashboard-muted, #627da1);
-  margin: 5px 0 0;
+  color: #8a6526;
 }
 .log-metrics {
   display: grid;
@@ -706,9 +743,9 @@ onBeforeUnmount(() => {
   gap: 13px;
   min-width: 0;
   padding: 17px 14px;
-  border: 1px solid var(--dashboard-border, #dbe6f2);
+  border: 1px solid var(--dashboard-border, #f4e7cd);
   border-radius: 6px;
-  background: var(--surface, #fff);
+  background: var(--surface, #ffffff);
 }
 .log-metrics article > div {
   min-width: 0;
@@ -728,7 +765,7 @@ onBeforeUnmount(() => {
 .log-metrics small {
   display: block;
   font-size: 10px;
-  color: var(--dashboard-muted, #627da1);
+  color: var(--dashboard-muted, #706b61);
   line-height: 1.5;
 }
 .log-metric-icon {
@@ -740,24 +777,24 @@ onBeforeUnmount(() => {
   flex-shrink: 0;
 }
 .blue {
-  background: #e7f3ff;
-  color: #0876ef;
+  background: #f8f1e2;
+  color: #8a6526;
 }
 .green {
-  background: #e6f8ef;
-  color: #0baf75;
+  background: #f4e7cd;
+  color: #8a6526;
 }
 .red {
   background: #fff0f3;
   color: #ec4267;
 }
 .amber {
-  background: #fff3e4;
-  color: #e18b13;
+  background: #f8f1e2;
+  color: #8a6526;
 }
 .violet {
-  background: #f1eaff;
-  color: #8851e1;
+  background: #f8f1e2;
+  color: #8a6526;
 }
 .log-filters {
   display: grid;
@@ -767,14 +804,14 @@ onBeforeUnmount(() => {
   gap: 12px;
   align-items: end;
   padding: 15px 0;
-  margin-bottom: 16px;
-  border-block: 1px solid var(--dashboard-border, #dbe6f2);
+  margin-bottom: 0;
+  border-block: 1px solid var(--dashboard-border, #f4e7cd);
 }
 .log-filters label {
   display: grid;
   gap: 6px;
   min-width: 0;
-  color: var(--dashboard-muted, #627da1);
+  color: var(--dashboard-muted, #706b61);
   font-size: 11px;
 }
 .sms-log-page input,
@@ -783,9 +820,9 @@ onBeforeUnmount(() => {
   font-size: 12px;
   font-weight: 400;
   letter-spacing: 0;
-  color: var(--dashboard-text, #132d50);
-  background: var(--surface, #fff);
-  border: 1px solid var(--dashboard-border, #dbe6f2);
+  color: var(--dashboard-text, #171511);
+  background: var(--surface, #ffffff);
+  border: 1px solid var(--dashboard-border, #f4e7cd);
   border-radius: 5px;
   height: 37px;
   width: 100%;
@@ -809,18 +846,18 @@ onBeforeUnmount(() => {
   font-weight: 500;
   letter-spacing: 0;
   line-height: 1.25;
-  color: #0876ef;
-  border: 1px solid var(--dashboard-border, #dbe6f2);
+  color: #8a6526;
+  border: 1px solid var(--dashboard-border, #f4e7cd);
   border-radius: 5px;
-  background: var(--surface, #fff);
+  background: var(--surface, #ffffff);
   box-shadow: none;
   cursor: pointer;
   white-space: nowrap;
 }
 .sms-log-page button:hover:not(:disabled),
 .log-resend-confirm button:hover:not(:disabled) {
-  background: #eff6ff;
-  border-color: #93bbff;
+  background: #f8f1e2;
+  border-color: #dfc48a;
 }
 .sms-log-page button:disabled,
 .log-resend-confirm button:disabled {
@@ -829,18 +866,18 @@ onBeforeUnmount(() => {
 }
 .sms-log-page button.primary,
 .log-resend-confirm button.primary {
-  background: #0876ef;
-  border-color: #0876ef;
-  color: #fff;
+  background: #8a6526;
+  border-color: #8a6526;
+  color: #ffffff;
 }
 .sms-log-page button.primary:hover:not(:disabled),
 .log-resend-confirm button.primary:hover:not(:disabled) {
-  background: #0862c4;
+  background: #8a6526;
 }
 .sms-log-page :is(button, input, select):focus-visible,
 .log-details:focus-visible,
 .log-table-scroll:focus-visible {
-  outline: 2px solid #0876ef;
+  outline: 2px solid #8a6526;
   outline-offset: 2px;
 }
 .log-search-input {
@@ -851,7 +888,7 @@ onBeforeUnmount(() => {
   position: absolute;
   left: 10px;
   top: 11px;
-  color: #0876ef;
+  color: #8a6526;
 }
 .log-search-input input {
   padding-left: 33px;
@@ -864,7 +901,7 @@ onBeforeUnmount(() => {
 }
 .log-date-range legend {
   font-size: 11px;
-  color: var(--dashboard-muted, #627da1);
+  color: var(--dashboard-muted, #706b61);
   padding: 0;
   margin-bottom: 6px;
 }
@@ -875,7 +912,7 @@ onBeforeUnmount(() => {
 }
 .log-date-range span {
   font-size: 10px;
-  color: var(--dashboard-muted, #627da1);
+  color: var(--dashboard-muted, #706b61);
 }
 .log-date-range input {
   font-size: 11px;
@@ -888,46 +925,97 @@ onBeforeUnmount(() => {
 .log-filter-actions button {
   padding-inline: 10px;
 }
+.log-tools {
+  margin-top: 16px;
+  border: 1px solid var(--dashboard-border, #e8e0d2);
+  border-radius: 10px;
+  background: var(--surface, #ffffff);
+  scroll-margin-top: 20px;
+}
+.log-tools summary {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 13px 17px;
+  color: #8a6526;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.log-tools summary::marker {
+  content: "";
+}
+.log-tools-chevron {
+  margin-left: auto;
+  transition: transform 150ms ease;
+}
+.log-tools[open] .log-tools-chevron {
+  transform: rotate(90deg);
+}
+.log-tools summary:focus-visible {
+  outline: 2px solid #8a6526;
+  outline-offset: 2px;
+}
+.log-tools-body {
+  padding: 0 16px 16px;
+}
 .log-workspace {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 310px;
-  align-items: start;
-  gap: 16px;
+  grid-template-columns: minmax(0, 1fr) 380px;
+  align-items: stretch;
+  gap: 18px;
 }
 .log-table-panel,
 .log-details {
   min-width: 0;
-  background: var(--surface, #fff);
-  border: 1px solid var(--dashboard-border, #dbe6f2);
-  border-radius: 6px;
+  background: var(--surface, #ffffff);
+  border: 1px solid var(--dashboard-border, #e8e0d2);
+  border-radius: 10px;
   overflow: hidden;
+}
+.log-details {
+  display: flex;
+  flex-direction: column;
 }
 .log-panel-heading {
   display: flex;
   align-items: center;
-  gap: 11px;
-  padding: 16px;
+  gap: 13px;
+  min-height: 77px;
+  padding: 13px 17px;
   min-width: 0;
 }
+.log-table-panel .log-panel-heading > svg {
+  width: 48px;
+  height: 48px;
+  padding: 10px;
+  border-radius: 50%;
+  background: #fff4df;
+}
 .log-panel-heading h2 {
-  font-size: 15px;
-  line-height: 1.4;
+  font-size: 18px;
+  line-height: 1.25;
   margin: 0;
 }
 .log-panel-heading h2 span {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 500;
-  color: var(--dashboard-muted, #627da1);
+  color: var(--dashboard-muted, #706b61);
 }
 .log-panel-heading p {
-  margin: 3px 0 0;
-  font-size: 10px;
-  color: var(--dashboard-muted, #627da1);
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--dashboard-muted, #706b61);
+}
+.log-filter-shortcut {
+  margin-left: auto;
+  min-height: 30px !important;
+  padding: 5px 8px !important;
+  font-size: 11px !important;
 }
 .log-updating {
-  margin-left: auto;
   font-size: 11px;
-  color: var(--dashboard-muted, #627da1);
+  color: var(--dashboard-muted, #706b61);
 }
 .log-table-scroll {
   width: 100%;
@@ -936,25 +1024,26 @@ onBeforeUnmount(() => {
 .sms-log-page table {
   table-layout: fixed;
   width: 100%;
-  min-width: 850px;
+  min-width: 920px;
   border-collapse: collapse;
 }
 .sms-log-page th {
   text-align: left;
-  background: #eff5fb;
-  color: #557294;
-  font-size: 9px;
-  font-weight: 600;
+  background: #fbf5e9;
+  color: #625950;
+  font-size: 10px;
+  font-weight: 700;
   text-transform: uppercase;
   line-height: 1.4;
-  padding: 10px 8px;
-  border-block: 1px solid var(--dashboard-border, #dbe6f2);
+  padding: 13px 12px;
+  border-block: 1px solid var(--dashboard-border, #f4e7cd);
 }
 .sms-log-page td {
-  font-size: 11px;
+  height: 63px;
+  font-size: 12px;
   line-height: 1.45;
-  padding: 11px 8px;
-  border-bottom: 1px solid var(--dashboard-border, #dbe6f2);
+  padding: 11px 12px;
+  border-bottom: 1px solid var(--dashboard-border, #f4e7cd);
   overflow-wrap: anywhere;
 }
 .mobile-log-label {
@@ -962,19 +1051,19 @@ onBeforeUnmount(() => {
 }
 .sms-log-page td + td,
 .sms-log-page th + th {
-  border-left: 1px solid var(--dashboard-border, #dbe6f2);
+  border-left: 1px solid var(--dashboard-border, #f4e7cd);
 }
 .sms-log-page tbody tr:not(:has(.log-empty)) {
   cursor: pointer;
 }
 .sms-log-page tbody tr.selected {
-  background: #edf6ff;
+  background: #f8f1e2;
 }
 .sms-log-page tbody tr:hover:not(.selected):not(:has(.log-empty)) {
-  background: #f7fbff;
+  background: #f8f1e2;
 }
 .col-date {
-  width: 12%;
+  width: 11%;
 }
 .col-recipient {
   width: 13%;
@@ -983,16 +1072,16 @@ onBeforeUnmount(() => {
   width: 13%;
 }
 .col-type {
-  width: 15%;
+  width: 18%;
 }
 .col-preview {
   width: 17%;
 }
 .col-source {
-  width: 10%;
+  width: 9%;
 }
 .col-status {
-  width: 11%;
+  width: 10%;
 }
 .col-actions {
   width: 9%;
@@ -1000,47 +1089,57 @@ onBeforeUnmount(() => {
 .sms-log-page td small {
   display: block;
   font-size: 10px;
-  color: var(--dashboard-muted, #627da1);
+  color: var(--dashboard-muted, #706b61);
   margin-top: 2px;
 }
 .recipient-cell {
-  font-weight: 500;
+  font-weight: 600;
 }
 .phone-cell {
   font-variant-numeric: tabular-nums;
 }
 .log-type {
-  display: inline-block;
-  font-size: 10px;
-  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  max-width: 100%;
+  font-size: 11px;
+  font-weight: 600;
   line-height: 1.45;
-  padding: 3px 5px;
-  border-radius: 4px;
+  padding: 5px 8px;
+  border-radius: 7px;
   overflow-wrap: anywhere;
 }
+.log-type svg {
+  flex: 0 0 auto;
+}
 .booking {
-  color: #0671d7;
-  background: #e0f0ff;
+  color: #6038e8;
+  background: #f0eaff;
 }
 .approval {
-  color: #07865c;
-  background: #dff7ee;
+  color: #087544;
+  background: #e1f8ec;
 }
 .walk_in {
-  color: #7841c7;
-  background: #f1e6ff;
+  color: #1767e2;
+  background: #e8f0ff;
 }
 .next_visit {
-  color: #b06217;
-  background: #fff0df;
+  color: #ae6908;
+  background: #fff2da;
 }
 .balance {
-  color: #b03777;
-  background: #ffe8f2;
+  color: #ae6908;
+  background: #fff2da;
 }
 .cancellation {
-  color: #c73b54;
-  background: #ffe8ed;
+  color: #e81848;
+  background: #ffe5eb;
+}
+.manual {
+  color: #8a6526;
+  background: #f8f1e2;
 }
 .log-preview {
   display: -webkit-box;
@@ -1065,29 +1164,32 @@ onBeforeUnmount(() => {
   background: currentColor;
 }
 .log-status.delivered {
-  color: #009868;
+  color: #8a6526;
 }
 .log-status.sent {
-  color: #08769d;
+  color: #8a6526;
 }
 .log-status.pending {
-  color: #086ee6;
+  color: #bb7100;
+}
+.log-status.pending i {
+  background: #f2ab00;
 }
 .log-status.failed {
   color: #d63251;
 }
 .log-status.not_sent {
-  color: #778195;
+  color: #706b61;
 }
 .log-row-actions {
   display: flex;
   justify-content: center;
-  gap: 2px;
+  gap: 5px;
 }
 .log-row-actions button {
-  min-height: 28px;
-  height: 28px;
-  width: 28px;
+  min-height: 30px;
+  height: 30px;
+  width: 30px;
   padding: 0;
   border: 0;
   background: transparent;
@@ -1099,12 +1201,12 @@ onBeforeUnmount(() => {
   height: 300px;
   text-align: center;
   padding: 35px;
-  color: var(--dashboard-muted, #627da1);
+  color: var(--dashboard-muted, #706b61);
 }
 .log-empty svg {
   display: block;
   margin: 0 auto 12px;
-  color: #9abde3;
+  color: #dfc48a;
 }
 .log-empty strong {
   font-size: 14px;
@@ -1123,7 +1225,7 @@ onBeforeUnmount(() => {
 .log-pagination p {
   font-size: 10px;
   margin: 0;
-  color: var(--dashboard-muted, #627da1);
+  color: var(--dashboard-muted, #706b61);
 }
 .log-pagination nav {
   display: flex;
@@ -1137,8 +1239,8 @@ onBeforeUnmount(() => {
   font-size: 11px;
 }
 .log-pagination nav button.current {
-  background: #0876ef;
-  border-color: #0876ef;
+  background: #8a6526;
+  border-color: #8a6526;
   color: white;
 }
 .page-gap {
@@ -1150,7 +1252,7 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 8px;
   font-size: 10px;
-  color: var(--dashboard-muted, #627da1);
+  color: var(--dashboard-muted, #706b61);
 }
 .log-pagination select {
   width: 55px;
@@ -1162,14 +1264,17 @@ onBeforeUnmount(() => {
   scroll-margin-top: 175px;
 }
 .log-details .log-panel-heading {
-  padding: 16px 13px 13px;
-  gap: 9px;
+  min-height: 76px;
+  padding: 13px 18px;
+  gap: 13px;
+  border-bottom: 1px solid var(--dashboard-border, #f4e7cd);
 }
 .log-details h2 {
-  font-size: 13px;
+  font-size: 16px;
 }
 .log-detail-body {
-  padding: 0 14px 14px;
+  flex: 1;
+  padding: 8px 18px 18px;
 }
 .log-message-meta {
   display: flex;
@@ -1177,55 +1282,55 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  margin: 0 0 17px;
+  margin: 0 0 20px;
 }
 .log-message-meta .log-status {
-  background: #f0f7fc;
-  padding: 2px 7px;
-  border-radius: 4px;
-  font-size: 10px;
+  background: #fff3de;
+  padding: 4px 9px;
+  border-radius: 6px;
+  font-size: 11px;
 }
 .log-message-meta small {
-  font-size: 9px;
-  color: var(--dashboard-muted, #627da1);
+  font-size: 10px;
+  color: var(--dashboard-muted, #706b61);
   overflow-wrap: anywhere;
 }
 .log-detail-fields {
-  margin: 0 0 22px;
+  margin: 0 0 24px;
   display: grid;
-  gap: 10px;
+  gap: 16px;
 }
 .log-detail-fields > div {
   display: grid;
-  grid-template-columns: 102px minmax(0, 1fr);
-  gap: 8px;
+  grid-template-columns: 136px minmax(0, 1fr);
+  gap: 10px;
 }
 .log-detail-fields dt {
   display: flex;
-  gap: 6px;
+  gap: 8px;
   align-items: start;
-  font-size: 10px;
-  color: var(--dashboard-muted, #627da1);
+  font-size: 11px;
+  color: var(--dashboard-muted, #706b61);
 }
 .log-detail-fields dt svg {
-  color: #0876ef;
+  color: #8a6526;
 }
 .log-detail-fields dd {
   margin: 0;
-  font-size: 10px;
-  font-weight: 500;
+  font-size: 11px;
+  font-weight: 600;
   overflow-wrap: anywhere;
 }
 .log-detail-fields dd small {
   display: block;
-  font-size: 9px;
+  font-size: 10px;
   line-height: 1.5;
   font-weight: 400;
-  margin-top: 3px;
-  color: var(--dashboard-muted, #627da1);
+  margin-top: 5px;
+  color: var(--dashboard-muted, #706b61);
 }
 .log-detail-body h3 {
-  font-size: 11px;
+  font-size: 14px;
   margin: 0;
 }
 .log-content-heading {
@@ -1233,24 +1338,24 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  margin-bottom: 8px;
+  margin-bottom: 9px;
 }
 .log-content-heading > span {
-  font-size: 9px;
-  color: var(--dashboard-muted, #627da1);
+  font-size: 10px;
+  color: var(--dashboard-muted, #706b61);
 }
 .log-message-content {
-  padding: 12px;
-  border: 1px solid var(--dashboard-border, #dbe6f2);
-  border-radius: 5px;
-  background: #f3f8fe;
+  padding: 14px 16px;
+  border: 1px solid var(--dashboard-border, #f4e7cd);
+  border-radius: 7px;
+  background: #fbf4e6;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.65;
 }
 .log-timeline {
-  margin-top: 19px;
+  margin-top: 25px;
 }
 .log-timeline h3 {
   display: flex;
@@ -1258,20 +1363,20 @@ onBeforeUnmount(() => {
   align-items: center;
 }
 .log-timeline h3 svg {
-  color: #0876ef;
+  color: #8a6526;
 }
 .log-timeline ol {
   list-style: none;
   padding: 0 0 0 5px;
-  margin: 12px 0;
+  margin: 15px 0 10px;
 }
 .log-timeline li {
   display: grid;
-  gap: 3px;
+  gap: 5px;
   position: relative;
-  padding: 0 0 13px 14px;
-  border-left: 1px solid #cee3f6;
-  font-size: 10px;
+  padding: 0 0 18px 16px;
+  border-left: 1px solid #f4e7cd;
+  font-size: 11px;
 }
 .log-timeline li:last-child {
   padding-bottom: 0;
@@ -1280,31 +1385,31 @@ onBeforeUnmount(() => {
 .log-timeline li::before {
   content: "";
   position: absolute;
-  width: 7px;
-  height: 7px;
+  width: 9px;
+  height: 9px;
   border-radius: 50%;
-  background: #0fb47e;
+  background: #8a6526;
   top: 3px;
-  left: -4px;
+  left: -5px;
 }
 .log-timeline li.pending::before {
-  background: #0876ef;
+  background: #8a6526;
 }
 .log-timeline li.failed::before {
   background: #e24466;
 }
 .log-timeline time {
-  color: var(--dashboard-muted, #627da1);
-  font-size: 9px;
+  color: var(--dashboard-muted, #706b61);
+  font-size: 10px;
 }
 .log-delivery-note {
   display: flex;
   align-items: start;
-  gap: 6px;
+  gap: 9px;
   margin: 12px 0 0;
-  font-size: 10px;
+  font-size: 11px;
   line-height: 1.5;
-  color: var(--dashboard-muted, #627da1);
+  color: var(--dashboard-muted, #706b61);
 }
 .log-delivery-note svg {
   margin-top: 1px;
@@ -1312,11 +1417,11 @@ onBeforeUnmount(() => {
 .log-resend-reference {
   font-size: 10px;
   overflow-wrap: anywhere;
-  color: var(--dashboard-muted, #627da1);
+  color: var(--dashboard-muted, #706b61);
 }
 .log-detail-footer {
-  padding: 12px 14px;
-  border-top: 1px solid var(--dashboard-border, #dbe6f2);
+  padding: 12px 18px;
+  border-top: 1px solid var(--dashboard-border, #f4e7cd);
 }
 .log-detail-footer button {
   width: 100%;
@@ -1324,7 +1429,7 @@ onBeforeUnmount(() => {
 .log-detail-footer p {
   font-size: 10px;
   line-height: 1.5;
-  color: var(--dashboard-muted, #627da1);
+  color: var(--dashboard-muted, #706b61);
   margin: 9px 0 0;
 }
 .log-details-empty {
@@ -1336,10 +1441,10 @@ onBeforeUnmount(() => {
   min-height: 310px;
   padding: 22px;
   text-align: center;
-  color: var(--dashboard-muted, #627da1);
+  color: var(--dashboard-muted, #706b61);
 }
 .log-details-empty svg {
-  color: #9abde3;
+  color: #dfc48a;
 }
 .log-details-empty strong {
   font-size: 13px;
@@ -1362,7 +1467,7 @@ onBeforeUnmount(() => {
 }
 .log-resend-confirm {
   padding: 22px;
-  color: var(--dashboard-text, #132d50);
+  color: var(--dashboard-text, #171511);
   font-size: 14px;
   line-height: 1.6;
 }
@@ -1373,7 +1478,7 @@ onBeforeUnmount(() => {
   display: flex;
   justify-content: flex-end;
   gap: 10px;
-  border-top: 1px solid var(--dashboard-border, #dbe6f2);
+  border-top: 1px solid var(--dashboard-border, #f4e7cd);
   padding-top: 16px;
   margin-top: 20px;
 }
@@ -1387,7 +1492,7 @@ onBeforeUnmount(() => {
 }
 @media (min-width: 1750px) {
   .log-workspace {
-    grid-template-columns: minmax(0, 1fr) 360px;
+    grid-template-columns: minmax(0, 1fr) 388px;
   }
   .sms-log-page td {
     font-size: 12px;
@@ -1424,7 +1529,7 @@ onBeforeUnmount(() => {
     font-size: 23px;
   }
 }
-@media (max-width: 1100px) {
+@media (max-width: 1580px) {
   .log-workspace {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -1453,6 +1558,30 @@ onBeforeUnmount(() => {
   }
 }
 @media (max-width: 750px) {
+  .log-panel-heading {
+    gap: 10px;
+    padding: 12px;
+  }
+  .log-table-panel .log-panel-heading > svg {
+    width: 40px;
+    height: 40px;
+    padding: 8px;
+  }
+  .log-panel-heading h2 {
+    font-size: 16px;
+  }
+  .log-panel-heading h2 span,
+  .log-panel-heading p {
+    font-size: 10px;
+  }
+  .log-filter-shortcut {
+    width: 34px;
+    min-width: 34px;
+    padding-inline: 0 !important;
+  }
+  .log-filter-shortcut span {
+    display: none;
+  }
   .log-table-scroll {
     overflow: visible;
   }
@@ -1474,18 +1603,19 @@ onBeforeUnmount(() => {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 11px 12px;
-    border: 1px solid var(--dashboard-border, #dbe6f2);
+    border: 1px solid var(--dashboard-border, #f4e7cd);
     border-radius: 7px;
-    background: var(--surface, #fff);
+    background: var(--surface, #ffffff);
     padding: 12px;
   }
   .sms-log-page table tr.selected {
-    border-color: #b7d7fa;
-    background: #edf6ff;
+    border-color: #f4e7cd;
+    background: #f8f1e2;
   }
   .sms-log-page table td {
     display: block;
     min-width: 0;
+    height: auto;
     border: 0;
     padding: 0;
     font-size: 12px;
@@ -1502,7 +1632,7 @@ onBeforeUnmount(() => {
   .mobile-log-label {
     display: block;
     margin-bottom: 4px;
-    color: var(--dashboard-muted, #627da1);
+    color: var(--dashboard-muted, #706b61);
     font-size: 10px;
     font-weight: 700;
     letter-spacing: 0.04em;
@@ -1522,7 +1652,7 @@ onBeforeUnmount(() => {
     width: 40px;
     height: 40px;
     min-height: 40px;
-    border: 1px solid var(--dashboard-border, #dbe6f2);
+    border: 1px solid var(--dashboard-border, #f4e7cd);
   }
   .sms-log-page table .log-empty-row {
     display: block;
@@ -1559,12 +1689,6 @@ onBeforeUnmount(() => {
   .log-detail-body {
     display: block;
   }
-  .log-page-heading h1 {
-    font-size: 22px;
-  }
-  .log-page-heading p {
-    line-height: 1.5;
-  }
   .log-pagination {
     gap: 12px;
     padding: 13px;
@@ -1589,32 +1713,32 @@ onBeforeUnmount(() => {
 }
 html[data-dashboard-theme="dark"] .sms-log-page th,
 html[data-dashboard-theme="dark"] .log-message-content {
-  background: #202c3c;
-  color: #a5c5ec;
+  background: #28241e;
+  color: #e3c985;
 }
 html[data-dashboard-theme="dark"] .log-message-meta .log-status {
-  background: #202c3c;
+  background: #28241e;
 }
 html[data-dashboard-theme="dark"] .log-status.delivered {
-  color: #58ddb0;
+  color: #dbb86d;
 }
 html[data-dashboard-theme="dark"] .log-status.sent {
-  color: #74d6ed;
+  color: #dbb86d;
 }
 html[data-dashboard-theme="dark"] .log-status.pending {
-  color: #85b9ff;
+  color: #e3c985;
 }
 html[data-dashboard-theme="dark"] .log-status.failed {
   color: #ff9eb0;
 }
 html[data-dashboard-theme="dark"] .log-status.not_sent {
-  color: #b7c5d6;
+  color: #cfc5b3;
 }
 html[data-dashboard-theme="dark"] .sms-log-page tbody tr.selected {
-  background: #203953;
+  background: #3f321e;
 }
 html[data-dashboard-theme="dark"] .sms-log-page tbody tr:hover:not(.selected):not(:has(.log-empty)),
 html[data-dashboard-theme="dark"] .sms-log-page button:hover:not(:disabled):not(.primary) {
-  background: #28384b;
+  background: #28241e;
 }
 </style>

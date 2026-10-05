@@ -274,8 +274,8 @@ onMounted(loadActivity);
   display: inline-block;
   padding: 0.2rem 0.55rem;
   border-radius: 999px;
-  background: #dcfce7;
-  color: #166534;
+  background: #f4e7cd;
+  color: #8a6526;
   font-size: 0.8rem;
   font-weight: 600;
 }
@@ -325,11 +325,11 @@ onMounted(loadActivity);
   cursor: default;
 }
 :global(html[data-dashboard-theme="dark"]) .activity-result {
-  background: #12392c;
-  color: #86efac;
+  background: #241e17;
+  color: #e3c985;
 }
 :global(html[data-dashboard-theme="dark"]) .activity-result.failed {
-  background: #442327;
+  background: #28241e;
   color: #fca5a5;
 }
 @media (max-width: 980px) {

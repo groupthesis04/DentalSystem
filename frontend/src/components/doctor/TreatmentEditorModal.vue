@@ -434,19 +434,19 @@ const remainingBalance = computed(() => {
 <style scoped>
 :global(.patient-treatment-editor-dialog) {
   width: min(1060px, calc(100% - 32px));
-  border-color: #cbd9e9;
+  border-color: #f4e7cd;
   border-radius: 8px;
-  color: #102654;
+  color: #171511;
 }
 
 :global(.patient-treatment-editor-dialog .crud-dialog-header) {
   padding: 20px 26px;
-  border-bottom-color: #dbe4ee;
+  border-bottom-color: #f4e7cd;
 }
 
 :global(.patient-treatment-editor-dialog .crud-dialog-header h2) {
   margin-top: 4px;
-  color: #0b1f55;
+  color: #171511;
   font-size: 1.65rem;
   line-height: 1.08;
 }
@@ -458,13 +458,13 @@ const remainingBalance = computed(() => {
   flex: 0 0 66px;
   place-items: center;
   border-radius: 8px;
-  background: #dfedff;
-  color: #0874e8;
+  background: #f4e7cd;
+  color: #8a6526;
 }
 
 .treatment-modal-subtitle {
   margin: 6px 0 0;
-  color: #55709a;
+  color: #706b61;
   font-size: 0.9rem;
   font-weight: 500;
 }
@@ -480,9 +480,9 @@ const remainingBalance = computed(() => {
   grid-template-columns: minmax(280px, 1.4fr) repeat(3, minmax(140px, 0.8fr));
   align-items: center;
   overflow: hidden;
-  border: 1px solid #c5dbf5;
+  border: 1px solid #f4e7cd;
   border-radius: 8px;
-  background: #f8fbff;
+  background: #f8f1e2;
   padding: 15px;
 }
 
@@ -500,8 +500,8 @@ const remainingBalance = computed(() => {
   flex: 0 0 58px;
   margin: 0;
   border: 0;
-  background: #dbeafe;
-  color: #0874e8;
+  background: #f4e7cd;
+  color: #8a6526;
   font-size: 1.15rem;
 }
 
@@ -514,13 +514,13 @@ const remainingBalance = computed(() => {
 
 .treatment-patient-identity strong {
   overflow-wrap: anywhere;
-  color: #0b1f55;
+  color: #171511;
   font-size: 0.96rem;
 }
 
 .treatment-patient-identity small {
   overflow: hidden;
-  color: #587097;
+  color: #706b61;
   font-size: 0.75rem;
   font-weight: 500;
   text-overflow: ellipsis;
@@ -533,20 +533,20 @@ const remainingBalance = computed(() => {
   min-height: 56px;
   align-items: center;
   gap: 10px;
-  border-left: 1px solid #d1dcea;
+  border-left: 1px solid #f4e7cd;
   padding: 0 14px;
-  color: #0874e8;
+  color: #8a6526;
 }
 
 .treatment-summary-item small {
-  color: #617394;
+  color: #706b61;
   font-size: 0.72rem;
   font-weight: 600;
 }
 
 .treatment-summary-item strong {
   overflow: hidden;
-  color: #102654;
+  color: #171511;
   font-size: 0.78rem;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -561,12 +561,12 @@ const remainingBalance = computed(() => {
   display: flex;
   align-items: center;
   gap: 9px;
-  color: #0874e8;
+  color: #8a6526;
 }
 
 .treatment-editor-section h3 {
   margin: 0;
-  color: #0b1f55;
+  color: #171511;
   font-size: 0.96rem;
 }
 
@@ -582,7 +582,7 @@ const remainingBalance = computed(() => {
   min-width: 0;
   align-content: start;
   gap: 7px;
-  color: #142954;
+  color: #171511;
   font-size: 0.78rem;
   font-weight: 800;
 }
@@ -607,11 +607,11 @@ const remainingBalance = computed(() => {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  border: 1px solid #cdd9e8;
+  border: 1px solid #f4e7cd;
   border-radius: 7px;
-  background: #fff;
+  background: #ffffff;
   padding: 0 13px;
-  color: #152b53;
+  color: #171511;
   cursor: pointer;
   font: inherit;
   font-size: 0.8rem;
@@ -621,9 +621,9 @@ const remainingBalance = computed(() => {
 
 .treatment-service-trigger:focus-visible,
 .treatment-service-trigger[aria-expanded="true"] {
-  border-color: #1683da;
+  border-color: #8a6526;
   outline: 0;
-  box-shadow: 0 0 0 3px rgb(22 131 218 / 12%);
+  box-shadow: 0 0 0 3px rgba(138, 101, 38, 12%);
 }
 
 .treatment-service-trigger svg {
@@ -644,11 +644,11 @@ const remainingBalance = computed(() => {
   z-index: 5;
   max-height: 240px;
   overflow-y: auto;
-  border: 1px solid #cdd9e8;
+  border: 1px solid #f4e7cd;
   border-radius: 7px;
-  background: #fff;
+  background: #ffffff;
   padding: 5px;
-  box-shadow: 0 12px 30px rgb(16 38 84 / 16%);
+  box-shadow: 0 12px 30px rgba(23, 21, 17, 16%);
 }
 
 .treatment-service-option {
@@ -661,7 +661,7 @@ const remainingBalance = computed(() => {
   border-radius: 5px;
   background: transparent;
   padding: 7px 8px;
-  color: #152b53;
+  color: #171511;
   cursor: pointer;
   font: inherit;
   font-size: 0.78rem;
@@ -673,7 +673,7 @@ const remainingBalance = computed(() => {
 .treatment-service-option:hover,
 .treatment-service-option:focus-visible {
   outline: 0;
-  background: #eaf3ff;
+  background: #f8f1e2;
 }
 
 .treatment-service-checkbox {
@@ -682,21 +682,21 @@ const remainingBalance = computed(() => {
   height: 17px;
   flex: 0 0 17px;
   place-items: center;
-  border: 1px solid #8ca2bf;
+  border: 1px solid #aaa194;
   border-radius: 4px;
-  background: #fff;
-  color: #fff;
+  background: #ffffff;
+  color: #ffffff;
 }
 
 .treatment-service-option[aria-checked="true"] .treatment-service-checkbox {
-  border-color: #0874e8;
-  background: #0874e8;
+  border-color: #8a6526;
+  background: #8a6526;
 }
 
 .treatment-service-empty {
   margin: 0;
   padding: 10px;
-  color: #617394;
+  color: #706b61;
   font-size: 0.78rem;
   font-weight: 500;
 }
@@ -718,14 +718,14 @@ const remainingBalance = computed(() => {
   grid-template-columns: minmax(0, 1fr) minmax(230px, 320px);
   align-items: center;
   gap: 18px;
-  border: 1px solid #dbe7f3;
+  border: 1px solid #f4e7cd;
   border-radius: 8px;
-  background: #f8fbff;
+  background: #f8f1e2;
   padding: 13px 15px;
 }
 
 .treatment-next-visit.active {
-  border-color: #acd1f5;
+  border-color: #dfc48a;
 }
 
 .treatment-next-visit-copy {
@@ -737,24 +737,24 @@ const remainingBalance = computed(() => {
 
 .treatment-next-visit-copy > svg {
   flex: 0 0 auto;
-  color: #0874e8;
+  color: #8a6526;
 }
 
 .treatment-next-visit-copy strong {
-  color: #142954;
+  color: #171511;
   font-size: 0.8rem;
 }
 
 .treatment-next-visit-copy strong small {
   margin-left: 5px;
-  color: #7183a0;
+  color: #706b61;
   font-size: 0.72rem;
   font-weight: 600;
 }
 
 .treatment-next-visit-copy p {
   margin: 4px 0 0;
-  color: #587097;
+  color: #706b61;
   font-size: 0.74rem;
   font-weight: 500;
   line-height: 1.45;
@@ -769,8 +769,8 @@ const remainingBalance = computed(() => {
 }
 
 .treatment-next-visit-control :deep(.availability-date-trigger) {
-  border-color: #cdd9e8;
-  color: #152b53;
+  border-color: #f4e7cd;
+  color: #171511;
 }
 
 .treatment-next-visit-control > small {
@@ -779,7 +779,7 @@ const remainingBalance = computed(() => {
 }
 
 .treatment-next-visit-hint {
-  color: #7183a0;
+  color: #706b61;
 }
 
 .treatment-next-visit-error {
@@ -790,7 +790,7 @@ const remainingBalance = computed(() => {
   display: grid;
   min-width: 0;
   gap: 7px;
-  color: #142954;
+  color: #171511;
   font-size: 0.78rem;
   font-weight: 800;
 }
@@ -804,7 +804,7 @@ const remainingBalance = computed(() => {
 }
 
 .treatment-editor-form label small {
-  color: #7183a0;
+  color: #706b61;
   font-size: 0.72rem;
   font-weight: 600;
 }
@@ -812,11 +812,11 @@ const remainingBalance = computed(() => {
 .treatment-editor-form :is(input, select, textarea) {
   width: 100%;
   min-width: 0;
-  border: 1px solid #cdd9e8;
+  border: 1px solid #f4e7cd;
   border-radius: 7px;
   outline: 0;
-  background: #fff;
-  color: #152b53;
+  background: #ffffff;
+  color: #171511;
   font: inherit;
   font-size: 0.8rem;
   font-weight: 650;
@@ -834,8 +834,8 @@ const remainingBalance = computed(() => {
 }
 
 .treatment-editor-form :is(input, select, textarea):focus {
-  border-color: #1683da;
-  box-shadow: 0 0 0 3px rgb(22 131 218 / 12%);
+  border-color: #8a6526;
+  box-shadow: 0 0 0 3px rgba(138, 101, 38, 12%);
 }
 
 .treatment-field-heading {
@@ -846,11 +846,11 @@ const remainingBalance = computed(() => {
 
 .treatment-field-heading svg {
   flex: 0 0 auto;
-  color: #0874e8;
+  color: #8a6526;
 }
 
 .treatment-billing-section {
-  border-top: 1px solid #e1e9f1;
+  border-top: 1px solid #f4e7cd;
   padding-top: 14px;
 }
 
@@ -864,7 +864,7 @@ const remainingBalance = computed(() => {
 .treatment-money-input i {
   position: absolute;
   left: 13px;
-  color: #0b2f68;
+  color: #171511;
   font-size: 0.74rem;
   font-style: normal;
   font-weight: 800;
@@ -876,8 +876,8 @@ const remainingBalance = computed(() => {
 }
 
 .treatment-money-input.readonly input {
-  background: #f1f5f9;
-  color: #526580;
+  background: #f8f1e2;
+  color: #514b42;
 }
 
 .treatment-remarks-field {
@@ -893,7 +893,7 @@ const remainingBalance = computed(() => {
   position: absolute;
   right: 7px;
   bottom: 7px;
-  color: #657a9b;
+  color: #706b61;
   font-size: 0.7rem;
   font-weight: 500;
 }
@@ -906,8 +906,8 @@ const remainingBalance = computed(() => {
   justify-content: flex-end;
   gap: 11px;
   margin: 0 -26px;
-  border-top: 1px solid #dbe4ee;
-  background: #fff;
+  border-top: 1px solid #f4e7cd;
+  background: #ffffff;
   padding: 14px 26px 16px;
 }
 
@@ -921,20 +921,20 @@ const remainingBalance = computed(() => {
 }
 
 .treatment-editor-actions .secondary-button {
-  border-color: #dce4ed;
-  background: #eef2f7;
-  color: #0b1f55;
+  border-color: #e8dfd0;
+  background: #f8f1e2;
+  color: #171511;
 }
 
 .treatment-editor-actions .primary-button {
-  border-color: #0874e8;
-  background: #0874e8;
-  color: #fff;
+  border-color: #8a6526;
+  background: #8a6526;
+  color: #ffffff;
 }
 
 :global(html[data-dashboard-theme="dark"]) :is(.treatment-patient-summary) {
   border-color: var(--dashboard-border);
-  background: #162334;
+  background: #241e17;
 }
 
 :global(html[data-dashboard-theme="dark"])
@@ -949,7 +949,7 @@ const remainingBalance = computed(() => {
 
 :global(html[data-dashboard-theme="dark"]) .treatment-editor-form :is(input, select, textarea) {
   border-color: var(--dashboard-border);
-  background: #172334;
+  background: #241e17;
   color: var(--dashboard-text);
 }
 
@@ -960,7 +960,7 @@ const remainingBalance = computed(() => {
 :global(html[data-dashboard-theme="dark"])
   :is(.treatment-service-trigger, .treatment-service-options) {
   border-color: var(--dashboard-border);
-  background: #172334;
+  background: #241e17;
   color: var(--dashboard-text);
 }
 
@@ -969,12 +969,12 @@ const remainingBalance = computed(() => {
 }
 
 :global(html[data-dashboard-theme="dark"]) .treatment-service-option:is(:hover, :focus-visible) {
-  background: #244267;
+  background: #3f321e;
 }
 
 :global(html[data-dashboard-theme="dark"]) .treatment-next-visit {
   border-color: var(--dashboard-border);
-  background: #162334;
+  background: #241e17;
 }
 
 :global(html[data-dashboard-theme="dark"]) .treatment-next-visit-copy strong {
@@ -983,7 +983,7 @@ const remainingBalance = computed(() => {
 
 :global(html[data-dashboard-theme="dark"]) .treatment-editor-actions {
   border-color: var(--dashboard-border);
-  background: #111821;
+  background: #171511;
 }
 
 @media (max-width: 820px) {
@@ -995,7 +995,7 @@ const remainingBalance = computed(() => {
     grid-column: 1 / -1;
     margin-bottom: 12px;
     padding: 0 0 13px;
-    border-bottom: 1px solid #d1dcea;
+    border-bottom: 1px solid #f4e7cd;
   }
 
   .treatment-summary-item {

@@ -264,7 +264,7 @@ onBeforeUnmount(() => {
   position: relative;
   width: 100%;
   min-width: 0;
-  color: #173252;
+  color: #171511;
   font: inherit;
 }
 
@@ -276,11 +276,11 @@ onBeforeUnmount(() => {
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 9px;
-  border: 1px solid #cfdde8;
+  border: 1px solid #e8dfd0;
   border-radius: 7px;
   background: #fff;
   padding: 9px 11px;
-  color: #223e5f;
+  color: #29241d;
   font: inherit;
   font-weight: inherit;
   line-height: inherit;
@@ -295,24 +295,24 @@ onBeforeUnmount(() => {
 }
 
 .availability-date-trigger .placeholder {
-  color: #7b8da2;
+  color: #817869;
   font-weight: inherit;
 }
 
 .availability-date-trigger > svg {
   flex: 0 0 auto;
-  color: #0a8198;
+  color: #9d7428;
 }
 
 .availability-date-trigger > svg:last-child {
-  color: #5e738d;
+  color: #706b61;
   transition: transform 150ms ease;
 }
 
 .open .availability-date-trigger,
 .availability-date-trigger:focus-visible {
-  border-color: #0a8198;
-  box-shadow: 0 0 0 3px rgb(10 129 152 / 13%);
+  border-color: #9d7428;
+  box-shadow: 0 0 0 3px rgb(196 154 70 / 18%);
   outline: 0;
 }
 
@@ -321,8 +321,8 @@ onBeforeUnmount(() => {
 }
 
 .availability-date-trigger:disabled {
-  background: #f2f5f7;
-  color: #8a98a8;
+  background: #f4f1eb;
+  color: #958c7d;
   cursor: not-allowed;
 }
 
@@ -333,10 +333,10 @@ onBeforeUnmount(() => {
   left: 0;
   width: min(264px, calc(100vw - 24px));
   overflow: hidden;
-  border: 1px solid #cee0e8;
+  border: 1px solid #e8dfd0;
   border-radius: 8px;
   background: #fff;
-  box-shadow: 0 18px 45px rgb(22 58 77 / 20%);
+  box-shadow: 0 18px 45px rgb(23 21 17 / 20%);
 }
 
 .availability-calendar-header {
@@ -348,7 +348,7 @@ onBeforeUnmount(() => {
 }
 
 .availability-calendar-header strong {
-  color: #173252;
+  color: #171511;
   font-size: 0.74rem;
   text-align: center;
 }
@@ -362,19 +362,19 @@ onBeforeUnmount(() => {
   border-radius: 6px;
   background: transparent;
   padding: 0;
-  color: #39546f;
+  color: #625845;
   cursor: pointer;
 }
 
 .availability-calendar-header button:hover:not(:disabled),
 .availability-calendar-header button:focus-visible {
-  background: #eaf7fa;
-  color: #08778f;
+  background: #f8f1e2;
+  color: #9d7428;
   outline: 0;
 }
 
 .availability-calendar-header button:disabled {
-  color: #bdc7d0;
+  color: #b7afa2;
   cursor: not-allowed;
 }
 
@@ -388,7 +388,7 @@ onBeforeUnmount(() => {
 
 .availability-weekdays {
   padding-block: 2px 3px;
-  color: #6e8093;
+  color: #706b61;
   font-size: 0.53rem;
   font-weight: 800;
   text-align: center;
@@ -406,9 +406,9 @@ onBeforeUnmount(() => {
   place-items: center;
   border: 1px solid transparent;
   border-radius: 5px;
-  background: #f2f4f5;
+  background: #f4f1eb;
   padding: 0;
-  color: #9aa5ae;
+  color: #9c9488;
   font: inherit;
   font-size: 0.58rem;
   font-weight: 750;
@@ -419,28 +419,28 @@ onBeforeUnmount(() => {
 }
 
 .availability-calendar-grid button.today:not(.available) {
-  border-color: #c9d4dc;
+  border-color: #d9cfbe;
 }
 
 .availability-calendar-grid button.available {
-  border-color: #c2ecef;
-  background: #d8f5f5;
-  color: #08758a;
+  border-color: #e4c988;
+  background: #f8f1e2;
+  color: #785818;
   cursor: pointer;
 }
 
 .availability-calendar-grid button.available:hover,
 .availability-calendar-grid button.available:focus-visible {
-  border-color: #0990a8;
-  background: #bcebed;
-  outline: 2px solid rgb(9 144 168 / 14%);
+  border-color: #c49a46;
+  background: #f0dfbb;
+  outline: 2px solid rgb(196 154 70 / 18%);
 }
 
 .availability-calendar-grid button.selected {
-  border-color: #087f96;
-  background: #087f96;
+  border-color: #9d7428;
+  background: #9d7428;
   color: #fff;
-  box-shadow: 0 4px 10px rgb(8 127 150 / 22%);
+  box-shadow: 0 4px 10px rgb(157 116 40 / 22%);
 }
 
 .availability-calendar-grid button:disabled {
@@ -450,8 +450,8 @@ onBeforeUnmount(() => {
 .availability-calendar-footer {
   display: grid;
   gap: 3px;
-  border-top: 1px solid #e2ebef;
-  background: #f8fbfc;
+  border-top: 1px solid #e8dfd0;
+  background: #fcfbf8;
   padding: 6px 9px 7px;
 }
 
@@ -465,7 +465,7 @@ onBeforeUnmount(() => {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  color: #607489;
+  color: #706b61;
   font-size: 0.53rem;
   font-weight: 700;
 }
@@ -474,16 +474,16 @@ onBeforeUnmount(() => {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #d9dee2;
+  background: #d7d0c4;
 }
 
 .availability-calendar-legend i.available {
-  background: #a7e6e7;
+  background: #c49a46;
 }
 
 .availability-calendar-footer p {
   margin: 0;
-  color: #718397;
+  color: #706b61;
   font-size: 0.52rem;
   font-weight: 600;
   line-height: 1.35;
@@ -494,7 +494,7 @@ onBeforeUnmount(() => {
   border: 0;
   background: transparent;
   padding: 0;
-  color: #087b92;
+  color: #9d7428;
   font: inherit;
   font-size: 0.62rem;
   font-weight: 800;
@@ -523,43 +523,43 @@ onBeforeUnmount(() => {
 
 :global(html[data-dashboard-theme="dark"]) .availability-date-trigger,
 :global(html[data-dashboard-theme="dark"]) .availability-calendar-popover {
-  border-color: #3a485b;
-  background: #111821;
-  color: #dce7f4;
+  border-color: #594b35;
+  background: #171511;
+  color: #f8f1e2;
 }
 
 :global(html[data-dashboard-theme="dark"]) .availability-date-trigger > span,
 :global(html[data-dashboard-theme="dark"]) .availability-calendar-header strong {
-  color: #dce7f4;
+  color: #f8f1e2;
 }
 
 :global(html[data-dashboard-theme="dark"]) .availability-date-trigger .placeholder,
 :global(html[data-dashboard-theme="dark"]) .availability-weekdays,
 :global(html[data-dashboard-theme="dark"]) .availability-calendar-footer p,
 :global(html[data-dashboard-theme="dark"]) .availability-calendar-legend span {
-  color: #9eacc0;
+  color: #b9aa90;
 }
 
 :global(html[data-dashboard-theme="dark"]) .availability-calendar-grid button {
-  background: #202b39;
-  color: #77869a;
+  background: #29251e;
+  color: #9c907e;
 }
 
 :global(html[data-dashboard-theme="dark"]) .availability-calendar-grid button.available {
-  border-color: #216d78;
-  background: #17434a;
-  color: #a7edf0;
+  border-color: #8d6d2c;
+  background: #43371f;
+  color: #f3dca7;
 }
 
 :global(html[data-dashboard-theme="dark"]) .availability-calendar-grid button.selected {
-  border-color: #20a7ba;
-  background: #0d8297;
+  border-color: #c49a46;
+  background: #9d7428;
   color: #fff;
 }
 
 :global(html[data-dashboard-theme="dark"]) .availability-calendar-footer {
-  border-color: #344154;
-  background: #17212e;
+  border-color: #4b4030;
+  background: #211d17;
 }
 
 @media (max-width: 420px) {

@@ -397,16 +397,16 @@ function openAppointment(item) {
 .patient-home-dashboard {
   display: grid;
   gap: 14px;
-  color: #14284a;
+  color: #171511;
 }
 
 .patient-summary-card,
 .patient-home-panel,
 .patient-care-note {
-  border: 1px solid #dce8f3;
+  border: 1px solid #e8dfd0;
   border-radius: 8px;
   background: #fff;
-  box-shadow: 0 5px 18px rgb(31 64 102 / 5%);
+  box-shadow: 0 5px 18px rgb(23 21 17 / 6%);
 }
 
 .patient-summary-cards {
@@ -431,8 +431,8 @@ function openAppointment(item) {
   height: 54px;
   place-items: center;
   border-radius: 8px;
-  background: #e5f0ff;
-  color: #2678e9;
+  background: #f8f1e2;
+  color: #7a581f;
 }
 
 .patient-summary-card > span:last-child,
@@ -444,7 +444,7 @@ function openAppointment(item) {
 
 .patient-summary-card strong {
   overflow: hidden;
-  color: #10274b;
+  color: #171511;
   font-size: 1.55rem;
   line-height: 1.1;
   text-overflow: ellipsis;
@@ -452,23 +452,23 @@ function openAppointment(item) {
 
 .patient-summary-card small {
   margin-top: 5px;
-  color: #5f7491;
+  color: #706b61;
   font-size: 0.76rem;
 }
 
 .summary-completed .patient-summary-icon {
-  background: #ddf7ec;
-  color: #0f9f6e;
+  background: #e9f9ef;
+  color: #147347;
 }
 
 .summary-upcoming .patient-summary-icon {
-  background: #fff2d8;
-  color: #dc9410;
+  background: #f8f1e2;
+  color: #7a581f;
 }
 
 .summary-cancelled .patient-summary-icon {
-  background: #ffe6e9;
-  color: #df5262;
+  background: #fff0f3;
+  color: #c7334c;
 }
 
 .patient-home-content {
@@ -504,7 +504,7 @@ function openAppointment(item) {
   min-width: 0;
   align-items: center;
   gap: 10px;
-  color: #1876e7;
+  color: #7a581f;
 }
 
 .patient-heading-icon {
@@ -525,7 +525,7 @@ function openAppointment(item) {
 
 .patient-panel-heading h2 {
   margin: 0;
-  color: #14284a;
+  color: #171511;
   font-size: 0.94rem;
 }
 
@@ -533,7 +533,7 @@ function openAppointment(item) {
   border: 0;
   background: transparent;
   padding: 5px;
-  color: #126fe1;
+  color: #7a581f;
   font-size: 0.72rem;
   font-weight: 750;
   cursor: pointer;
@@ -541,7 +541,7 @@ function openAppointment(item) {
 
 .patient-panel-heading > button:hover,
 .patient-panel-heading > button:focus-visible {
-  color: #0e4fa6;
+  color: #7a581f;
   text-decoration: underline;
   outline: none;
 }
@@ -558,7 +558,7 @@ function openAppointment(item) {
   gap: 20px;
   min-height: 132px;
   margin: 0 18px 16px;
-  background: #eef7ff;
+  background: #f8f1e2;
   padding: 18px;
 }
 
@@ -568,20 +568,20 @@ function openAppointment(item) {
   height: 82px;
   align-content: center;
   overflow: hidden;
-  border: 1px solid #bdd8fb;
+  border: 1px solid #e8dfd0;
   border-radius: 7px;
   background: #fff;
-  color: #17335a;
+  color: #171511;
   text-align: center;
 }
 
 .patient-date-tile span {
   align-self: stretch;
   margin: -13px -1px 6px;
-  background: #2178e6;
+  background: #171511;
   padding: 5px;
   color: #fff;
-  font-size: 0.63rem;
+  font-size: 0.72rem;
   font-weight: 800;
 }
 
@@ -592,8 +592,8 @@ function openAppointment(item) {
 
 .patient-date-tile small {
   margin-top: 5px;
-  color: #667c99;
-  font-size: 0.64rem;
+  color: #706b61;
+  font-size: 0.72rem;
 }
 
 .patient-upcoming-copy {
@@ -603,7 +603,7 @@ function openAppointment(item) {
 .patient-upcoming-copy h3 {
   overflow: hidden;
   margin: 0 0 8px;
-  color: #14284a;
+  color: #171511;
   font-size: 0.95rem;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -623,13 +623,13 @@ function openAppointment(item) {
 }
 
 .patient-upcoming-copy dt {
-  color: #6e8098;
-  font-size: 0.65rem;
+  color: #706b61;
+  font-size: 0.72rem;
 }
 
 .patient-upcoming-copy dd {
   margin: 0;
-  color: #405776;
+  color: #706b61;
   font-size: 0.7rem;
   font-weight: 750;
 }
@@ -641,9 +641,9 @@ function openAppointment(item) {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  border: 1px solid #176dd8;
+  border: 1px solid #c49a46;
   border-radius: 7px;
-  background: #1876e7;
+  background: #171511;
   padding: 9px 16px;
   color: #fff;
   font-size: 0.73rem;
@@ -655,8 +655,8 @@ function openAppointment(item) {
 .patient-view-details:focus-visible,
 .patient-upcoming-empty > button:hover,
 .patient-upcoming-empty > button:focus-visible {
-  background: #115cbe;
-  outline: 3px solid rgb(24 118 231 / 16%);
+  background: #7a581f;
+  outline: 3px solid rgb(196 154 70 / 16%);
 }
 
 .patient-upcoming-empty {
@@ -666,7 +666,7 @@ function openAppointment(item) {
   gap: 14px;
   min-height: 118px;
   margin: 0 18px 16px;
-  background: #f5f9fe;
+  background: #fcfbf8;
   padding: 18px;
 }
 
@@ -676,8 +676,8 @@ function openAppointment(item) {
   height: 48px;
   place-items: center;
   border-radius: 50%;
-  background: #e2efff;
-  color: #1d73dd;
+  background: #f8f1e2;
+  color: #7a581f;
 }
 
 .patient-upcoming-empty h3,
@@ -691,7 +691,7 @@ function openAppointment(item) {
 
 .patient-upcoming-empty p {
   margin-top: 3px;
-  color: #697d98;
+  color: #706b61;
   font-size: 0.7rem;
 }
 
@@ -714,12 +714,12 @@ function openAppointment(item) {
   align-items: center;
   justify-content: center;
   gap: 7px;
-  border: 1px solid #dce6f1;
+  border: 1px solid #e8dfd0;
   border-radius: 6px;
-  background: #f3f6fa;
+  background: #f8f1e2;
   padding: 6px 11px;
-  color: #526986;
-  font-size: 0.68rem;
+  color: #706b61;
+  font-size: 0.72rem;
   font-weight: 750;
   cursor: pointer;
 }
@@ -729,14 +729,14 @@ function openAppointment(item) {
   border-radius: 50%;
   background: rgb(255 255 255 / 72%);
   padding: 1px 5px;
-  font-size: 0.58rem;
+  font-size: 0.72rem;
 }
 
 .patient-filter-tabs button:hover,
 .patient-filter-tabs button:focus-visible,
 .patient-filter-tabs button.active {
-  border-color: #1d75e4;
-  background: #1d75e4;
+  border-color: #c49a46;
+  background: #171511;
   color: #fff;
   outline: none;
 }
@@ -753,22 +753,22 @@ function openAppointment(item) {
 .patient-home-table {
   width: 100%;
   border-collapse: collapse;
-  color: #263f61;
-  font-size: 0.68rem;
+  color: #171511;
+  font-size: 0.72rem;
 }
 
 .patient-home-table th,
 .patient-home-table td {
-  border-bottom: 1px solid #e6edf4;
+  border-bottom: 1px solid #e8dfd0;
   padding: 9px 11px;
   text-align: left;
   vertical-align: middle;
 }
 
 .patient-home-table th {
-  background: #f1f6fb;
-  color: #516883;
-  font-size: 0.61rem;
+  background: #f8f1e2;
+  color: #706b61;
+  font-size: 0.72rem;
   text-transform: uppercase;
 }
 
@@ -779,43 +779,43 @@ function openAppointment(item) {
 }
 
 .patient-home-table td strong {
-  color: #193458;
+  color: #171511;
 }
 
 .patient-home-table td small {
   display: block;
-  color: #667d98;
-  font-size: 0.61rem;
+  color: #706b61;
+  font-size: 0.72rem;
 }
 
 .patient-home-table td:last-child button {
   min-width: 60px;
   min-height: 28px;
-  border: 1px solid #d6e7fb;
+  border: 1px solid #e8dfd0;
   border-radius: 6px;
-  background: #f0f6ff;
-  color: #126bd6;
-  font-size: 0.63rem;
+  background: #f8f1e2;
+  color: #7a581f;
+  font-size: 0.72rem;
   font-weight: 800;
   cursor: pointer;
 }
 
 .patient-home-table td:last-child button:hover,
 .patient-home-table td:last-child button:focus-visible {
-  border-color: #1774e1;
-  background: #e4f0ff;
+  border-color: #c49a46;
+  background: #f8f1e2;
   outline: none;
 }
 
 .patient-home-table :deep(.status) {
   min-width: 82px;
   justify-content: center;
-  font-size: 0.59rem;
+  font-size: 0.72rem;
 }
 
 .patient-table-empty {
   height: 86px;
-  color: #708199;
+  color: #706b61;
   text-align: center !important;
 }
 
@@ -833,19 +833,19 @@ function openAppointment(item) {
   min-height: 66px;
   align-items: center;
   gap: 9px;
-  border: 1px solid #dce6f1;
+  border: 1px solid #e8dfd0;
   border-radius: 7px;
   background: #fff;
   padding: 9px;
-  color: #14284a;
+  color: #171511;
   text-align: left;
   cursor: pointer;
 }
 
 .patient-quick-grid button:hover,
 .patient-quick-grid button:focus-visible {
-  border-color: #a9caf2;
-  background: #f7fbff;
+  border-color: #e8dfd0;
+  background: #fcfbf8;
   outline: none;
 }
 
@@ -855,8 +855,8 @@ function openAppointment(item) {
   height: 40px;
   place-items: center;
   border-radius: 7px;
-  background: #eaf4ff;
-  color: #1c75e1;
+  background: #f8f1e2;
+  color: #7a581f;
 }
 
 .patient-quick-grid button > span:nth-child(2),
@@ -868,7 +868,7 @@ function openAppointment(item) {
 
 .patient-quick-grid strong {
   overflow: hidden;
-  font-size: 0.68rem;
+  font-size: 0.72rem;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -876,14 +876,14 @@ function openAppointment(item) {
 .patient-quick-grid small {
   overflow: hidden;
   margin-top: 3px;
-  color: #6d8098;
-  font-size: 0.58rem;
+  color: #706b61;
+  font-size: 0.72rem;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .patient-quick-grid button > svg {
-  color: #7890ac;
+  color: #706b61;
 }
 
 .patient-clinic-panel {
@@ -897,7 +897,7 @@ function openAppointment(item) {
   display: grid;
   gap: 14px;
   padding: 2px 18px 20px;
-  color: #334d70;
+  color: #706b61;
   font-size: 0.7rem;
   font-style: normal;
 }
@@ -910,7 +910,7 @@ function openAppointment(item) {
 
 .patient-clinic-panel address svg {
   flex: 0 0 18px;
-  color: #1977e7;
+  color: #7a581f;
 }
 
 .patient-clinic-panel address span,
@@ -920,19 +920,19 @@ function openAppointment(item) {
 }
 
 .patient-clinic-panel address strong {
-  color: #1c3659;
+  color: #171511;
 }
 
 .patient-clinic-panel address small {
   max-width: 255px;
   margin-top: 3px;
-  color: #6b7e97;
-  font-size: 0.62rem;
+  color: #706b61;
+  font-size: 0.72rem;
   line-height: 1.45;
 }
 
 .patient-clinic-panel address a {
-  color: #334d70;
+  color: #706b61;
   font-weight: 700;
 }
 
@@ -940,7 +940,7 @@ function openAppointment(item) {
   position: absolute;
   right: -11px;
   bottom: -14px;
-  color: #eaf2fb;
+  color: #e8dfd0;
   pointer-events: none;
 }
 
@@ -951,7 +951,7 @@ function openAppointment(item) {
   align-items: center;
   gap: 14px;
   overflow: hidden;
-  background: #eff8ff;
+  background: #f8f1e2;
   padding: 16px;
 }
 
@@ -961,8 +961,8 @@ function openAppointment(item) {
   height: 52px;
   place-items: center;
   border-radius: 8px;
-  background: #dceeff;
-  color: #1978e8;
+  background: #f8f1e2;
+  color: #7a581f;
 }
 
 .patient-care-note strong,
@@ -971,18 +971,18 @@ function openAppointment(item) {
 }
 
 .patient-care-note strong {
-  color: #155bab;
+  color: #7a581f;
   font-size: 0.8rem;
 }
 
 .patient-care-note p {
   margin-top: 4px;
-  color: #617893;
-  font-size: 0.67rem;
+  color: #706b61;
+  font-size: 0.72rem;
 }
 
 :global(html[data-dashboard-theme="dark"]) .patient-home-dashboard {
-  color: #edf4ff;
+  color: #f8f1e2;
 }
 
 :global(html[data-dashboard-theme="dark"]) .patient-summary-card,
@@ -1029,7 +1029,7 @@ function openAppointment(item) {
     .patient-home-table th
   ) {
   border-color: var(--dashboard-border);
-  background: #1d2a3a;
+  background: #24211c;
 }
 
 :global(html[data-dashboard-theme="dark"]) .patient-home-table th,
@@ -1038,7 +1038,17 @@ function openAppointment(item) {
 }
 
 :global(html[data-dashboard-theme="dark"]) .patient-clinic-watermark {
-  color: #25364b;
+  color: #3c3529;
+}
+
+:global(html[data-dashboard-theme="dark"])
+  :is(
+    .patient-panel-heading > div,
+    .patient-panel-heading > button,
+    .patient-clinic-panel address svg,
+    .patient-care-note strong
+  ) {
+  color: #c49a46;
 }
 
 @media (max-width: 1180px) {
@@ -1093,7 +1103,7 @@ function openAppointment(item) {
   }
 
   .patient-summary-card small {
-    font-size: 0.62rem;
+    font-size: 0.72rem;
   }
 
   .patient-upcoming-body,
@@ -1145,13 +1155,13 @@ function openAppointment(item) {
     min-width: 0;
     gap: 3px;
     padding-inline: 3px;
-    font-size: 0.58rem;
+    font-size: 0.72rem;
   }
 
   .patient-filter-tabs button span {
     min-width: 16px;
     padding-inline: 3px;
-    font-size: 0.52rem;
+    font-size: 0.72rem;
   }
 
   .patient-home-table,
@@ -1175,9 +1185,9 @@ function openAppointment(item) {
   .patient-home-table tbody tr:last-child {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    border: 1px solid #e2eaf3;
+    border: 1px solid #e8dfd0;
     border-radius: 7px;
-    background: #fbfdff;
+    background: #fcfbf8;
     padding: 8px;
   }
 
@@ -1192,8 +1202,8 @@ function openAppointment(item) {
   }
 
   .patient-home-table td::before {
-    color: #71839a;
-    font-size: 0.55rem;
+    color: #706b61;
+    font-size: 0.72rem;
     font-weight: 800;
     text-transform: uppercase;
     content: attr(data-label);
@@ -1226,7 +1236,7 @@ function openAppointment(item) {
   :global(html[data-dashboard-theme="dark"]) .patient-home-table tbody tr:not(:last-child),
   :global(html[data-dashboard-theme="dark"]) .patient-home-table tbody tr:last-child {
     border-color: var(--dashboard-border);
-    background: #1d2a3a;
+    background: #24211c;
   }
 }
 
@@ -1263,7 +1273,7 @@ function openAppointment(item) {
   .patient-summary-card {
     min-height: 100px;
     border-radius: 11px;
-    box-shadow: 0 6px 17px rgb(31 64 102 / 5%);
+    box-shadow: 0 6px 17px rgb(23 21 17 / 6%);
   }
 
   .patient-summary-card > span:last-child {
@@ -1290,23 +1300,23 @@ function openAppointment(item) {
   }
 
   .patient-summary-card.summary-total {
-    border-color: #d7e8ff;
-    background: #f1f7ff;
+    border-color: #e8dfd0;
+    background: #f8f1e2;
   }
 
   .patient-summary-card.summary-completed {
-    border-color: #d1efe5;
-    background: #effaf6;
+    border-color: #a7dcc0;
+    background: #f1fbf5;
   }
 
   .patient-summary-card.summary-upcoming {
-    border-color: #f8e9cb;
-    background: #fff8ed;
+    border-color: #e8dfd0;
+    background: #f8f1e2;
   }
 
   .patient-summary-card.summary-cancelled {
-    border-color: #f8dfe4;
-    background: #fff4f5;
+    border-color: #f3b8c2;
+    background: #fff5f6;
   }
 
   .patient-home-panel,
@@ -1329,8 +1339,8 @@ function openAppointment(item) {
     width: 39px;
     height: 39px;
     border-radius: 50%;
-    background: #dff5f9;
-    color: #0089a3;
+    background: #f8f1e2;
+    color: #7a581f;
   }
 
   .patient-heading-icon :deep(svg) {
@@ -1341,8 +1351,8 @@ function openAppointment(item) {
   .patient-heading-copy > small {
     display: block;
     margin-top: 2px;
-    color: #6b7f99;
-    font-size: 0.62rem;
+    color: #706b61;
+    font-size: 0.72rem;
     line-height: 1.25;
   }
 
@@ -1354,16 +1364,16 @@ function openAppointment(item) {
   .patient-panel-heading > button {
     flex: 0 0 auto;
     border-radius: 6px;
-    background: #625af1;
+    background: #171511;
     padding: 7px 9px;
     color: #fff;
-    font-size: 0.63rem;
+    font-size: 0.72rem;
     text-decoration: none;
   }
 
   .patient-panel-heading > button:hover,
   .patient-panel-heading > button:focus-visible {
-    background: #4e45dd;
+    background: #7a581f;
     color: #fff;
     text-decoration: none;
   }
@@ -1371,7 +1381,7 @@ function openAppointment(item) {
   .patient-upcoming-body,
   .patient-upcoming-empty {
     border-radius: 9px;
-    background: #eef7ff;
+    background: #f8f1e2;
   }
 
   .patient-upcoming-body {
@@ -1413,19 +1423,19 @@ function openAppointment(item) {
     grid-template-columns: 67px minmax(0, 1fr) auto 14px;
     align-items: center;
     gap: 7px;
-    border: 1px solid #e1eaf3;
+    border: 1px solid #e8dfd0;
     border-radius: 8px;
-    background: #fbfdff;
+    background: #fcfbf8;
     padding: 9px 7px;
-    color: #14284a;
+    color: #171511;
     text-align: left;
     cursor: pointer;
   }
 
   .patient-mobile-appointments > li > button:hover,
   .patient-mobile-appointments > li > button:focus-visible {
-    border-color: #99bfec;
-    background: #f2f8ff;
+    border-color: #e8dfd0;
+    background: #f8f1e2;
     outline: none;
   }
 
@@ -1439,7 +1449,7 @@ function openAppointment(item) {
   .patient-mobile-appointment-date strong,
   .patient-mobile-appointment-copy strong {
     overflow: hidden;
-    font-size: 0.63rem;
+    font-size: 0.72rem;
     line-height: 1.2;
     text-overflow: ellipsis;
   }
@@ -1447,8 +1457,8 @@ function openAppointment(item) {
   .patient-mobile-appointment-date small,
   .patient-mobile-appointment-copy small {
     overflow: hidden;
-    color: #6b7e96;
-    font-size: 0.56rem;
+    color: #706b61;
+    font-size: 0.72rem;
     line-height: 1.2;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -1461,18 +1471,18 @@ function openAppointment(item) {
   .patient-mobile-appointments :deep(.status) {
     min-width: 0;
     padding: 3px 5px;
-    font-size: 0.52rem;
+    font-size: 0.72rem;
   }
 
   .patient-mobile-appointments button > svg {
-    color: #7790ac;
+    color: #706b61;
   }
 
   .patient-mobile-appointment-empty {
-    border: 1px dashed #dce8f3;
+    border: 1px dashed #e8dfd0;
     border-radius: 8px;
     padding: 20px 12px;
-    color: #6b7e96;
+    color: #706b61;
     font-size: 0.7rem;
     text-align: center;
   }
@@ -1507,13 +1517,13 @@ function openAppointment(item) {
   }
 
   .patient-quick-grid strong {
-    font-size: 0.62rem;
+    font-size: 0.72rem;
     line-height: 1.15;
     white-space: normal;
   }
 
   .patient-quick-grid small {
-    font-size: 0.54rem;
+    font-size: 0.72rem;
     line-height: 1.15;
   }
 
@@ -1540,7 +1550,7 @@ function openAppointment(item) {
   }
 
   .patient-summary-card small {
-    font-size: 0.62rem;
+    font-size: 0.72rem;
   }
 
   .patient-mobile-appointments > li > button {
@@ -1550,5 +1560,25 @@ function openAppointment(item) {
   .patient-mobile-appointments button > svg {
     display: none;
   }
+}
+
+:global(html[data-dashboard-theme="dark"] .patient-summary-card.summary-completed) {
+  border-color: #326f4b;
+  background: #1f3f2b;
+}
+
+:global(html[data-dashboard-theme="dark"] .patient-summary-card.summary-cancelled) {
+  border-color: #804351;
+  background: #4b2631;
+}
+
+:global(html[data-dashboard-theme="dark"] .summary-completed .patient-summary-icon) {
+  background: #275638;
+  color: #a7ecc0;
+}
+
+:global(html[data-dashboard-theme="dark"] .summary-cancelled .patient-summary-icon) {
+  background: #673340;
+  color: #ffc4ce;
 }
 </style>

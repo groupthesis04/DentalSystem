@@ -471,8 +471,8 @@ async function submitTreatmentRecord() {
   align-items: center;
   gap: 13px;
   padding: 16px 20px;
-  border-bottom: 1px solid #e1e9f1;
-  background: #f3f9ff;
+  border-bottom: 1px solid #f4e7cd;
+  background: #f8f1e2;
 }
 
 .completion-record-intro > span {
@@ -482,8 +482,8 @@ async function submitTreatmentRecord() {
   flex: 0 0 46px;
   place-items: center;
   border-radius: 7px;
-  background: #dceeff;
-  color: #0e78df;
+  background: #f4e7cd;
+  color: #8a6526;
 }
 
 .completion-record-intro h3,
@@ -493,13 +493,13 @@ async function submitTreatmentRecord() {
 }
 
 .completion-record-intro h3 {
-  color: #142b4d;
+  color: #171511;
   font-size: 0.95rem;
 }
 
 .completion-record-intro p {
   margin-top: 3px;
-  color: #647b98;
+  color: #706b61;
   font-size: 0.72rem;
 }
 
@@ -509,23 +509,23 @@ async function submitTreatmentRecord() {
   gap: 9px;
   margin: 0;
   padding: 14px 20px;
-  border-bottom: 1px solid #e1e9f1;
+  border-bottom: 1px solid #f4e7cd;
 }
 
 .completion-appointment-summary > div {
   min-width: 0;
   padding: 10px 11px;
-  border: 1px solid #dce6ef;
+  border: 1px solid #f4e7cd;
   border-radius: 6px;
-  background: #fff;
+  background: #ffffff;
 }
 
 .completion-appointment-summary dt {
   display: flex;
   align-items: center;
   gap: 6px;
-  color: #6c8099;
-  font-size: 0.62rem;
+  color: #706b61;
+  font-size: 0.72rem;
   font-weight: 800;
   text-transform: uppercase;
 }
@@ -533,7 +533,7 @@ async function submitTreatmentRecord() {
 .completion-appointment-summary dd {
   overflow: hidden;
   margin: 5px 0 0;
-  color: #172d4e;
+  color: #171511;
   font-size: 0.72rem;
   font-weight: 800;
   text-overflow: ellipsis;
@@ -546,7 +546,7 @@ async function submitTreatmentRecord() {
 
 .completion-form-section + .completion-form-section {
   margin-top: 8px;
-  border-top: 1px solid #e5ecf2;
+  border-top: 1px solid #f5f2eb;
 }
 
 .completion-form-section > header {
@@ -554,11 +554,11 @@ async function submitTreatmentRecord() {
   align-items: center;
   gap: 8px;
   margin-bottom: 12px;
-  color: #1379d7;
+  color: #8a6526;
 }
 
 .completion-form-section h3 {
-  color: #162d50;
+  color: #171511;
   font-size: 0.86rem;
 }
 
@@ -572,8 +572,8 @@ async function submitTreatmentRecord() {
   display: grid;
   min-width: 0;
   gap: 6px;
-  color: #263e60;
-  font-size: 0.68rem;
+  color: #171511;
+  font-size: 0.72rem;
   font-weight: 800;
 }
 
@@ -586,8 +586,8 @@ async function submitTreatmentRecord() {
 }
 
 .completion-field-grid :is(label, .next-visit-field, .completion-service-field) small {
-  color: #7e8da0;
-  font-size: 0.58rem;
+  color: #706b61;
+  font-size: 0.72rem;
   font-weight: 650;
 }
 
@@ -595,11 +595,11 @@ async function submitTreatmentRecord() {
 .completion-field-grid textarea {
   width: 100%;
   min-width: 0;
-  border: 1px solid #d3e0ec;
+  border: 1px solid #f4e7cd;
   border-radius: 6px;
   outline: 0;
-  background: #fff;
-  color: #233b5d;
+  background: #ffffff;
+  color: #171511;
   font: inherit;
   font-weight: 650;
 }
@@ -617,13 +617,13 @@ async function submitTreatmentRecord() {
 
 .completion-field-grid input:focus,
 .completion-field-grid textarea:focus {
-  border-color: #1683da;
-  box-shadow: 0 0 0 3px rgb(22 131 218 / 12%);
+  border-color: #8a6526;
+  box-shadow: 0 0 0 3px rgba(138, 101, 38, 12%);
 }
 
 .completion-field-grid input[readonly] {
-  background: #f4f7fa;
-  color: #526985;
+  background: #f8f1e2;
+  color: #514b42;
 }
 
 .completion-field-grid .wide-field {
@@ -642,11 +642,11 @@ async function submitTreatmentRecord() {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  border: 1px solid #d3e0ec;
+  border: 1px solid #f4e7cd;
   border-radius: 6px;
-  background: #fff;
+  background: #ffffff;
   padding: 0 12px;
-  color: #233b5d;
+  color: #171511;
   cursor: pointer;
   font: inherit;
   font-weight: 650;
@@ -655,9 +655,9 @@ async function submitTreatmentRecord() {
 
 .completion-service-trigger:focus-visible,
 .completion-service-trigger[aria-expanded="true"] {
-  border-color: #1683da;
+  border-color: #8a6526;
   outline: 0;
-  box-shadow: 0 0 0 3px rgb(22 131 218 / 12%);
+  box-shadow: 0 0 0 3px rgba(138, 101, 38, 12%);
 }
 
 .completion-service-trigger svg {
@@ -678,11 +678,11 @@ async function submitTreatmentRecord() {
   z-index: 5;
   max-height: 240px;
   overflow-y: auto;
-  border: 1px solid #d3e0ec;
+  border: 1px solid #f4e7cd;
   border-radius: 6px;
-  background: #fff;
+  background: #ffffff;
   padding: 5px;
-  box-shadow: 0 12px 30px rgb(16 38 84 / 16%);
+  box-shadow: 0 12px 30px rgba(23, 21, 17, 16%);
 }
 
 .completion-service-option {
@@ -695,7 +695,7 @@ async function submitTreatmentRecord() {
   border-radius: 5px;
   background: transparent;
   padding: 7px 8px;
-  color: #233b5d;
+  color: #171511;
   cursor: pointer;
   font: inherit;
   font-weight: 650;
@@ -706,7 +706,7 @@ async function submitTreatmentRecord() {
 .completion-service-option:hover,
 .completion-service-option:focus-visible {
   outline: 0;
-  background: #eaf3ff;
+  background: #f8f1e2;
 }
 
 .completion-service-checkbox {
@@ -715,44 +715,44 @@ async function submitTreatmentRecord() {
   height: 17px;
   flex: 0 0 17px;
   place-items: center;
-  border: 1px solid #8ca2bf;
+  border: 1px solid #aaa194;
   border-radius: 4px;
-  background: #fff;
-  color: #fff;
+  background: #ffffff;
+  color: #ffffff;
 }
 
 .completion-service-option[aria-checked="true"] .completion-service-checkbox {
-  border-color: #0874e8;
-  background: #0874e8;
+  border-color: #8a6526;
+  background: #8a6526;
 }
 
 .completion-service-empty {
   margin: 0;
   padding: 10px;
-  color: #617394;
+  color: #706b61;
   font-weight: 500;
 }
 
 .completion-field-grid .completion-service-error {
   color: #b4233d;
-  font-size: 0.65rem;
+  font-size: 0.72rem;
 }
 
 .completion-field-grid .next-visit-field {
   align-content: start;
   padding: 10px;
-  border: 1px solid #d9e5ef;
+  border: 1px solid #f4e7cd;
   border-radius: 7px;
-  background: #f8fbfe;
+  background: #f8f1e2;
 }
 
 .completion-field-grid .next-visit-field.active {
-  border-color: #a8d5f6;
-  background: #eef8ff;
+  border-color: #dfc48a;
+  background: #f8f1e2;
 }
 
 .completion-field-grid .next-visit-field > small {
-  color: #657f9d;
+  color: #706b61;
   line-height: 1.4;
 }
 
@@ -765,8 +765,8 @@ async function submitTreatmentRecord() {
 .money-input i {
   position: absolute;
   left: 12px;
-  color: #778aa2;
-  font-size: 0.59rem;
+  color: #706b61;
+  font-size: 0.72rem;
   font-style: normal;
   pointer-events: none;
 }
@@ -782,7 +782,7 @@ async function submitTreatmentRecord() {
   border-radius: 6px;
   background: #fff1f3;
   color: #c52742;
-  font-size: 0.68rem;
+  font-size: 0.72rem;
   font-weight: 750;
 }
 
@@ -792,7 +792,7 @@ async function submitTreatmentRecord() {
   gap: 10px;
   margin-top: 16px;
   padding: 14px 20px 18px;
-  border-top: 1px solid #e1e9f1;
+  border-top: 1px solid #f4e7cd;
 }
 
 .completion-form-actions button {
@@ -806,7 +806,7 @@ async function submitTreatmentRecord() {
 
 :global(html[data-dashboard-theme="dark"]) .completion-record-intro {
   border-color: var(--dashboard-border);
-  background: #1b2b3e;
+  background: #241e17;
 }
 
 :global(html[data-dashboard-theme="dark"])
@@ -834,18 +834,18 @@ async function submitTreatmentRecord() {
     .completion-field-grid textarea
   ) {
   border-color: var(--dashboard-border);
-  background: #172334;
+  background: #241e17;
   color: var(--dashboard-text);
 }
 
 :global(html[data-dashboard-theme="dark"]) .completion-field-grid input[readonly] {
-  background: #202d3d;
+  background: #28241e;
   color: var(--dashboard-muted);
 }
 
 :global(html[data-dashboard-theme="dark"]) .completion-field-grid .next-visit-field {
   border-color: var(--dashboard-border);
-  background: #1b2b3e;
+  background: #241e17;
 }
 
 :global(html[data-dashboard-theme="dark"]) .completion-service-field {
@@ -855,7 +855,7 @@ async function submitTreatmentRecord() {
 :global(html[data-dashboard-theme="dark"])
   :is(.completion-service-trigger, .completion-service-options) {
   border-color: var(--dashboard-border);
-  background: #172334;
+  background: #241e17;
   color: var(--dashboard-text);
 }
 
@@ -864,7 +864,7 @@ async function submitTreatmentRecord() {
 }
 
 :global(html[data-dashboard-theme="dark"]) .completion-service-option:is(:hover, :focus-visible) {
-  background: #244267;
+  background: #3f321e;
 }
 
 @media (max-width: 760px) {

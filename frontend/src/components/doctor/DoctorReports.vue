@@ -3,6 +3,8 @@ import {
   Banknote,
   CalendarDays,
   ChartNoAxesColumnIncreasing,
+  ChevronLeft,
+  ChevronRight,
   CircleDollarSign,
   CreditCard,
   Download,
@@ -18,7 +20,7 @@ import {
   Users,
   X,
 } from "lucide-vue-next";
-import { computed, ref } from "vue";
+import { computed, ref, watch } from "vue";
 
 import ActionIconButton from "../ActionIconButton.vue";
 import StatusBadge from "../StatusBadge.vue";
@@ -40,7 +42,8 @@ const today = new Date();
 const startDate = ref(localDateIso(new Date(today.getFullYear(), today.getMonth() - 5, 1)));
 const endDate = ref(localDateIso(new Date(today.getFullYear(), today.getMonth() + 1, 0)));
 const activeTab = ref("overview");
-const showAllRows = ref(false);
+const tablePage = ref(1);
+const rowsPerPage = 5;
 const tipVisible = ref(true);
 
 const tabs = [
@@ -312,8 +315,8 @@ const outstandingPercent = computed(() =>
 );
 const donutStyle = computed(() => ({
   background: totals.value.charged
-    ? `conic-gradient(#22c55e 0 ${paidPercent.value}%, #f43f5e ${paidPercent.value}% 100%)`
-    : "#dce3ec",
+    ? `conic-gradient(#c49a46 0 ${paidPercent.value}%, #514b42 ${paidPercent.value}% 100%)`
+    : "#e8dfd0",
 }));
 
 function metric(label, value, icon, color, current, previous, inverse = false) {
@@ -344,7 +347,7 @@ const metricCards = computed(() => {
         "Accepted",
         appointmentCounts.value.approved,
         ChartNoAxesColumnIncreasing,
-        "purple",
+        "blue",
         appointmentCounts.value.approved,
         previousAppointmentCounts.value.approved,
       ),
@@ -516,22 +519,47 @@ const tableRowCount = computed(() => {
   return filteredRecords.value.length;
 });
 
-const visibleRecords = computed(() =>
-  showAllRows.value ? filteredRecords.value : filteredRecords.value.slice(0, 5),
-);
-const visibleAppointments = computed(() =>
-  showAllRows.value ? filteredAppointments.value : filteredAppointments.value.slice(0, 5),
-);
-const visibleServices = computed(() =>
-  showAllRows.value ? servicePerformance.value : servicePerformance.value.slice(0, 5),
-);
-const visiblePatients = computed(() =>
-  showAllRows.value ? patientPerformance.value : patientPerformance.value.slice(0, 5),
-);
+const tableRowLabel = computed(() => {
+  const labels = {
+    overview: ["transaction", "transactions"],
+    financial: ["transaction", "transactions"],
+    appointments: ["appointment", "appointments"],
+    services: ["service", "services"],
+    patients: ["patient", "patients"],
+  };
+  return labels[activeTab.value][tableRowCount.value === 1 ? 0 : 1];
+});
+const tablePageCount = computed(() => Math.max(1, Math.ceil(tableRowCount.value / rowsPerPage)));
+const currentTablePage = computed(() => Math.min(tablePage.value, tablePageCount.value));
+const tableStart = computed(() => (currentTablePage.value - 1) * rowsPerPage);
+const tableFirstRow = computed(() => (tableRowCount.value ? tableStart.value + 1 : 0));
+const tableLastRow = computed(() => Math.min(tableStart.value + rowsPerPage, tableRowCount.value));
+const tablePageNumbers = computed(() => {
+  const count = Math.min(5, tablePageCount.value);
+  let first = Math.max(1, currentTablePage.value - Math.floor(count / 2));
+  first = Math.min(first, tablePageCount.value - count + 1);
+  return Array.from({ length: count }, (_, index) => first + index);
+});
+watch(tablePageCount, (count) => {
+  if (tablePage.value > count) tablePage.value = count;
+});
+watch([startDate, endDate], resetTablePage);
 
 function selectTab(tab) {
   activeTab.value = tab;
-  showAllRows.value = false;
+  resetTablePage();
+}
+
+function resetTablePage() {
+  tablePage.value = 1;
+}
+
+function selectTablePage(page) {
+  tablePage.value = Math.min(Math.max(page, 1), tablePageCount.value);
+}
+
+function isRowHidden(index) {
+  return index < tableStart.value || index >= tableStart.value + rowsPerPage;
 }
 
 function paymentStatus(record) {
@@ -623,12 +651,12 @@ function printReport() {
           <CalendarDays :size="18" aria-hidden="true" />
           <label>
             <span>From</span>
-            <input v-model="startDate" type="date" @change="showAllRows = false" />
+            <input v-model="startDate" type="date" />
           </label>
           <span aria-hidden="true">-</span>
           <label>
             <span>To</span>
-            <input v-model="endDate" type="date" @change="showAllRows = false" />
+            <input v-model="endDate" type="date" />
           </label>
         </div>
         <button
@@ -784,7 +812,11 @@ function printReport() {
               </tr>
             </thead>
             <tbody>
-              <tr v-for="(record, index) in visibleRecords" :key="record.id">
+              <tr
+                v-for="(record, index) in filteredRecords"
+                :key="record.id"
+                :class="{ 'report-transaction-hidden': isRowHidden(index) }"
+              >
                 <td>{{ index + 1 }}</td>
                 <td>
                   <strong>{{ record.patient_name }}</strong>
@@ -801,7 +833,7 @@ function printReport() {
                   />
                 </td>
               </tr>
-              <tr v-if="!visibleRecords.length">
+              <tr v-if="!filteredRecords.length">
                 <td colspan="7" class="table-empty">No transactions in this date range.</td>
               </tr>
             </tbody>
@@ -820,7 +852,11 @@ function printReport() {
               </tr>
             </thead>
             <tbody>
-              <tr v-for="(appointment, index) in visibleAppointments" :key="appointment.id">
+              <tr
+                v-for="(appointment, index) in filteredAppointments"
+                :key="appointment.id"
+                :class="{ 'report-transaction-hidden': isRowHidden(index) }"
+              >
                 <td>{{ index + 1 }}</td>
                 <td>
                   <strong>{{ appointment.patient_name }}</strong>
@@ -837,7 +873,7 @@ function printReport() {
                   />
                 </td>
               </tr>
-              <tr v-if="!visibleAppointments.length">
+              <tr v-if="!filteredAppointments.length">
                 <td colspan="7" class="table-empty">No appointments in this date range.</td>
               </tr>
             </tbody>
@@ -856,7 +892,11 @@ function printReport() {
               </tr>
             </thead>
             <tbody>
-              <tr v-for="(service, index) in visibleServices" :key="service.name">
+              <tr
+                v-for="(service, index) in servicePerformance"
+                :key="service.name"
+                :class="{ 'report-transaction-hidden': isRowHidden(index) }"
+              >
                 <td>{{ index + 1 }}</td>
                 <td>
                   <strong>{{ service.name }}</strong>
@@ -867,7 +907,7 @@ function printReport() {
                 <td>{{ formatMoney(service.paid) }}</td>
                 <td>{{ formatMoney(service.balance) }}</td>
               </tr>
-              <tr v-if="!visibleServices.length">
+              <tr v-if="!servicePerformance.length">
                 <td colspan="7" class="table-empty">No services are available.</td>
               </tr>
             </tbody>
@@ -886,7 +926,11 @@ function printReport() {
               </tr>
             </thead>
             <tbody>
-              <tr v-for="(patient, index) in visiblePatients" :key="patient.id || patient.name">
+              <tr
+                v-for="(patient, index) in patientPerformance"
+                :key="patient.id || patient.name"
+                :class="{ 'report-transaction-hidden': isRowHidden(index) }"
+              >
                 <td>{{ index + 1 }}</td>
                 <td>
                   <strong>{{ patient.name }}</strong>
@@ -903,21 +947,48 @@ function printReport() {
                   />
                 </td>
               </tr>
-              <tr v-if="!visiblePatients.length">
+              <tr v-if="!patientPerformance.length">
                 <td colspan="7" class="table-empty">No patient records are available.</td>
               </tr>
             </tbody>
           </table>
         </div>
 
-        <button
-          v-if="tableRowCount > 5"
-          class="report-more-button"
-          type="button"
-          @click="showAllRows = !showAllRows"
-        >
-          {{ showAllRows ? "Show Less" : "More" }}
-        </button>
+        <footer v-if="tableRowCount" class="report-pagination">
+          <p aria-live="polite">
+            Showing {{ tableFirstRow }} to {{ tableLastRow }} of {{ tableRowCount }}
+            {{ tableRowLabel }}
+          </p>
+          <nav v-if="tablePageCount > 1" :aria-label="`${tableTitle} pages`">
+            <button
+              type="button"
+              :aria-label="`Previous ${tableTitle} page`"
+              :disabled="currentTablePage === 1"
+              @click="selectTablePage(currentTablePage - 1)"
+            >
+              <ChevronLeft :size="16" aria-hidden="true" />
+            </button>
+            <button
+              v-for="pageNumber in tablePageNumbers"
+              :key="pageNumber"
+              type="button"
+              :aria-label="`${tableTitle} page ${pageNumber}`"
+              :aria-current="currentTablePage === pageNumber ? 'page' : undefined"
+              :class="{ active: currentTablePage === pageNumber }"
+              @click="selectTablePage(pageNumber)"
+            >
+              {{ pageNumber }}
+            </button>
+            <button
+              type="button"
+              :aria-label="`Next ${tableTitle} page`"
+              :disabled="currentTablePage === tablePageCount"
+              @click="selectTablePage(currentTablePage + 1)"
+            >
+              <ChevronRight :size="16" aria-hidden="true" />
+            </button>
+          </nav>
+        </footer>
       </section>
 
       <aside class="report-side-column">

@@ -382,16 +382,16 @@ watch(
 
 <style scoped>
 .patient-visits-page {
-  color: #172d50;
+  color: #171511;
 }
 
 .patient-visits-surface {
   min-width: 0;
   overflow: hidden;
-  border: 1px solid #dce7f2;
+  border: 1px solid #e8dfd0;
   border-radius: 8px;
   background: #fff;
-  box-shadow: 0 6px 20px rgb(31 64 102 / 5%);
+  box-shadow: 0 6px 20px rgb(23 21 17 / 6%);
 }
 
 .patient-visits-header {
@@ -401,8 +401,8 @@ watch(
   justify-content: space-between;
   gap: 24px;
   padding: 17px 22px;
-  border-bottom: 1px solid #e4edf5;
-  background: linear-gradient(90deg, #f5faff 0%, #fbfdff 68%, #eef7ff 100%);
+  border-bottom: 1px solid #e8dfd0;
+  background: linear-gradient(90deg, #fcfbf8 0%, #fcfbf8 68%, #f8f1e2 100%);
 }
 
 .patient-visits-title {
@@ -418,10 +418,10 @@ watch(
   height: 66px;
   flex: 0 0 66px;
   place-items: center;
-  border: 1px solid #c8defa;
+  border: 1px solid #e8dfd0;
   border-radius: 8px;
-  background: #e6f1ff;
-  color: #1875e4;
+  background: #f8f1e2;
+  color: #7a581f;
 }
 
 .patient-visits-title > div {
@@ -435,7 +435,7 @@ watch(
 }
 
 .patient-visits-kicker {
-  color: #1470dc;
+  color: #7a581f;
   font-size: 0.72rem;
   font-weight: 850;
   text-transform: uppercase;
@@ -443,14 +443,14 @@ watch(
 
 .patient-visits-header h1 {
   margin-top: 2px;
-  color: #12294d;
+  color: #171511;
   font-size: 1.45rem;
   line-height: 1.18;
 }
 
 .patient-visits-header p {
   margin-top: 3px;
-  color: #687d98;
+  color: #706b61;
   font-size: 0.76rem;
 }
 
@@ -461,9 +461,9 @@ watch(
   align-items: center;
   justify-content: center;
   gap: 10px;
-  border: 1px solid #126dd8;
+  border: 1px solid #c49a46;
   border-radius: 7px;
-  background: #1477e8;
+  background: #171511;
   padding: 10px 20px;
   color: #fff;
   font-size: 0.77rem;
@@ -477,8 +477,8 @@ watch(
 
 .patient-new-appointment:hover,
 .patient-new-appointment:focus-visible {
-  background: #105fbe;
-  box-shadow: 0 0 0 3px rgb(20 119 232 / 16%);
+  background: #7a581f;
+  box-shadow: 0 0 0 3px rgb(196 154 70 / 16%);
   outline: none;
   transform: translateY(-1px);
 }
@@ -489,7 +489,7 @@ watch(
   justify-content: space-between;
   gap: 18px;
   padding: 14px 22px;
-  border-bottom: 1px solid #e5edf5;
+  border-bottom: 1px solid #e8dfd0;
 }
 
 .patient-visit-tabs {
@@ -501,11 +501,11 @@ watch(
 .patient-visit-tabs button {
   min-width: 92px;
   min-height: 38px;
-  border: 1px solid #e0e8f1;
+  border: 1px solid #e8dfd0;
   border-radius: 6px;
-  background: #f3f6fa;
+  background: #f8f1e2;
   padding: 8px 13px;
-  color: #526a88;
+  color: #706b61;
   font-size: 0.7rem;
   font-weight: 750;
   cursor: pointer;
@@ -514,8 +514,8 @@ watch(
 .patient-visit-tabs button:hover,
 .patient-visit-tabs button:focus-visible,
 .patient-visit-tabs button.active {
-  border-color: #1575e4;
-  background: #1575e4;
+  border-color: #c49a46;
+  background: #171511;
   color: #fff;
   outline: none;
 }
@@ -534,17 +534,17 @@ watch(
   min-height: 42px;
   align-items: center;
   gap: 10px;
-  border: 1px solid #d7e2ee;
+  border: 1px solid #e8dfd0;
   border-radius: 7px;
   background: #fff;
   padding: 0 12px;
-  color: #516987;
+  color: #706b61;
 }
 
 .patient-visit-search:focus-within,
 .patient-visit-date:focus-within {
-  border-color: #1475e4;
-  box-shadow: 0 0 0 3px rgb(20 117 228 / 12%);
+  border-color: #c49a46;
+  box-shadow: 0 0 0 3px rgb(196 154 70 / 12%);
 }
 
 .patient-visit-search > svg,
@@ -560,7 +560,7 @@ watch(
   border: 0;
   background: transparent;
   padding: 0;
-  color: #263f61;
+  color: #171511;
   font: inherit;
   font-size: 0.7rem;
   outline: none;
@@ -568,7 +568,7 @@ watch(
 }
 
 .patient-visit-search input::placeholder {
-  color: #8494a8;
+  color: #706b61;
 }
 
 .patient-visit-date button {
@@ -579,9 +579,9 @@ watch(
   place-items: center;
   border: 0;
   border-radius: 6px;
-  background: #eef4fb;
+  background: #f8f1e2;
   padding: 0;
-  color: #536b88;
+  color: #706b61;
   cursor: pointer;
 }
 
@@ -595,22 +595,22 @@ watch(
   width: 100%;
   border-collapse: collapse;
   table-layout: fixed;
-  color: #2a4365;
+  color: #706b61;
   font-size: 0.72rem;
 }
 
 .patient-visits-table th,
 .patient-visits-table td {
-  border-bottom: 1px solid #e5edf4;
+  border-bottom: 1px solid #e8dfd0;
   padding: 11px 14px;
   text-align: left;
   vertical-align: middle;
 }
 
 .patient-visits-table th {
-  background: #eff5fa;
-  color: #536985;
-  font-size: 0.63rem;
+  background: #f8f1e2;
+  color: #706b61;
+  font-size: 0.72rem;
   font-weight: 850;
   text-transform: uppercase;
 }
@@ -648,11 +648,11 @@ watch(
 }
 
 .patient-visits-table tbody tr:hover {
-  background: #f9fcff;
+  background: #fcfbf8;
 }
 
 .patient-visit-number {
-  color: #344f73;
+  color: #706b61;
   font-weight: 750;
   text-align: center !important;
 }
@@ -670,28 +670,28 @@ watch(
   height: 44px;
   place-items: center;
   border-radius: 50%;
-  background: #e4f1ff;
-  color: #1d78e8;
+  background: #f8f1e2;
+  color: #7a581f;
 }
 
 .patient-service-icon.tone-gold {
-  background: #fff2db;
-  color: #c57d08;
+  background: #f8f1e2;
+  color: #7a581f;
 }
 
 .patient-service-icon.tone-purple {
-  background: #eee9ff;
-  color: #6655da;
+  background: #f8f1e2;
+  color: #7a581f;
 }
 
 .patient-service-icon.tone-coral {
-  background: #ffe9e6;
-  color: #d75b51;
+  background: #f8f1e2;
+  color: #7a581f;
 }
 
 .patient-service-icon.tone-mint {
-  background: #ddf6ef;
-  color: #0a9871;
+  background: #f8f1e2;
+  color: #7a581f;
 }
 
 .patient-service-content > span:last-child,
@@ -703,15 +703,15 @@ watch(
 
 .patient-visit-service strong {
   overflow-wrap: anywhere;
-  color: #142e53;
+  color: #171511;
   font-size: 0.75rem;
   line-height: 1.25;
 }
 
 .patient-visit-service small {
   margin-top: 3px;
-  color: #6c809a;
-  font-size: 0.64rem;
+  color: #706b61;
+  font-size: 0.72rem;
 }
 
 .patient-dentist-content,
@@ -724,7 +724,7 @@ watch(
 .patient-dentist-content svg,
 .patient-date-time svg {
   flex: 0 0 auto;
-  color: #496482;
+  color: #706b61;
 }
 
 .patient-dentist-content > span {
@@ -739,7 +739,7 @@ watch(
 .patient-visit-status :deep(.status) {
   min-width: 92px;
   justify-content: center;
-  font-size: 0.64rem;
+  font-size: 0.72rem;
 }
 
 .patient-visit-action {
@@ -758,7 +758,7 @@ watch(
   background: #fff8f8;
   padding: 7px 11px;
   color: #df2436;
-  font-size: 0.66rem;
+  font-size: 0.72rem;
   font-weight: 800;
   cursor: pointer;
 }
@@ -771,8 +771,8 @@ watch(
 }
 
 .patient-visit-action > span {
-  color: #71839a;
-  font-size: 0.68rem;
+  color: #706b61;
+  font-size: 0.72rem;
 }
 
 .patient-visits-empty-row:hover {
@@ -791,8 +791,8 @@ watch(
   margin: 0 auto 10px;
   place-items: center;
   border-radius: 8px;
-  background: #eaf3fe;
-  color: #1d75df;
+  background: #f8f1e2;
+  color: #7a581f;
 }
 
 .patient-visits-empty-row strong,
@@ -801,14 +801,14 @@ watch(
 }
 
 .patient-visits-empty-row strong {
-  color: #253f63;
+  color: #171511;
   font-size: 0.82rem;
 }
 
 .patient-visits-empty-row small {
   margin-top: 4px;
-  color: #70839b;
-  font-size: 0.68rem;
+  color: #706b61;
+  font-size: 0.72rem;
 }
 
 .patient-visits-footer {
@@ -822,7 +822,7 @@ watch(
 
 .patient-visits-footer p {
   margin: 0;
-  color: #667c98;
+  color: #706b61;
   font-size: 0.7rem;
 }
 
@@ -836,11 +836,11 @@ watch(
   width: 36px;
   height: 36px;
   place-items: center;
-  border: 1px solid #dce6f0;
+  border: 1px solid #e8dfd0;
   border-radius: 6px;
   background: #fff;
   padding: 0;
-  color: #3f5a7c;
+  color: #706b61;
   font-size: 0.7rem;
   font-weight: 800;
   cursor: pointer;
@@ -849,14 +849,14 @@ watch(
 .patient-visits-footer nav button:hover:not(:disabled),
 .patient-visits-footer nav button:focus-visible,
 .patient-visits-footer nav button.active {
-  border-color: #1475e4;
-  background: #1475e4;
+  border-color: #c49a46;
+  background: #171511;
   color: #fff;
   outline: none;
 }
 
 .patient-visits-footer nav button:disabled {
-  color: #b4c0ce;
+  color: #a9a39b;
   cursor: not-allowed;
 }
 
@@ -874,7 +874,7 @@ watch(
 
 :global(html[data-dashboard-theme="dark"]) .patient-visits-header {
   border-color: var(--dashboard-border);
-  background: #19283a;
+  background: #24211c;
 }
 
 :global(html[data-dashboard-theme="dark"])
@@ -908,12 +908,16 @@ watch(
 :global(html[data-dashboard-theme="dark"]) .patient-visits-table th,
 :global(html[data-dashboard-theme="dark"]) .patient-visit-tabs button {
   border-color: var(--dashboard-border);
-  background: #1e2d3f;
+  background: #24211c;
   color: var(--dashboard-muted);
 }
 
 :global(html[data-dashboard-theme="dark"]) .patient-visits-table tbody tr:hover {
-  background: #1b293a;
+  background: #24211c;
+}
+
+:global(html[data-dashboard-theme="dark"]) .patient-visits-kicker {
+  color: #c49a46;
 }
 
 @media (max-width: 1180px) {
@@ -962,7 +966,7 @@ watch(
   .patient-visits-header {
     min-height: 0;
     gap: 16px;
-    border: 1px solid #dce7f2;
+    border: 1px solid #e8dfd0;
     border-radius: 8px;
     padding: 16px;
   }
@@ -983,7 +987,7 @@ watch(
   }
 
   .patient-visits-header p {
-    font-size: 0.69rem;
+    font-size: 0.72rem;
     line-height: 1.45;
   }
 
@@ -994,7 +998,7 @@ watch(
   .patient-visits-toolbar {
     gap: 10px;
     margin-top: 10px;
-    border: 1px solid #dce7f2;
+    border: 1px solid #e8dfd0;
     border-radius: 8px;
     background: #fff;
     padding: 12px;
@@ -1035,10 +1039,10 @@ watch(
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     overflow: hidden;
-    border: 1px solid #dce7f2;
+    border: 1px solid #e8dfd0;
     border-radius: 8px;
     background: #fff;
-    box-shadow: 0 4px 14px rgb(31 64 102 / 4%);
+    box-shadow: 0 4px 14px rgb(23 21 17 / 5%);
   }
 
   .patient-visits-table td {
@@ -1052,8 +1056,8 @@ watch(
   }
 
   .patient-visits-table td::before {
-    color: #71849c;
-    font-size: 0.57rem;
+    color: #706b61;
+    font-size: 0.72rem;
     font-weight: 850;
     text-transform: uppercase;
     content: attr(data-label);
@@ -1071,7 +1075,7 @@ watch(
 
   .patient-visits-table td.patient-visit-service {
     display: block;
-    border-bottom: 1px solid #e8eef5 !important;
+    border-bottom: 1px solid #e8dfd0 !important;
     padding-block: 12px !important;
   }
 
@@ -1137,7 +1141,7 @@ watch(
     align-items: stretch;
     flex-direction: column;
     margin-top: 10px;
-    border: 1px solid #dce7f2;
+    border: 1px solid #e8dfd0;
     border-radius: 8px;
     background: #fff;
     padding: 12px;

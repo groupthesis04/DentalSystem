@@ -1,0 +1,35 @@
+/* One display face from the BORJA wordmark and one interface face from the navigation. */
+:root {
+  --font-brand: Georgia, "Times New Roman", serif;
+  --font-ui: "Segoe UI", Arial, sans-serif;
+}
+
+body,
+button,
+input,
+select,
+textarea,
+table,
+nav {
+  font-family: var(--font-ui);
+}
+
+h1,
+h2,
+h3,
+.brand strong,
+.brand small,
+.sidebar-brand-copy strong,
+.sidebar-brand-copy small,
+.dashboard-mobile-brand strong,
+.dashboard-mobile-brand small,
+.auth-brand-wordmark,
+.dashboard-header-greeting > span,
+.dashboard-header-greeting > strong,
+.dashboard-header-message,
+.home-metric-copy > strong,
+.patient-summary-card > span:last-child > strong,
+.report-metric-copy > strong,
+.content-summary-card > div > strong {
+  font-family: var(--font-brand);
+}

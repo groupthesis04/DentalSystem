@@ -854,10 +854,14 @@ async function saveNotifications() {
                   <input
                     v-model="notificationPreferences[option.key]"
                     type="checkbox"
+                    role="switch"
                     :aria-label="option.title"
                     :disabled="!notificationsLoaded || notificationsBusy"
                   />
                   <span aria-hidden="true"></span>
+                  <small aria-hidden="true">{{
+                    notificationPreferences[option.key] ? "ON" : "OFF"
+                  }}</small>
                 </label>
               </article>
             </div>

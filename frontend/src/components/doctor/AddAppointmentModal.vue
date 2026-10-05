@@ -480,16 +480,16 @@ async function submitAppointment() {
 <style scoped>
 :global(.manual-appointment-dialog) {
   width: min(760px, calc(100% - 32px));
-  border-color: #d7e3ed;
+  border-color: #f4e7cd;
 }
 
 .manual-appointment-form {
-  color: #14284b;
+  color: #171511;
 }
 
 .manual-form-section {
   padding: 18px 24px 20px;
-  border-bottom: 1px solid #e2e9f0;
+  border-bottom: 1px solid #f5f2eb;
 }
 
 .manual-section-heading {
@@ -505,9 +505,9 @@ async function submitAppointment() {
   height: 40px;
   flex: 0 0 40px;
   place-items: center;
-  color: #0879df;
+  color: #8a6526;
   border-radius: 7px;
-  background: #edf5ff;
+  background: #f8f1e2;
 }
 
 .manual-section-heading > div {
@@ -520,13 +520,13 @@ async function submitAppointment() {
 }
 
 .manual-section-heading h3 {
-  color: #14284b;
+  color: #171511;
   font-size: 1rem;
 }
 
 .manual-section-heading p {
   margin-top: 2px;
-  color: #697b94;
+  color: #706b61;
   font-size: 0.72rem;
 }
 
@@ -537,10 +537,10 @@ async function submitAppointment() {
   gap: 7px;
   margin-left: auto;
   padding: 0 13px;
-  color: #0874d3;
-  border: 1px solid #bdddf8;
+  color: #8a6526;
+  border: 1px solid #f4e7cd;
   border-radius: 6px;
-  background: #eef6ff;
+  background: #f8f1e2;
   font: inherit;
   font-size: 0.72rem;
   font-weight: 800;
@@ -563,7 +563,7 @@ async function submitAppointment() {
 .patient-type-control legend,
 .manual-field > span:first-child {
   margin-bottom: 6px;
-  color: #14284b;
+  color: #171511;
   font-size: 0.72rem;
   font-weight: 800;
 }
@@ -573,9 +573,9 @@ async function submitAppointment() {
   height: 43px;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   overflow: hidden;
-  border: 1px solid #d6e1ec;
+  border: 1px solid #f4e7cd;
   border-radius: 6px;
-  background: #fff;
+  background: #ffffff;
 }
 
 .patient-type-control label {
@@ -584,25 +584,25 @@ async function submitAppointment() {
   align-items: center;
   justify-content: center;
   gap: 7px;
-  color: #546b88;
+  color: #514b42;
   font-size: 0.7rem;
   font-weight: 750;
   cursor: pointer;
 }
 
 .patient-type-control label + label {
-  border-left: 1px solid #d6e1ec;
+  border-left: 1px solid #f4e7cd;
 }
 
 .patient-type-control label.active {
-  color: #0871d4;
-  background: #edf5ff;
+  color: #8a6526;
+  background: #f8f1e2;
 }
 
 .patient-type-control input {
   width: 15px;
   height: 15px;
-  accent-color: #0878df;
+  accent-color: #8a6526;
 }
 
 .manual-field {
@@ -623,22 +623,22 @@ async function submitAppointment() {
   align-items: center;
   gap: 9px;
   padding: 0 12px;
-  color: #637894;
-  border: 1px solid #d6e1ec;
+  color: #706b61;
+  border: 1px solid #f4e7cd;
   border-radius: 6px;
-  background: #fff;
+  background: #ffffff;
 }
 
 .manual-control:focus-within {
-  border-color: #278cdc;
-  box-shadow: 0 0 0 3px rgb(39 140 220 / 12%);
+  border-color: #8a6526;
+  box-shadow: 0 0 0 3px rgba(138, 101, 38, 12%);
 }
 
 .manual-control :is(input, select) {
   width: 100%;
   min-width: 0;
   height: 100%;
-  color: #223b5d;
+  color: #171511;
   border: 0;
   outline: 0;
   background: transparent;
@@ -647,16 +647,16 @@ async function submitAppointment() {
 }
 
 .manual-control input::placeholder {
-  color: #8797aa;
+  color: #706b61;
 }
 
 .manual-control input:read-only {
-  color: #5c6f87;
+  color: #514b42;
 }
 
 .manual-field :deep(.service-multi-trigger) {
   min-height: 43px;
-  border-color: #d6e1ec;
+  border-color: #f4e7cd;
   border-radius: 6px;
   font-size: 0.75rem;
 }
@@ -679,8 +679,8 @@ async function submitAppointment() {
 
 .manual-field > small {
   margin-top: 5px;
-  color: #6e7f95;
-  font-size: 0.63rem;
+  color: #706b61;
+  font-size: 0.72rem;
 }
 
 .manual-patient-picker {
@@ -697,17 +697,17 @@ async function submitAppointment() {
   max-height: 220px;
   overflow-y: auto;
   padding: 5px;
-  border: 1px solid #cbdce9;
+  border: 1px solid #f4e7cd;
   border-radius: 6px;
-  background: #fff;
-  box-shadow: 0 12px 28px rgb(23 61 92 / 18%);
+  background: #ffffff;
+  box-shadow: 0 12px 28px rgba(23, 21, 17, 18%);
 }
 
 .manual-patient-results button {
   display: grid;
   gap: 2px;
   padding: 9px 10px;
-  color: #203958;
+  color: #171511;
   border: 0;
   border-radius: 5px;
   background: transparent;
@@ -718,7 +718,7 @@ async function submitAppointment() {
 
 .manual-patient-results button:hover,
 .manual-patient-results button[aria-selected="true"] {
-  background: #edf6ff;
+  background: #f8f1e2;
 }
 
 .manual-patient-results strong {
@@ -727,8 +727,8 @@ async function submitAppointment() {
 
 .manual-patient-results small,
 .manual-no-patients {
-  color: #74859b;
-  font-size: 0.64rem;
+  color: #706b61;
+  font-size: 0.72rem;
 }
 
 .manual-no-patients {
@@ -740,18 +740,18 @@ async function submitAppointment() {
   grid-column: 1 / -1;
   margin: 0;
   padding: 10px 12px;
-  color: #176795;
-  border: 1px solid #c9e8f8;
+  color: #8a6526;
+  border: 1px solid #f4e7cd;
   border-radius: 6px;
-  background: #eef9ff;
-  font-size: 0.68rem;
+  background: #f8f1e2;
+  font-size: 0.72rem;
   line-height: 1.45;
 }
 
 .manual-slot-message.warning {
-  color: #8d5800;
-  border-color: #f2d696;
-  background: #fff8e8;
+  color: #171511;
+  border-color: #dfc48a;
+  background: #f8f1e2;
 }
 
 .manual-notes-field {
@@ -762,19 +762,19 @@ async function submitAppointment() {
   min-height: 86px;
   resize: vertical;
   padding: 11px 12px;
-  color: #223b5d;
-  border: 1px solid #d6e1ec;
+  color: #171511;
+  border: 1px solid #f4e7cd;
   border-radius: 6px;
   outline: 0;
-  background: #fff;
+  background: #ffffff;
   font: inherit;
   font-size: 0.75rem;
   line-height: 1.45;
 }
 
 .manual-notes-field textarea:focus {
-  border-color: #278cdc;
-  box-shadow: 0 0 0 3px rgb(39 140 220 / 12%);
+  border-color: #8a6526;
+  box-shadow: 0 0 0 3px rgba(138, 101, 38, 12%);
 }
 
 .manual-notes-field > small {
@@ -806,37 +806,37 @@ async function submitAppointment() {
 :global(html[data-dashboard-theme="dark"]) .manual-section-heading h3,
 :global(html[data-dashboard-theme="dark"]) .patient-type-control legend,
 :global(html[data-dashboard-theme="dark"]) .manual-field > span:first-child {
-  color: #e7eef8;
+  color: #edddbd;
 }
 
 :global(html[data-dashboard-theme="dark"]) .manual-form-section {
-  border-color: #344154;
+  border-color: #514b42;
 }
 
 :global(html[data-dashboard-theme="dark"]) .manual-section-heading p,
 :global(html[data-dashboard-theme="dark"]) .manual-field > small {
-  color: #9eacc0;
+  color: #aaa194;
 }
 
 :global(html[data-dashboard-theme="dark"]) .manual-control,
 :global(html[data-dashboard-theme="dark"]) .patient-type-control > div,
 :global(html[data-dashboard-theme="dark"]) .manual-patient-results,
 :global(html[data-dashboard-theme="dark"]) .manual-notes-field textarea {
-  color: #dce7f4;
-  border-color: #3a485b;
-  background: #111821;
+  color: #edddbd;
+  border-color: #514b42;
+  background: #171511;
 }
 
 :global(html[data-dashboard-theme="dark"]) .manual-control :is(input, select),
 :global(html[data-dashboard-theme="dark"]) .manual-notes-field textarea,
 :global(html[data-dashboard-theme="dark"]) .manual-patient-results button {
-  color: #dce7f4;
+  color: #edddbd;
 }
 
 :global(html[data-dashboard-theme="dark"]) .manual-patient-results button[aria-selected="true"],
 :global(html[data-dashboard-theme="dark"]) .manual-patient-results button:hover,
 :global(html[data-dashboard-theme="dark"]) .patient-type-control label.active {
-  background: #1d3852;
+  background: #3f321e;
 }
 
 @media (max-width: 680px) {
@@ -893,7 +893,7 @@ async function submitAppointment() {
   }
 
   .patient-type-control label + label {
-    border-top: 1px solid #d6e1ec;
+    border-top: 1px solid #f4e7cd;
     border-left: 0;
   }
 }
