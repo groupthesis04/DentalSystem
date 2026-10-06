@@ -104,12 +104,30 @@ const maskedMobile = ref("");
 const verificationCode = ref("");
 const resendAt = ref(0);
 const expiresAt = ref(0);
+const resetEmail = ref("");
+const resetToken = ref("");
+const resetMaskedEmail = ref("");
+const resetCode = ref("");
+const resetNewPassword = ref("");
+const resetConfirmPassword = ref("");
+const showResetPassword = ref(false);
+const showResetConfirmPassword = ref(false);
+const resetNotice = ref("");
+const resetResendAt = ref(0);
+const resetExpiresAt = ref(0);
 const now = ref(Date.now());
 const resendRemaining = computed(() => Math.max(0, Math.ceil((resendAt.value - now.value) / 1000)));
 const expiresRemaining = computed(() =>
   Math.max(0, Math.ceil((expiresAt.value - now.value) / 1000)),
 );
+const resetResendRemaining = computed(() =>
+  Math.max(0, Math.ceil((resetResendAt.value - now.value) / 1000)),
+);
+const resetExpiresRemaining = computed(() =>
+  Math.max(0, Math.ceil((resetExpiresAt.value - now.value) / 1000)),
+);
 let countdownTimer;
+let resetFlowVersion = 0;
 // Optional local credentials are read only in development and stay out of source control.
 const configuredTestAccounts = [
   {
@@ -135,6 +153,7 @@ onMounted(() => {
 });
 onBeforeUnmount(() => {
   disposeEmailValidation();
+  clearResetState();
   document.body.classList.remove("modal-open");
   window.clearInterval(countdownTimer);
 });
@@ -220,13 +239,174 @@ function handleRegisterMobilePaste(event) {
   );
 }
 
+function clearResetState() {
+  resetFlowVersion += 1;
+  resetEmail.value = "";
+  resetToken.value = "";
+  resetMaskedEmail.value = "";
+  resetCode.value = "";
+  resetNewPassword.value = "";
+  resetConfirmPassword.value = "";
+  showResetPassword.value = false;
+  showResetConfirmPassword.value = false;
+  resetNotice.value = "";
+  resetResendAt.value = 0;
+  resetExpiresAt.value = 0;
+}
+
+function closeModal() {
+  clearResetState();
+  emit("close");
+}
+
 function switchTab(next) {
+  if (busy.value) return;
+  if (next === "forgot") {
+    const email = resetEmail.value || login.email;
+    clearResetState();
+    resetEmail.value = email;
+  } else if (next !== "reset-otp" && next !== "new-password") {
+    clearResetState();
+  }
   tab.value = next;
   errorMessage.value = "";
   showPassword.value = false;
   if (next !== "verify") {
     verificationToken.value = "";
     verificationCode.value = "";
+  }
+}
+
+function showResetChallenge(data) {
+  resetToken.value = data.reset_token;
+  resetMaskedEmail.value = data.masked_email || "";
+  resetCode.value = "";
+  resetNotice.value = "";
+  now.value = Date.now();
+  resetResendAt.value = now.value + (data.resend_after ?? 60) * 1000;
+  resetExpiresAt.value = now.value + (data.expires_in ?? 300) * 1000;
+  tab.value = "reset-otp";
+}
+
+function handleResetCodeInput() {
+  resetCode.value = resetCode.value.replace(/\D/g, "").slice(0, 6);
+}
+
+async function requestPasswordReset() {
+  if (busy.value) return;
+  const flowVersion = resetFlowVersion;
+  errorMessage.value = "";
+  resetNotice.value = "";
+  busy.value = true;
+  try {
+    const { email } = validatedPayload({ email: resetEmail.value });
+    if (!email) throw new Error("Enter your registered email address.");
+    const data = await apiRequest("/api/password-reset/request", {
+      method: "POST",
+      body: { email },
+    });
+    if (flowVersion !== resetFlowVersion) return;
+    if (data.reset_token) {
+      showResetChallenge(data);
+    } else {
+      resetNotice.value = "If an account exists for this email, a verification code will be sent.";
+    }
+  } catch (error) {
+    if (flowVersion === resetFlowVersion) errorMessage.value = error.message;
+  } finally {
+    busy.value = false;
+  }
+}
+
+async function verifyPasswordResetCode() {
+  if (busy.value) return;
+  const flowVersion = resetFlowVersion;
+  errorMessage.value = "";
+  if (!/^[0-9]{6}$/.test(resetCode.value)) {
+    errorMessage.value = "Enter the 6-digit verification code.";
+    return;
+  }
+  busy.value = true;
+  try {
+    const data = await apiRequest("/api/password-reset/verify", {
+      method: "POST",
+      body: { reset_token: resetToken.value, code: resetCode.value },
+    });
+    if (flowVersion !== resetFlowVersion) return;
+    if (!data.verified) throw new Error("Invalid or expired verification code.");
+    resetCode.value = "";
+    tab.value = "new-password";
+  } catch (error) {
+    if (flowVersion === resetFlowVersion) errorMessage.value = error.message;
+  } finally {
+    busy.value = false;
+  }
+}
+
+async function resendPasswordResetCode() {
+  if (busy.value || resetResendRemaining.value > 0) return;
+  const flowVersion = resetFlowVersion;
+  errorMessage.value = "";
+  busy.value = true;
+  try {
+    const data = await apiRequest("/api/password-reset/resend", {
+      method: "POST",
+      body: { reset_token: resetToken.value },
+    });
+    if (flowVersion !== resetFlowVersion) return;
+    if (!data.reset_token)
+      throw new Error("Your verification session has expired. Request a new code.");
+    showResetChallenge(data);
+  } catch (error) {
+    if (flowVersion === resetFlowVersion) errorMessage.value = error.message;
+    if (flowVersion === resetFlowVersion && error.data?.retry_after) {
+      resetResendAt.value = Date.now() + error.data.retry_after * 1000;
+    }
+  } finally {
+    busy.value = false;
+  }
+}
+
+async function confirmPasswordReset() {
+  if (busy.value) return;
+  const flowVersion = resetFlowVersion;
+  errorMessage.value = "";
+  try {
+    if (resetNewPassword.value !== resetConfirmPassword.value) {
+      throw new Error("Passwords do not match.");
+    }
+    const password = resetNewPassword.value;
+    if (
+      password.length < 8 ||
+      !/\p{Lu}/u.test(password) ||
+      !/\p{Ll}/u.test(password) ||
+      !/\p{Nd}/u.test(password) ||
+      !/[^\p{L}\p{N}\s]/u.test(password)
+    ) {
+      throw new Error(
+        "Password must be at least 8 characters and include uppercase, lowercase, number, and symbol characters.",
+      );
+    }
+    busy.value = true;
+    const data = await apiRequest("/api/password-reset/confirm", {
+      method: "POST",
+      body: {
+        reset_token: resetToken.value,
+        new_password: resetNewPassword.value,
+        confirm_password: resetConfirmPassword.value,
+      },
+    });
+    if (flowVersion !== resetFlowVersion) return;
+    if (!data.ok)
+      throw new Error("Password recovery is temporarily unavailable. Please try again.");
+    login.email = resetEmail.value;
+    login.password = "";
+    clearResetState();
+    tab.value = "reset-success";
+  } catch (error) {
+    if (flowVersion === resetFlowVersion) errorMessage.value = error.message;
+  } finally {
+    busy.value = false;
   }
 }
 
@@ -381,9 +561,9 @@ function handleRegisterInvalid(event) {
 
 <template>
   <Teleport to="body">
-    <div class="modal-backdrop" role="dialog" aria-modal="true" @mousedown.self="emit('close')">
+    <div class="modal-backdrop" role="dialog" aria-modal="true" @mousedown.self="closeModal">
       <div class="auth-modal" :class="{ 'auth-modal-register': tab === 'register' }">
-        <button class="modal-close" type="button" aria-label="Close" @click="emit('close')">
+        <button class="modal-close" type="button" aria-label="Close" @click="closeModal">
           <X aria-hidden="true" />
         </button>
 
@@ -464,11 +644,7 @@ function handleRegisterInvalid(event) {
             <label class="remember-choice"
               ><input v-model="login.remember" type="checkbox" /><span>Remember Me</span></label
             >
-            <button
-              class="forgot-link"
-              type="button"
-              @click="showToast('Please contact the clinic administrator to reset your password.')"
-            >
+            <button class="forgot-link" type="button" @click="switchTab('forgot')">
               Forgot Password?
             </button>
           </div>
@@ -540,6 +716,217 @@ function handleRegisterInvalid(event) {
             Back to registration
           </button>
         </form>
+
+        <form
+          v-else-if="tab === 'forgot'"
+          class="auth-form auth-reset-form"
+          @submit.prevent="requestPasswordReset"
+        >
+          <div class="auth-heading">
+            <Mail class="verification-icon" aria-hidden="true" />
+            <h2>Forgot Password</h2>
+            <p>
+              Enter the email address associated with your account. We'll send a verification code
+              to your email.
+            </p>
+          </div>
+          <label class="auth-field">
+            <span>Email Address</span>
+            <span class="auth-input-wrap">
+              <Mail aria-hidden="true" />
+              <input
+                v-model="resetEmail"
+                name="email"
+                type="email"
+                autocomplete="email"
+                maxlength="254"
+                placeholder="you@example.com"
+                required
+              />
+            </span>
+          </label>
+          <p v-if="resetNotice" class="reset-notice" role="status">{{ resetNotice }}</p>
+          <p v-if="errorMessage" class="form-error" role="alert">{{ errorMessage }}</p>
+          <button class="primary-button login-button full" type="submit" :disabled="busy">
+            {{ busy ? "Sending Code..." : "Send Verification Code" }}
+          </button>
+          <button
+            class="verification-back"
+            type="button"
+            :disabled="busy"
+            @click="switchTab('login')"
+          >
+            Back to Login
+          </button>
+        </form>
+
+        <form
+          v-else-if="tab === 'reset-otp'"
+          class="auth-form auth-verify-form auth-reset-form"
+          @submit.prevent="verifyPasswordResetCode"
+        >
+          <div class="auth-heading">
+            <ShieldCheck class="verification-icon" aria-hidden="true" />
+            <h2>Check Your Email</h2>
+            <p>We sent a 6-digit verification code to your registered email.</p>
+          </div>
+          <p v-if="resetMaskedEmail" class="verification-intro">
+            Sent to <strong>{{ resetMaskedEmail }}</strong>
+          </p>
+          <label class="auth-field">
+            <span>Verification Code</span>
+            <span class="auth-input-wrap">
+              <LockKeyhole aria-hidden="true" />
+              <input
+                v-model="resetCode"
+                name="reset_code"
+                type="text"
+                inputmode="numeric"
+                autocomplete="one-time-code"
+                pattern="[0-9]{6}"
+                maxlength="6"
+                placeholder="Enter 6-digit code"
+                required
+                @input="handleResetCodeInput"
+              />
+            </span>
+          </label>
+          <p class="verification-hint">
+            Code expires in {{ Math.floor(resetExpiresRemaining / 60) }}:{{
+              String(resetExpiresRemaining % 60).padStart(2, "0")
+            }}.
+            <span v-if="!resetExpiresRemaining">Request a new code to continue.</span>
+          </p>
+          <p v-if="errorMessage" class="form-error" role="alert">{{ errorMessage }}</p>
+          <button
+            class="primary-button login-button full"
+            type="submit"
+            :disabled="busy || !resetExpiresRemaining"
+          >
+            {{ busy ? "Verifying..." : "Verify Code" }}
+          </button>
+          <button
+            class="verification-resend"
+            type="button"
+            :disabled="busy || resetResendRemaining > 0"
+            @click="resendPasswordResetCode"
+          >
+            {{
+              resetResendRemaining > 0
+                ? `Resend available in ${resetResendRemaining} seconds`
+                : "Resend Code"
+            }}
+          </button>
+          <button
+            class="verification-back"
+            type="button"
+            :disabled="busy"
+            @click="switchTab('forgot')"
+          >
+            Back
+          </button>
+        </form>
+
+        <form
+          v-else-if="tab === 'new-password'"
+          class="auth-form auth-reset-form"
+          @submit.prevent="confirmPasswordReset"
+        >
+          <div class="auth-heading">
+            <LockKeyhole class="verification-icon" aria-hidden="true" />
+            <h2>Create New Password</h2>
+            <p>Choose a strong password for your BORJA Dental Clinic account.</p>
+          </div>
+          <label class="auth-field">
+            <span>New Password</span>
+            <span class="auth-input-wrap">
+              <LockKeyhole aria-hidden="true" />
+              <input
+                v-model="resetNewPassword"
+                name="new_password"
+                :type="showResetPassword ? 'text' : 'password'"
+                autocomplete="new-password"
+                minlength="8"
+                maxlength="128"
+                placeholder="Create a new password"
+                required
+              />
+              <button
+                class="password-toggle"
+                type="button"
+                :aria-label="showResetPassword ? 'Hide new password' : 'Show new password'"
+                :aria-pressed="showResetPassword"
+                @click="showResetPassword = !showResetPassword"
+              >
+                <EyeOff v-if="showResetPassword" aria-hidden="true" />
+                <Eye v-else aria-hidden="true" />
+              </button>
+            </span>
+          </label>
+          <label class="auth-field">
+            <span>Confirm New Password</span>
+            <span class="auth-input-wrap">
+              <LockKeyhole aria-hidden="true" />
+              <input
+                v-model="resetConfirmPassword"
+                name="confirm_password"
+                :type="showResetConfirmPassword ? 'text' : 'password'"
+                autocomplete="new-password"
+                minlength="8"
+                maxlength="128"
+                placeholder="Confirm your new password"
+                required
+              />
+              <button
+                class="password-toggle"
+                type="button"
+                :aria-label="
+                  showResetConfirmPassword
+                    ? 'Hide confirmation password'
+                    : 'Show confirmation password'
+                "
+                :aria-pressed="showResetConfirmPassword"
+                @click="showResetConfirmPassword = !showResetConfirmPassword"
+              >
+                <EyeOff v-if="showResetConfirmPassword" aria-hidden="true" />
+                <Eye v-else aria-hidden="true" />
+              </button>
+            </span>
+          </label>
+          <p class="reset-requirements">
+            At least 8 characters with uppercase and lowercase letters, a number, and a symbol.
+          </p>
+          <p v-if="errorMessage" class="form-error" role="alert">{{ errorMessage }}</p>
+          <button class="primary-button login-button full" type="submit" :disabled="busy">
+            {{ busy ? "Resetting Password..." : "Reset Password" }}
+          </button>
+          <button
+            class="verification-back"
+            type="button"
+            :disabled="busy"
+            @click="switchTab('login')"
+          >
+            Back to Login
+          </button>
+        </form>
+
+        <div v-else-if="tab === 'reset-success'" class="auth-form auth-reset-form">
+          <div class="auth-heading">
+            <CircleCheck class="verification-icon" aria-hidden="true" />
+            <h2>Password Reset Successful</h2>
+            <p>
+              Your password has been changed successfully. You can now sign in using your new
+              password.
+            </p>
+          </div>
+          <button
+            class="primary-button login-button full"
+            type="button"
+            @click="switchTab('login')"
+          >
+            Back to Login
+          </button>
+        </div>
 
         <form
           v-else

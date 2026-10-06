@@ -320,5 +320,10 @@ SEMAPHORE_SENDER_NAME = os.environ.get(
     "",
 ).strip()
 
+# Password recovery email is sent by Django only, through Resend.
+RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "").strip()
+RESEND_FROM_EMAIL = os.environ.get("RESEND_FROM_EMAIL", "").strip()
+RESEND_FROM_NAME = os.environ.get("RESEND_FROM_NAME", "BORJA Dental Clinic").strip()
+
 # Semaphore permits two account lookups per minute.
 SEMAPHORE_ACCOUNT_CACHE_SECONDS = 60

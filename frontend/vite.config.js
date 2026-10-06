@@ -1,7 +1,8 @@
 import { defineConfig } from "vite";
 import vue from "@vitejs/plugin-vue";
 
-const apiTarget = process.env.API_PROXY_TARGET || "http://127.0.0.1:8000";
+const apiTarget =
+  process.env.API_PROXY_TARGET || "http://127.0.0.1:8000";
 
 const securityHeaders = {
   "Content-Security-Policy": [
@@ -47,7 +48,12 @@ export default defineConfig({
     strictPort: true,
     headers: securityHeaders,
 
-    allowedHosts: ["borjadentalclinic.up.railway.app"],
+    // Allowed production domains
+    allowedHosts: [
+      "borjadentalclinic.up.railway.app",
+      "www.borjadentalclinic.site",
+      "borjadentalclinic.site",
+    ],
 
     proxy: {
       "/api": {

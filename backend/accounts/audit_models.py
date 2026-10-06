@@ -10,6 +10,7 @@ class AuditEvent(models.Model):
         LOGIN_FAILED = "LOGIN_FAILED", "Login failed"
         LOGOUT = "LOGOUT", "Logged out"
         PASSWORD_CHANGED = "PASSWORD_CHANGED", "Password changed"
+        PASSWORD_RESET = "PASSWORD_RESET", "Password reset"
         ACCOUNT_LOCKED = "ACCOUNT_LOCKED", "Account locked"
         ACCOUNT_DISABLED = "ACCOUNT_DISABLED", "Account disabled"
         ACCOUNT_ENABLED = "ACCOUNT_ENABLED", "Account enabled"
@@ -51,4 +52,3 @@ class AuditEvent(models.Model):
             models.Index(fields=["actor", "-created_at"], name="audit_actor_date_idx"),
             models.Index(fields=["event", "-created_at"], name="audit_event_date_idx"),
         ]
-

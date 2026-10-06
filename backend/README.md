@@ -130,6 +130,25 @@ outage pauses new registration with a temporary error, while existing account
 login is unaffected. The backend briefly caches results and rate-limits check
 requests. This feature needs no migration or additional Python package.
 
+## Forgot Password email delivery
+
+Forgot Password uses a separate five-minute email OTP challenge. Django sends
+the six-digit code through Resend to the existing account's registered `User.email`;
+patient registration and appointment SMS continue to use Semaphore. The browser
+calls `POST /api/password-reset/request`, `/verify`, `/resend`, and `/confirm`.
+The reset token and OTP are stored only as hashes, and successful confirmation
+revokes the account's old sessions and clears its login lockout.
+
+Before testing real delivery, add and verify a domain owned by the clinic in
+Resend. Set `RESEND_API_KEY`, `RESEND_FROM_EMAIL` (for example,
+`noreply@your-verified-domain.com`), and optionally `RESEND_FROM_NAME` on the
+**Railway backend service**, never in Vue/Vite variables. The sender email must
+use the verified domain. Apply `accounts.0009_password_reset_verification` on
+the backend database before deploying the new code. A missing or rejected
+Resend configuration returns a temporary recovery error and no usable reset
+challenge. Automated tests mock Resend; a real Gmail inbox test is a separate
+deployment check after the domain and variables are configured.
+
 Registration creates a new account immediately only when no clinic patient record
 matches. An unlinked clinic record starts a five-minute SMS code challenge instead.
 The code is sent directly through the existing Semaphore transport to the mobile

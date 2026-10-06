@@ -193,6 +193,37 @@ class PatientAccountVerification(models.Model):
         ]
 
 
+class PasswordResetVerification(models.Model):
+    """Short-lived email OTP challenge for an existing account.
+
+    A null user represents an indistinguishable decoy for an unknown or inactive
+    email. It can never verify an OTP or change an account password.
+    """
+
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="password_reset_verifications",
+        null=True, blank=True,
+    )
+    email_key = models.CharField(max_length=64, db_index=True)
+    masked_email = models.CharField(max_length=254)
+    token_hash = models.CharField(max_length=64, unique=True)
+    code_hash = models.CharField(max_length=256, blank=True)
+    expires_at = models.DateTimeField()
+    attempts = models.PositiveSmallIntegerField(default=0)
+    is_verified = models.BooleanField(default=False)
+    is_used = models.BooleanField(default=False)
+    created_at = models.DateTimeField(default=timezone.now)
+    verified_at = models.DateTimeField(null=True, blank=True)
+    used_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["email_key", "-created_at"], name="reset_email_created_idx"),
+            models.Index(fields=["user", "-created_at"], name="reset_user_created_idx"),
+            models.Index(fields=["created_at"], name="reset_created_idx"),
+        ]
+
+
 class AccountLoginActivity(models.Model):
     """A durable record of successful account sign-ins."""
 

@@ -30,7 +30,7 @@ import { showToast } from "../../services/toast";
 const root = ref(null);
 const detailsPanel = ref(null);
 const filtersPanel = ref(null);
-const filtersExpanded = ref(false);
+const filtersExpanded = ref(true);
 const result = ref(null);
 const selectedId = ref("");
 const loading = ref(true);
@@ -316,6 +316,88 @@ onBeforeUnmount(() => {
       {{ error }} <button type="button" @click="refresh">Try again</button>
     </p>
 
+    <details
+      id="log-tools"
+      ref="filtersPanel"
+      class="log-tools"
+      :open="filtersExpanded"
+      @toggle="filtersExpanded = $event.target.open"
+    >
+      <summary>
+        <Filter :size="17" />Search, filters &amp; SMS overview
+        <ChevronRight class="log-tools-chevron" :size="17" />
+      </summary>
+      <div class="log-tools-body">
+        <div class="log-metrics">
+          <article v-for="metric in metrics" :key="metric.label">
+            <span class="log-metric-icon" :class="metric.color"
+              ><component :is="metric.icon" :size="25"
+            /></span>
+            <div>
+              <h2>{{ metric.label }}</h2>
+              <strong>{{ metric.value ?? "--" }}</strong
+              ><small>{{ metric.detail }}</small>
+            </div>
+          </article>
+        </div>
+
+        <form class="log-filters" aria-label="Filter SMS messages" @submit.prevent="refresh">
+          <label class="log-search"
+            >Recipient or mobile number
+            <span class="log-search-input"
+              ><Search :size="16" /><input
+                v-model="filters.q"
+                type="search"
+                maxlength="120"
+                placeholder="Search recipient or number..."
+            /></span>
+          </label>
+          <label
+            >Message Type<select v-model="filters.rule">
+              <option value="">All Types</option>
+              <option v-for="(label, key) in types" :key="key" :value="key">{{ label }}</option>
+            </select></label
+          >
+          <label
+            >Delivery Status<select v-model="filters.status">
+              <option value="">All Statuses</option>
+              <option v-for="(label, key) in statuses" :key="key" :value="key">{{ label }}</option>
+            </select></label
+          >
+          <label
+            >Source<select v-model="filters.source">
+              <option value="">All Sources</option>
+              <option v-for="(label, key) in sources" :key="key" :value="key">{{ label }}</option>
+            </select></label
+          >
+          <fieldset class="log-date-range">
+            <legend>Date Range</legend>
+            <div>
+              <input
+                v-model="filters.date_from"
+                type="date"
+                aria-label="From date"
+                :max="filters.date_to || undefined"
+              /><span aria-hidden="true">to</span
+              ><input
+                v-model="filters.date_to"
+                type="date"
+                aria-label="To date"
+                :min="filters.date_from || undefined"
+              />
+            </div>
+          </fieldset>
+          <div class="log-filter-actions">
+            <button type="button" :disabled="!hasFilters" @click="clearFilters">
+              <X :size="15" />Clear</button
+            ><button type="submit" class="primary" :disabled="loading || !!invalidDates">
+              <RefreshCw :size="15" :class="{ spinning: loading }" />Refresh
+            </button>
+          </div>
+        </form>
+      </div>
+    </details>
+
     <div class="log-workspace">
       <section class="log-table-panel" aria-labelledby="log-table-title" :aria-busy="loading">
         <header class="log-panel-heading">
@@ -592,87 +674,6 @@ onBeforeUnmount(() => {
       </aside>
     </div>
 
-    <details
-      id="log-tools"
-      ref="filtersPanel"
-      class="log-tools"
-      @toggle="filtersExpanded = $event.target.open"
-    >
-      <summary>
-        <Filter :size="17" />Search, filters &amp; SMS overview
-        <ChevronRight class="log-tools-chevron" :size="17" />
-      </summary>
-      <div class="log-tools-body">
-        <div class="log-metrics">
-          <article v-for="metric in metrics" :key="metric.label">
-            <span class="log-metric-icon" :class="metric.color"
-              ><component :is="metric.icon" :size="25"
-            /></span>
-            <div>
-              <h2>{{ metric.label }}</h2>
-              <strong>{{ metric.value ?? "--" }}</strong
-              ><small>{{ metric.detail }}</small>
-            </div>
-          </article>
-        </div>
-
-        <form class="log-filters" aria-label="Filter SMS messages" @submit.prevent="refresh">
-          <label class="log-search"
-            >Recipient or mobile number
-            <span class="log-search-input"
-              ><Search :size="16" /><input
-                v-model="filters.q"
-                type="search"
-                maxlength="120"
-                placeholder="Search recipient or number..."
-            /></span>
-          </label>
-          <label
-            >Message Type<select v-model="filters.rule">
-              <option value="">All Types</option>
-              <option v-for="(label, key) in types" :key="key" :value="key">{{ label }}</option>
-            </select></label
-          >
-          <label
-            >Delivery Status<select v-model="filters.status">
-              <option value="">All Statuses</option>
-              <option v-for="(label, key) in statuses" :key="key" :value="key">{{ label }}</option>
-            </select></label
-          >
-          <label
-            >Source<select v-model="filters.source">
-              <option value="">All Sources</option>
-              <option v-for="(label, key) in sources" :key="key" :value="key">{{ label }}</option>
-            </select></label
-          >
-          <fieldset class="log-date-range">
-            <legend>Date Range</legend>
-            <div>
-              <input
-                v-model="filters.date_from"
-                type="date"
-                aria-label="From date"
-                :max="filters.date_to || undefined"
-              /><span aria-hidden="true">to</span
-              ><input
-                v-model="filters.date_to"
-                type="date"
-                aria-label="To date"
-                :min="filters.date_from || undefined"
-              />
-            </div>
-          </fieldset>
-          <div class="log-filter-actions">
-            <button type="button" :disabled="!hasFilters" @click="clearFilters">
-              <X :size="15" />Clear</button
-            ><button type="submit" class="primary" :disabled="loading || !!invalidDates">
-              <RefreshCw :size="15" :class="{ spinning: loading }" />Refresh
-            </button>
-          </div>
-        </form>
-      </div>
-    </details>
-
     <BaseModal
       v-if="resendTarget"
       title="Resend Message"
@@ -926,7 +927,7 @@ onBeforeUnmount(() => {
   padding-inline: 10px;
 }
 .log-tools {
-  margin-top: 16px;
+  margin-bottom: 16px;
   border: 1px solid var(--dashboard-border, #e8e0d2);
   border-radius: 10px;
   background: var(--surface, #ffffff);

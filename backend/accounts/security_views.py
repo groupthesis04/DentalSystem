@@ -21,7 +21,7 @@ from dental_backend.api import (
 
 from .identity import canonical_mobile
 from .audit import record_audit_event
-from .models import AccountAuthState, AccountLoginActivity, User
+from .models import AccountAuthState, AccountLoginActivity, PasswordResetVerification, User
 
 
 def _session_hash(session_key):
@@ -142,6 +142,9 @@ def change_password(request):
     with transaction.atomic():
         user.set_password(new_password)
         user.save(update_fields=["password", "updated_at"])
+        PasswordResetVerification.objects.filter(user=user, is_used=False).update(
+            is_used=True, code_hash=""
+        )
     update_session_auth_hash(request, user)
     AccountLoginActivity.objects.filter(
         user=user, session_key_hash=old_session_hash

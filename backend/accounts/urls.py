@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import audit_views, security_views, views
+from . import audit_views, password_reset, security_views, views
 
 
 urlpatterns = [
@@ -11,6 +11,10 @@ urlpatterns = [
     path("account-verification/resend", views.resend_account_code, name="resend_account_code"),
     path("login", views.login, name="login"),
     path("logout", views.logout, name="logout"),
+    path("password-reset/request", password_reset.request_password_reset, name="password_reset_request"),
+    path("password-reset/verify", password_reset.verify_password_reset, name="password_reset_verify"),
+    path("password-reset/resend", password_reset.resend_password_reset, name="password_reset_resend"),
+    path("password-reset/confirm", password_reset.confirm_password_reset, name="password_reset_confirm"),
     path("profile", views.profile, name="profile"),
     path("account/security", security_views.security, name="account_security"),
     path("account/activity-log", audit_views.activity_log, name="account_activity_log"),
