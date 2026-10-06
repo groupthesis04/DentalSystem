@@ -51,7 +51,7 @@ def validate_template(value):
     if not isinstance(value, str) or not value.strip() or len(value) > 1000:
         raise ValueError("Message content must contain 1 to 1,000 characters.")
     value = value.strip()
-    if value.upper().startswith("TEST"):
+    if settings.SMS_PROVIDER == "semaphore" and value.upper().startswith("TEST"):
         raise ValueError("Semaphore ignores messages beginning with TEST. Start with your clinic name or a greeting.")
     try:
         for _, field, spec, conversion in string.Formatter().parse(value):
@@ -268,7 +268,7 @@ def dispatch(item_id, now):
             item.provider_id, item.status = sms_provider.send(item.phone, item.body)
             item.submitted_at = now
             item.checked_at = now
-            item.error = "Semaphore rejected the message. Check its message log." if item.status in {"failed", "refunded"} else ""
+            item.error = f"{sms_provider.name()} rejected the message. Check its message log." if item.status in {"failed", "refunded"} else ""
         except ValueError as exc:
             item.status, item.error = "failed", str(exc)
         except sms_provider.SmsProviderError as exc:
@@ -295,7 +295,7 @@ def process_queue():
     count = 0
     try:
         # A crashed send may have reached the provider; never automatically resend it.
-        SmsMessage.objects.filter(status="processing", updated_at__lt=now - dt.timedelta(minutes=5)).update(status="unknown", error="Worker stopped during sending. Check Semaphore logs before resending.")
+        SmsMessage.objects.filter(status="processing", updated_at__lt=now - dt.timedelta(minutes=5)).update(status="unknown", error="Worker stopped during sending. Check provider logs before resending.")
         queue_due_balances(now)
         notify_upcoming_appointments(now)
         notify_due_next_visits(now)
@@ -310,7 +310,8 @@ def process_queue():
             previous_status = item.status
             try:
                 _, item.status = sms_provider.status(item.provider_id)
-                item.error = "Semaphore rejected the message. Check its message log." if item.status in {"failed", "refunded"} else ""
+                provider_name = "PhilSMS" if item.provider_id.startswith("philsms:") else "Semaphore"
+                item.error = f"{provider_name} rejected the message. Check its message log." if item.status in {"failed", "refunded"} else ""
             except sms_provider.SmsProviderError:
                 item.error = "Status refresh unavailable; the message has not been resent."
             item.checked_at = now

@@ -86,9 +86,13 @@ advisory warnings.
 
 ## SMS worker
 
-Optional Semaphore settings are listed in `.env.example`. Set the API key only in
-`backend/.env`, enable `SMS_ENABLED=1`, and restart the backend and worker after
-configuration changes. Apply migrations first, then run from the project root:
+Provider settings are listed in `.env.example`. For temporary PHILSMS delivery,
+set `SMS_PROVIDER=philsms`, `SMS_ENABLED=1`, `PHILSMS_API_TOKEN`, and the approved
+`PHILSMS_SENDER_ID` on **both** the Django web service and the SMS worker. Keep
+the token in server environments only. Semaphore remains the default when
+`SMS_PROVIDER` is omitted; use `SEMAPHORE_API_KEY` and optional
+`SEMAPHORE_SENDER_NAME` for that provider. Restart both services after changing
+the variables. Apply migrations first, then run from the project root:
 
 ```powershell
 .\.venv\Scripts\python.exe backend\manage.py process_sms --loop
@@ -98,10 +102,11 @@ Without `--loop`, the command performs one bounded queue pass. Run only one loop
 per deployment; a database lease also prevents overlapping passes. The worker
 handles event SMS, seven-day balance reminders, and provider status polling
 independently of the browser. Production needs an always-on supervised worker
-with outbound HTTPS access to `api.semaphore.co`.
+with outbound HTTPS access to the configured provider (`app.philsms.com` for
+PHILSMS or `api.semaphore.co` for Semaphore).
 The same worker checks approved appointments within the next 24 hours and
 creates doctor dashboard reminders. Those reminders do not send patient SMS and
-still run when Semaphore sending is disabled. It also creates a doctor dashboard
+still run when SMS sending is disabled. It also creates a doctor dashboard
 alert on a recorded next visit's clinic-local due date; assigning that date
 continues to use the existing patient SMS rule.
 
@@ -113,7 +118,7 @@ No provider keys are returned through these APIs.
 ## Claiming a clinic-created patient record
 
 Patient registration checks email reputation through Abstract before creating
-an account or starting the existing Semaphore identity challenge. The Django
+an account or starting the existing SMS identity challenge. The Django
 backend calls `https://emailreputation.abstractapi.com/v1` with the Email
 Reputation API key. In `backend/.env`, use
 `ABSTRACT_EMAIL_REPUTATION_API_KEY=your-key`. On Railway, add that same variable
@@ -134,7 +139,7 @@ requests. This feature needs no migration or additional Python package.
 
 Forgot Password uses a separate five-minute email OTP challenge. Django sends
 the six-digit code through Resend to the existing account's registered `User.email`;
-patient registration and appointment SMS continue to use Semaphore. The browser
+patient registration and appointment SMS use the configured provider. The browser
 calls `POST /api/password-reset/request`, `/verify`, `/resend`, and `/confirm`.
 The reset token and OTP are stored only as hashes, and successful confirmation
 revokes the account's old sessions and clears its login lockout.
@@ -153,7 +158,7 @@ deployment check after the domain and variables are configured.
 
 Registration creates a new account immediately only when no clinic patient record
 matches. An unlinked clinic record starts a five-minute SMS code challenge instead.
-The code is sent directly through the existing Semaphore transport to the mobile
+The code is sent directly through the configured SMS transport to the mobile
 number already on that record. The registration phone is used only for matching;
 it never sets the OTP destination. The submitted password and code are stored as
 hashes until verification. A successful code creates the User and sets the existing
@@ -173,7 +178,8 @@ Remove-Item Env:DRMS_TEST_SQLITE
 ```
 
 On Railway, keep `SMS_ENABLED=1`, `SMS_CLINIC_NAME=BORJA Dental Clinic`,
-`SEMAPHORE_API_KEY` and `SEMAPHORE_SENDER_NAME` on the Django web service. Keep
+`SMS_PROVIDER=philsms`, `PHILSMS_API_TOKEN`, and `PHILSMS_SENDER_ID` on the Django
+web service and the SMS worker. Keep
 the existing `DRMS_DB_*` and Django secret/host/cookie variables. In that service's
 Settings, set the **Pre-deploy Command** to `python backend/manage.py migrate` if
 its root directory is the repository root, or `python manage.py migrate` if its
@@ -187,7 +193,7 @@ automations, but account verification sends synchronously from Django.
 
 To test real delivery, create a clinic patient with a mobile you control and no
 linked account, then register with matching name, birthdate, email and mobile.
-The API should return `verification_required` and a masked number. Check Semaphore's
+The API should return `verification_required` and a masked number. Check the provider's
 message log for provider acceptance and enter the received code within five
 minutes. Use the clinic's patient detail page or Django shell to record the
 PatientProfile ID and counts of appointments/treatments before and after linking;
@@ -199,11 +205,12 @@ replacing `pat_...` with the clinic record's ID:
 .\.venv\Scripts\python.exe backend\manage.py shell -c "from accounts.models import PatientProfile; from scheduling.models import Appointment; from records.models import TreatmentRecord; p=PatientProfile.objects.get(pk='pat_...'); print({'id': p.id, 'user_id': p.user_id, 'appointments': Appointment.objects.filter(patient=p).count(), 'treatments': TreatmentRecord.objects.filter(patient=p).count()})"
 ```
 
-The SMS Center reads the live credit balance from Semaphore's `GET /api/v4/account`
-endpoint. Successful lookups are cached for 60 seconds to stay below Semaphore's
-two-account-requests-per-minute limit. When the key is missing or Semaphore cannot
-be reached, the dashboard shows the balance as unavailable instead of inventing a
-credit total.
+The SMS Center reads the active provider's live balance: PHILSMS
+`GET /api/v3/balance` or Semaphore `GET /api/v4/account`. Successful lookups are
+cached for 60 seconds. When credentials are missing or the provider cannot be
+reached, the dashboard shows the balance as unavailable instead of inventing a
+credit total. Existing Semaphore message IDs remain associated with Semaphore
+for status polling after switching to PHILSMS.
 
 Migration `0003_sms_template_library` preserves existing rule messages in the
 template library. Each rule selects one template; creating or duplicating a
@@ -214,6 +221,6 @@ immediate. Disabling the active template also disables its rule and suppresses
 its unsent queue entries.
 
 Explicit HTTP 429 rejections are retried at most twice. Ambiguous send failures
-are marked `unknown` and require checking Semaphore's logs, preventing automatic
+are marked `unknown` and require checking the provider's logs, preventing automatic
 duplicate texts and charges. Provider `sent` means network acceptance, not verified
 handset delivery. See `frontend/README.md` for setup and automation behavior.

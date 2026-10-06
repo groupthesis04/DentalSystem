@@ -97,24 +97,28 @@ npm.cmd run format
 `format` is optional and makes the Vue source consistent and readable. The Django backend runs
 separately on port `8000` and Vite forwards `/api` requests to it automatically.
 
-## Automated SMS (Semaphore)
+## Automated SMS
 
-The SMS section uses the Django backend, not browser storage. A Semaphore account,
-funded credits, and an approved sender name are needed for real delivery. Until
-configured, the dashboard shows **Semaphore is not connected**.
-The **SMS Credits Remaining** card uses Semaphore's live account balance through
-the Django backend. The backend caches successful lookups for 60 seconds because
-Semaphore limits account requests to two per minute. Missing credentials and
-provider errors display an unavailable state; no placeholder credit value is used.
+The SMS section uses the Django backend, not browser storage. Real delivery needs
+a funded account, provider credentials, and an approved sender ID. The dashboard
+shows the configured provider and its connection status. The balance card uses
+the active provider's account API through Django. Successful lookups are cached
+for 60 seconds. Missing credentials and provider errors display an unavailable
+state; no placeholder balance is used.
 
 1. Add these settings to `backend/.env`, never the frontend environment file:
 
 ```dotenv
 SMS_ENABLED=1
 SMS_CLINIC_NAME=BORJA Dental Clinic
-SEMAPHORE_API_KEY=your-private-api-key
-SEMAPHORE_SENDER_NAME=your-approved-sender-name
+SMS_PROVIDER=philsms
+PHILSMS_API_TOKEN=your-private-api-token
+PHILSMS_SENDER_ID=your-approved-sender-id
 ```
+
+Set the same SMS variables on both the Django web service and the SMS worker in
+production. Semaphore remains available with `SMS_PROVIDER=semaphore`,
+`SEMAPHORE_API_KEY`, and optional `SEMAPHORE_SENDER_NAME`.
 
 2. From the project root, apply the migration and restart Django:
 
@@ -151,7 +155,7 @@ the current filters; active rules remain clinic-wide. Dates use Philippine time.
 Choose 10, 25, or 50 rows per page.
 
 Resend is available only for a confirmed failure while its notification is still
-valid and Semaphore is connected. Confirming creates a separate attempt using
+valid and the active provider is connected. Confirming creates a separate attempt using
 the current patient number, appointment details, and active template. The
 original log is preserved, and repeated clicks cannot duplicate that attempt.
 Expired, disabled, paid-off, changed-status, and uncertain notices cannot be resent.
@@ -170,7 +174,7 @@ credits. The phone preview uses sample data and does not send anything.
   future events, not old suppressed messages. Submitted SMS cannot be recalled.
 - Unsent messages expire after 24 hours to avoid old notices after downtime.
   An uncertain provider response appears under **Pending**, with **Needs review**
-  in the message details, and is not automatically resent. Check Semaphore's log
+  in the message details, and is not automatically resent. Check the provider's log
   before sending again.
 - **Sent** means network acceptance, not confirmed handset delivery or that the
   patient read the SMS. **Delivered** requires an explicit delivery confirmation;
@@ -178,4 +182,5 @@ credits. The phone preview uses sample data and does not send anything.
 
 Keep patient mobile numbers current. Supported numbers are Philippine mobile
 numbers such as `09XXXXXXXXX` or `+639XXXXXXXXX`.
-See [Semaphore's API documentation](https://www.semaphore.co/docs).
+See [PHILSMS API documentation](https://app.philsms.com/developers/documentation)
+or [Semaphore API documentation](https://www.semaphore.co/docs).

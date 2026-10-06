@@ -71,6 +71,11 @@ const preview = computed(() =>
   draft.value.replace(/\{(\w+)\}/g, (match, key) => sample.value[key] ?? match),
 );
 const allOff = computed(() => data.value?.rules.every((item) => !item.enabled));
+const providerName = computed(() => data.value?.provider?.name || "SMS provider");
+const creditHeading = computed(() => {
+  const unit = data.value?.provider?.credit_unit || "credits";
+  return `${unit === "credits" ? "SMS Credits" : unit.replace(/\b\w/g, (char) => char.toUpperCase())} Remaining`;
+});
 const creditBalance = computed(() => {
   const value = data.value?.provider?.credit_balance;
   return value === null || value === undefined
@@ -79,10 +84,10 @@ const creditBalance = computed(() => {
 });
 const creditCaption = computed(() => {
   const provider = data.value?.provider;
-  if (!provider?.key_configured) return "Connect Semaphore to view";
+  if (!provider?.key_configured) return `Connect ${providerName.value} to view`;
   if (provider.credit_balance === null || provider.credit_balance === undefined)
     return "Balance temporarily unavailable";
-  if (!provider.credit_checked_at) return "Live Semaphore balance";
+  if (!provider.credit_checked_at) return `${providerName.value} balance`;
   return `Updated ${new Date(provider.credit_checked_at).toLocaleTimeString("en-PH", {
     hour: "numeric",
     minute: "2-digit",
@@ -90,7 +95,7 @@ const creditCaption = computed(() => {
 });
 const statusLabels = {
   pending: "Pending",
-  sent: "Sent",
+  sent: "Network accepted",
   delivered: "Delivered",
   failed: "Failed",
   not_sent: "Not Sent",
@@ -100,7 +105,7 @@ const technicalStatusLabels = {
   processing: "Sending",
   submitted: "Provider queued",
   pending: "In transit",
-  sent: "Sent to network",
+  sent: "Accepted by network",
   delivered: "Delivery confirmed",
   failed: "Failed",
   refunded: "Refunded",
@@ -267,15 +272,15 @@ onBeforeUnmount(() => window.clearInterval(timer));
       >
         <Info :size="19" />
         <span v-if="!data.provider.ready"
-          ><strong>Semaphore is not connected.</strong> Phone delivery is inactive. Add the API key
-          and approved sender name to the backend configuration, then enable sending.</span
+          ><strong>{{ providerName }} is not ready.</strong> Phone delivery is inactive. Configure
+          the provider credentials and approved sender, then enable sending.</span
         >
         <span v-else-if="!data.provider.worker_active"
           ><strong>SMS worker is offline.</strong> Messages remain queued until the background
           worker is running.</span
         >
         <span v-else
-          ><strong>Semaphore connected</strong> | Worker online | Sender:
+          ><strong>{{ providerName }} connected</strong> | Worker online | Sender:
           {{ data.provider.sender_name }}</span
         >
       </div>
@@ -291,7 +296,7 @@ onBeforeUnmount(() => window.clearInterval(timer));
         <article>
           <span class="stat-icon blue"><Send :size="27" /></span>
           <div>
-            <p>Messages Sent Today</p>
+            <p>Network Accepted Today</p>
             <strong>{{ data.stats.sent_today }}</strong
             ><small>Accepted by the network</small>
           </div>
@@ -306,11 +311,11 @@ onBeforeUnmount(() => window.clearInterval(timer));
         </article>
         <article
           class="credit-stat"
-          :title="data.provider.credit_error || 'Live credit balance from Semaphore'"
+          :title="data.provider.credit_error || `Balance reported by ${providerName}`"
         >
           <span class="stat-icon purple"><Database :size="27" /></span>
           <div>
-            <p>SMS Credits Remaining</p>
+            <p>{{ creditHeading }}</p>
             <strong>{{ creditBalance }}</strong
             ><small>{{ creditCaption }}</small>
           </div>
@@ -322,7 +327,7 @@ onBeforeUnmount(() => window.clearInterval(timer));
             <strong>{{
               data.stats.success_rate === null ? "--" : data.stats.success_rate + "%"
             }}</strong
-            ><small>Final results, last 30 days</small>
+            ><small>Finalized attempts, last 30 days</small>
           </div>
         </article>
       </div>
@@ -397,7 +402,7 @@ onBeforeUnmount(() => window.clearInterval(timer));
               <Clock3 :size="23" />
               <div>
                 <h2 id="logs-title">Recent SMS Activity</h2>
-                <p>Semaphore reports network acceptance, not delivery to the handset.</p>
+                <p>{{ providerName }} network acceptance does not confirm handset delivery.</p>
               </div>
               <button
                 class="text-button"
@@ -523,7 +528,7 @@ onBeforeUnmount(() => window.clearInterval(timer));
     <BaseModal
       v-if="showTest"
       title="Send Test SMS"
-      eyebrow="Semaphore"
+      :eyebrow="providerName"
       @close="!busy && (showTest = false)"
     >
       <form class="sms-modal-form" @submit.prevent="sendTest">
@@ -539,7 +544,10 @@ onBeforeUnmount(() => window.clearInterval(timer));
           <h3>Message to Send</h3>
           <p>{{ preview }}</p>
         </div>
-        <p>This sends a real SMS to this number and uses your Semaphore credits.</p>
+        <p>
+          This sends a real SMS to this number and uses your
+          {{ data?.provider?.credit_unit || "SMS credits" }}.
+        </p>
         <p v-if="testError" class="sms-alert error" role="alert">{{ testError }}</p>
         <footer>
           <button type="button" :disabled="busy" @click="showTest = false">Cancel</button
@@ -573,7 +581,7 @@ onBeforeUnmount(() => window.clearInterval(timer));
             <dd>{{ technicalStatusLabels[details.status] || details.status }}</dd>
           </div>
           <div>
-            <dt>Semaphore Message ID</dt>
+            <dt>Provider Message ID</dt>
             <dd>{{ details.provider_id || "Not assigned" }}</dd>
           </div>
           <div>

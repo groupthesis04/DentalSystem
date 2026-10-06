@@ -298,12 +298,14 @@ LOGIN_URL = "/api/login"
 
 
 # ============================================================
-# SMS / SEMAPHORE
+# SMS providers
 # ============================================================
 
 SMS_ENABLED = (
     os.environ.get("SMS_ENABLED", "0") == "1"
 )
+
+SMS_PROVIDER = os.environ.get("SMS_PROVIDER", "semaphore").strip().lower()
 
 SMS_CLINIC_NAME = os.environ.get(
     "SMS_CLINIC_NAME",
@@ -320,10 +322,13 @@ SEMAPHORE_SENDER_NAME = os.environ.get(
     "",
 ).strip()
 
+PHILSMS_API_TOKEN = os.environ.get("PHILSMS_API_TOKEN", "").strip()
+PHILSMS_SENDER_ID = os.environ.get("PHILSMS_SENDER_ID", "").strip()
+
 # Password recovery email is sent by Django only, through Resend.
 RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "").strip()
 RESEND_FROM_EMAIL = os.environ.get("RESEND_FROM_EMAIL", "").strip()
 RESEND_FROM_NAME = os.environ.get("RESEND_FROM_NAME", "BORJA Dental Clinic").strip()
 
 # Semaphore permits two account lookups per minute.
-SEMAPHORE_ACCOUNT_CACHE_SECONDS = 60
+SMS_ACCOUNT_CACHE_SECONDS = 60

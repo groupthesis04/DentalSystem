@@ -10,7 +10,7 @@ from communications.sms import process_queue
 
 
 class Command(BaseCommand):
-    help = "Process SMS events, seven-day balance reminders and Semaphore status updates."
+    help = "Process SMS events, seven-day balance reminders and provider status updates."
 
     def add_arguments(self, parser):
         parser.add_argument("--loop", action="store_true", help="Keep running every 30 seconds.")

@@ -33,18 +33,19 @@ STATUS_GROUPS = {
 DISPLAY_STATUSES = {status: group for group, statuses in STATUS_GROUPS.items() for status in statuses}
 
 
-def semaphore_credit_payload():
+def provider_credit_payload():
     payload = {
         "credit_balance": None,
         "credit_status": "not_configured",
         "credit_checked_at": None,
         "credit_error": "",
     }
-    if not settings.SEMAPHORE_API_KEY:
+    if not sms_provider.key_configured():
         return payload
 
-    key_digest = hashlib.sha256(settings.SEMAPHORE_API_KEY.encode("utf-8")).hexdigest()[:16]
-    cache_key = f"communications:semaphore-account:{key_digest}"
+    credential = settings.PHILSMS_API_TOKEN if settings.SMS_PROVIDER == "philsms" else settings.SEMAPHORE_API_KEY
+    key_digest = hashlib.sha256(credential.encode("utf-8")).hexdigest()[:16]
+    cache_key = f"communications:{settings.SMS_PROVIDER}-account:{key_digest}"
     cached = cache.get(cache_key)
     if cached is not None:
         return cached
@@ -57,14 +58,14 @@ def semaphore_credit_payload():
             credit_status=account["status"] or "available",
             credit_checked_at=checked_at.isoformat(),
         )
-        cache_seconds = max(60, int(getattr(settings, "SEMAPHORE_ACCOUNT_CACHE_SECONDS", 60)))
+        cache_seconds = max(60, int(getattr(settings, "SMS_ACCOUNT_CACHE_SECONDS", 60)))
     except sms_provider.SmsProviderError as exc:
         payload.update(
             credit_status="unavailable",
             credit_checked_at=checked_at.isoformat(),
             credit_error=str(exc),
         )
-        # Semaphore limits account requests to two per minute.
+        # Keep provider failures briefly cached to avoid request bursts.
         cache_seconds = 30
     cache.set(cache_key, payload, cache_seconds)
     return payload
@@ -84,7 +85,7 @@ def resend_block_reason(item, resend_id=""):
     if item.status not in STATUS_GROUPS["failed"]:
         return "Only confirmed failed messages can be resent. Pending or uncertain messages must not be duplicated."
     if not sms_provider.ready():
-        return "Semaphore is not connected. SMS delivery is inactive."
+        return f"{sms_provider.name()} is not connected. SMS delivery is inactive."
     reason = suppression_reason(item, timezone.now())
     if reason:
         return reason
@@ -127,11 +128,11 @@ def dashboard(request):
     decided = month.filter(status__in=["sent", "failed", "refunded"]).count()
     worker = SmsWorker.objects.filter(pk=1).first()
     last_run = worker.last_run_at if worker else None
-    credit = semaphore_credit_payload()
+    credit = provider_credit_payload()
     return JsonResponse({
         "rules": [rule_payload(rules[key]) for key in RULES],
         "placeholders": PLACEHOLDERS,
-        "provider": {"name": "Semaphore", "ready": sms_provider.ready(), "sending_enabled": settings.SMS_ENABLED, "key_configured": bool(settings.SEMAPHORE_API_KEY), "sender_name": settings.SEMAPHORE_SENDER_NAME or "Account default", "worker_active": bool(last_run and last_run > timezone.now() - dt.timedelta(minutes=3)), "last_run_at": last_run.isoformat() if last_run else None, **credit},
+        "provider": {"name": sms_provider.name(), "ready": sms_provider.ready(), "sending_enabled": settings.SMS_ENABLED, "key_configured": sms_provider.key_configured(), "sender_name": sms_provider.sender_name(), "credit_unit": "SMS units" if settings.SMS_PROVIDER == "philsms" else "credits", "worker_active": bool(last_run and last_run > timezone.now() - dt.timedelta(minutes=3)), "last_run_at": last_run.isoformat() if last_run else None, **credit},
         "stats": {"active": sum(rules[key].enabled for key in RULES), "sent_today": queryset.filter(status="sent", submitted_at__date=today).count(), "pending": queryset.filter(status__in=["queued", "processing", "submitted", "pending"]).count(), "success_rate": round(sent * 100 / decided) if decided else None},
         "clinic_name": settings.SMS_CLINIC_NAME,
     })
@@ -442,7 +443,7 @@ def bulk(request):
             if len(patients) != len(patient_ids):
                 return api_error("One or more selected patient records were not found.")
             if not sms_provider.ready():
-                return api_error("SMS delivery is inactive. Configure Semaphore on the server first.", 409)
+                return api_error(f"SMS delivery is inactive. Configure {sms_provider.name()} on the server first.", 409)
             limited = bulk_doctor_rate_limit(request.user)
             if limited:
                 return limited
@@ -473,7 +474,7 @@ def test_sms(request):
     if limited:
         return limited
     if not sms_provider.ready():
-        return api_error("SMS delivery is inactive. Configure Semaphore on the server first.", 409)
+        return api_error(f"SMS delivery is inactive. Configure {sms_provider.name()} on the server first.", 409)
     try:
         payload = read_json(request)
         key = payload.get("key")

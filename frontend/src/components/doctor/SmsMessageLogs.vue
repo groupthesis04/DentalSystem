@@ -66,7 +66,7 @@ const typeIcons = {
 };
 const statuses = {
   pending: "Pending",
-  sent: "Sent",
+  sent: "Network accepted",
   delivered: "Delivered",
   failed: "Failed",
   not_sent: "Not Sent",
@@ -156,9 +156,9 @@ const deliveryNote = computed(() => {
   const item = selected.value;
   if (!item) return "";
   if (item.status === "unknown")
-    return "Delivery is uncertain. Check Semaphore before taking further action.";
+    return "Delivery is uncertain. Check the SMS provider dashboard before taking further action.";
   if (item.display_status === "sent")
-    return "Accepted by the mobile network. Handset delivery is not confirmed by Semaphore.";
+    return "The provider reported network acceptance. Handset delivery has not been confirmed.";
   if (item.display_status === "delivered") return "Delivery was confirmed by the provider.";
   if (item.display_status === "pending") return "Delivery has not been confirmed.";
   return (
