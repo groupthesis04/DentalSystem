@@ -144,9 +144,11 @@ Resend. Set `RESEND_API_KEY`, `RESEND_FROM_EMAIL` (for example,
 `noreply@your-verified-domain.com`), and optionally `RESEND_FROM_NAME` on the
 **Railway backend service**, never in Vue/Vite variables. The sender email must
 use the verified domain. Apply `accounts.0009_password_reset_verification` on
-the backend database before deploying the new code. A missing or rejected
-Resend configuration returns a temporary recovery error and no usable reset
-challenge. Automated tests mock Resend; a real Gmail inbox test is a separate
+the backend database before deploying the new code. Missing Resend settings
+return a temporary recovery error without a challenge. If Resend rejects a
+message or delivery cannot be confirmed, the API still returns a generic 202
+response to avoid revealing whether the account exists, but the resulting code
+is unusable. Automated tests mock Resend; a real Gmail inbox test is a separate
 deployment check after the domain and variables are configured.
 
 Registration creates a new account immediately only when no clinic patient record

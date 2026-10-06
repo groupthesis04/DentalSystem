@@ -309,7 +309,8 @@ async function requestPasswordReset() {
     if (data.reset_token) {
       showResetChallenge(data);
     } else {
-      resetNotice.value = "If an account exists for this email, a verification code will be sent.";
+      resetNotice.value =
+        "If this email is registered and delivery succeeds, a verification code will arrive shortly.";
     }
   } catch (error) {
     if (flowVersion === resetFlowVersion) errorMessage.value = error.message;
@@ -726,8 +727,7 @@ function handleRegisterInvalid(event) {
             <Mail class="verification-icon" aria-hidden="true" />
             <h2>Forgot Password</h2>
             <p>
-              Enter the email address associated with your account. We'll send a verification code
-              to your email.
+              Enter the email address associated with your account to request a verification code.
             </p>
           </div>
           <label class="auth-field">
@@ -767,11 +767,14 @@ function handleRegisterInvalid(event) {
         >
           <div class="auth-heading">
             <ShieldCheck class="verification-icon" aria-hidden="true" />
-            <h2>Check Your Email</h2>
-            <p>We sent a 6-digit verification code to your registered email.</p>
+            <h2>Enter Verification Code</h2>
+            <p>
+              If this email is registered and delivery succeeds, a 6-digit code will arrive shortly.
+              Check your inbox and spam folder.
+            </p>
           </div>
           <p v-if="resetMaskedEmail" class="verification-intro">
-            Sent to <strong>{{ resetMaskedEmail }}</strong>
+            Address entered: <strong>{{ resetMaskedEmail }}</strong>
           </p>
           <label class="auth-field">
             <span>Verification Code</span>
@@ -792,7 +795,7 @@ function handleRegisterInvalid(event) {
             </span>
           </label>
           <p class="verification-hint">
-            Code expires in {{ Math.floor(resetExpiresRemaining / 60) }}:{{
+            Verification session expires in {{ Math.floor(resetExpiresRemaining / 60) }}:{{
               String(resetExpiresRemaining % 60).padStart(2, "0")
             }}.
             <span v-if="!resetExpiresRemaining">Request a new code to continue.</span>
