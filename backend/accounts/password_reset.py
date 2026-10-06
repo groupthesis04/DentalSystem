@@ -45,6 +45,42 @@ class PasswordResetEmailError(Exception):
     """A safe marker for a Resend request that was not confirmed as accepted."""
 
 
+def _safe_resend_error_details(error, *, code, to_email):
+    """Keep useful Resend error fields without logging the request or secrets."""
+    try:
+        raw = error.read(4097)
+    except Exception:
+        return "unreadable_response", "Unable to read provider response"
+    if len(raw) > 4096:
+        return "oversized_response", "Provider response exceeded logging limit"
+    if raw.strip() == b"error code: 1010":
+        return "cloudflare_1010", "Email API edge blocked the HTTP client signature"
+    try:
+        payload = json.loads(raw.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        return "non_json_response", "Provider response was not JSON"
+    if not isinstance(payload, dict):
+        return "invalid_response", "Provider response was not a JSON object"
+
+    name = payload.get("name")
+    if not isinstance(name, str) or not re.fullmatch(r"[A-Za-z][A-Za-z0-9_]{0,63}", name):
+        name = "unknown_error"
+
+    message = payload.get("message")
+    if not isinstance(message, str):
+        return name, "Provider did not include an error message"
+    message = " ".join(message.split())
+    for secret in (settings.RESEND_API_KEY, code, to_email, settings.RESEND_FROM_EMAIL):
+        if secret:
+            message = message.replace(secret, "[redacted]")
+    message = re.sub(r"(?i)Bearer\s+\S+", "Bearer [redacted]", message)
+    message = re.sub(r"\bre_[A-Za-z0-9_-]+\b", "[redacted]", message)
+    message = re.sub(r"(?<![0-9])[0-9]{6}(?![0-9])", "[redacted]", message)
+    message = re.sub(r"[A-Za-z0-9_-]{43,}", "[redacted]", message)
+    message = re.sub(r"[^\s@<>]+@[^\s@<>]+", "[email redacted]", message)
+    return name, message[:500] or "Provider did not include an error message"
+
+
 def email_delivery_ready():
     return bool(settings.RESEND_API_KEY and settings.RESEND_FROM_EMAIL)
 
@@ -108,6 +144,8 @@ def send_password_reset_email(to_email, code):
         headers={
             "Authorization": f"Bearer {settings.RESEND_API_KEY}",
             "Content-Type": "application/json",
+            "Accept": "application/json",
+            "User-Agent": "BORJA-Dental-Clinic/1.0",
         },
         method="POST",
     )
@@ -117,7 +155,19 @@ def send_password_reset_email(to_email, code):
                 raise PasswordResetEmailError("Resend did not accept the email")
             data = json.loads(response.read().decode("utf-8"))
     except HTTPError as error:
-        logger.warning("Resend rejected a password reset email with HTTP %s.", error.code)
+        provider_name, provider_message = _safe_resend_error_details(
+            error, code=code, to_email=to_email
+        )
+        sender_domain = settings.RESEND_FROM_EMAIL.rsplit("@", 1)[-1].lower()
+        key_has_boundary_quotes = (
+            settings.RESEND_API_KEY.startswith(("'", '"'))
+            or settings.RESEND_API_KEY.endswith(("'", '"'))
+        )
+        logger.warning(
+            "Resend password reset email request rejected. HTTP %s. Error: %s. "
+            "Reason: %s. Sender domain: %s. API key has boundary quotes: %s",
+            error.code, provider_name, provider_message, sender_domain, key_has_boundary_quotes,
+        )
         raise PasswordResetEmailError("Resend rejected the email") from error
     except (URLError, TimeoutError, OSError) as error:
         logger.warning("Resend password reset email request failed at transport level.")
@@ -198,8 +248,11 @@ def _create_challenge(user, email_key, masked_email, now):
     return challenge, token, code
 
 
-def _invalidate(challenge):
-    PasswordResetVerification.objects.filter(pk=challenge.pk).update(is_used=True, code_hash="")
+def _discard_undelivered_code(challenge):
+    """Keep the generic challenge flow while making an unsent code unusable."""
+    PasswordResetVerification.objects.filter(pk=challenge.pk).update(
+        code_hash=make_password(secrets.token_urlsafe(32))
+    )
 
 
 @require_POST
@@ -232,8 +285,7 @@ def request_password_reset(request):
         try:
             send_password_reset_email(user.email, code)
         except PasswordResetEmailError:
-            _invalidate(challenge)
-            return api_error(EMAIL_UNAVAILABLE_MESSAGE, 503)
+            _discard_undelivered_code(challenge)
     return _challenge_response(token, challenge.masked_email)
 
 
@@ -318,8 +370,7 @@ def resend_password_reset(request):
         try:
             send_password_reset_email(user.email, code)
         except PasswordResetEmailError:
-            _invalidate(challenge)
-            return api_error(EMAIL_UNAVAILABLE_MESSAGE, 503)
+            _discard_undelivered_code(challenge)
     return _challenge_response(token, challenge.masked_email)
 
 
@@ -351,19 +402,18 @@ def confirm_password_reset(request):
         return api_error(str(error))
 
     original = PasswordResetVerification.objects.only("id", "user_id").filter(token_hash=token_hash).first()
-    if not original or not original.user_id:
+    if not original:
         return api_error(INVALID_CHALLENGE_MESSAGE)
     with transaction.atomic():
         user = User.objects.select_for_update().filter(pk=original.user_id).first()
         challenge = PasswordResetVerification.objects.select_for_update().filter(pk=original.pk, token_hash=token_hash).first()
         if not user or not challenge or not user.is_active or _email_key(user.email) != challenge.email_key:
             return api_error(INVALID_CHALLENGE_MESSAGE)
-        if challenge.is_used:
-            return api_error("This verification code has already been used.", 409)
-        if challenge.expires_at <= timezone.now():
-            return api_error("Verification session expired. Request a new code.", 410)
-        if not challenge.is_verified or challenge.attempts >= OTP_MAX_ATTEMPTS:
-            return api_error("Verify your code before resetting the password.")
+        if (
+            challenge.is_used or challenge.expires_at <= timezone.now()
+            or not challenge.is_verified or challenge.attempts >= OTP_MAX_ATTEMPTS
+        ):
+            return api_error(INVALID_CHALLENGE_MESSAGE)
 
         try:
             new_password = _new_password(user, payload)

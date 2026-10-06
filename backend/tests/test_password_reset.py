@@ -5,6 +5,7 @@ The delivery function is mocked throughout: these tests never send real email.
 
 import datetime as dt
 import json
+from io import BytesIO
 from urllib.error import HTTPError
 from unittest.mock import MagicMock, patch
 
@@ -164,14 +165,28 @@ class PasswordResetTests(TestCase):
         )
         self.assertEqual(response.status_code, 403)
 
-    def test_provider_failure_returns_safe_error_without_usable_challenge(self):
+    def test_provider_failure_keeps_a_generic_response_without_a_usable_code(self):
         self.send_email.side_effect = PasswordResetEmailError("provider rejected")
-        response = self.request_reset()
-        self.assertEqual(response.status_code, 503, response.content)
-        self.assertNotIn("reset_token", response.json())
-        self.assertNotIn("provider rejected", response.content.decode())
-        self.assertFalse(
-            PasswordResetVerification.objects.filter(user=self.patient, is_used=False).exists()
+        registered = self.request_reset()
+        unknown = self.request_reset("missing@example.com")
+        self.assertEqual(registered.status_code, 202, registered.content)
+        self.assertEqual(unknown.status_code, registered.status_code)
+        self.assertEqual(set(registered.json()), set(unknown.json()))
+        self.assertEqual(registered.json()["message"], unknown.json()["message"])
+        self.assertNotIn("provider rejected", registered.content.decode())
+        challenge = PasswordResetVerification.objects.get(user=self.patient)
+        self.assertFalse(challenge.is_used)
+        undelivered_code = self.code_sent()
+        self.assertFalse(check_password(undelivered_code, challenge.code_hash))
+        for token in (registered.json()["reset_token"], unknown.json()["reset_token"]):
+            with self.subTest(token=token):
+                verified = self.post(
+                    "/api/password-reset/verify", {"reset_token": token, "code": undelivered_code}
+                )
+                self.assertEqual(verified.status_code, 400, verified.content)
+        self.assertEqual(
+            self.confirm(registered.json()["reset_token"]).json(),
+            self.confirm(unknown.json()["reset_token"]).json(),
         )
 
     def test_resend_transport_posts_html_and_text_to_registered_email(self):
@@ -188,6 +203,8 @@ class PasswordResetTests(TestCase):
         headers = {key.lower(): value for key, value in request.header_items()}
         self.assertEqual(headers["authorization"], "Bearer re_test_password_reset")
         self.assertEqual(headers["content-type"], "application/json")
+        self.assertEqual(headers["accept"], "application/json")
+        self.assertEqual(headers["user-agent"], "BORJA-Dental-Clinic/1.0")
         payload = json.loads(request.data.decode("utf-8"))
         self.assertEqual(payload["from"], "BORJA Dental Clinic <noreply@borjadental.example>")
         self.assertEqual(payload["to"], [self.patient.email])
@@ -200,19 +217,52 @@ class PasswordResetTests(TestCase):
 
     def test_resend_transport_handles_http_rejection_without_leaking_secrets(self):
         rejection = HTTPError(
-            "https://api.resend.com/emails", 403, "rejected", None, None
+            "https://api.resend.com/emails", 403, "rejected", None,
+            BytesIO(json.dumps({
+                "name": "validation_error",
+                "message": (
+                    "The borjadentalclinic.site domain is not verified. "
+                    "Do not log 123456, re_test_password_reset, or patient@gmail.com."
+                ),
+            }).encode("utf-8")),
         )
         with patch("accounts.password_reset.urlopen", side_effect=rejection):
-            with self.assertRaises(PasswordResetEmailError) as error:
-                send_password_reset_email(self.patient.email, "123456")
+            with self.assertLogs("accounts.password_reset", level="WARNING") as captured:
+                with self.assertRaises(PasswordResetEmailError) as error:
+                    send_password_reset_email(self.patient.email, "123456")
         self.assertNotIn("123456", str(error.exception))
         self.assertNotIn("re_test_password_reset", str(error.exception))
+        log = " ".join(captured.output)
+        self.assertIn("HTTP 403", log)
+        self.assertIn("validation_error", log)
+        self.assertIn("borjadentalclinic.site", log)
+        self.assertIn("Sender domain: borjadental.example", log)
+        self.assertIn("API key has boundary quotes: False", log)
+        for secret in ("123456", "re_test_password_reset", "patient@gmail.com"):
+            self.assertNotIn(secret, log)
 
-    @override_settings(RESEND_API_KEY="", RESEND_FROM_EMAIL="")
+    def test_resend_transport_handles_unreadable_provider_error_bodies(self):
+        for body, expected in (
+            (b"error code: 1010", "cloudflare_1010"),
+            (b"not JSON", "non_json_response"),
+            (b"x" * 4097, "oversized_response"),
+        ):
+            with self.subTest(expected=expected):
+                rejection = HTTPError(
+                    "https://api.resend.com/emails", 403, "rejected", None, BytesIO(body)
+                )
+                with patch("accounts.password_reset.urlopen", side_effect=rejection):
+                    with self.assertLogs("accounts.password_reset", level="WARNING") as captured:
+                        with self.assertRaises(PasswordResetEmailError):
+                            send_password_reset_email(self.patient.email, "123456")
+                self.assertIn(expected, " ".join(captured.output))
+
     def test_missing_resend_configuration_fails_safely(self):
-        response = self.request_reset()
-        self.assertEqual(response.status_code, 503, response.content)
-        self.assertNotIn("reset_token", response.json())
+        for setting in ({"RESEND_API_KEY": ""}, {"RESEND_FROM_EMAIL": ""}):
+            with self.subTest(setting=setting), override_settings(**setting):
+                response = self.request_reset()
+                self.assertEqual(response.status_code, 503, response.content)
+                self.assertNotIn("reset_token", response.json())
         self.send_email.assert_not_called()
 
     def test_exact_six_digit_code_required_and_malformed_codes_count_toward_limit(self):
@@ -339,6 +389,59 @@ class PasswordResetTests(TestCase):
         self.assertEqual(first_code, "123456")
         self.assertEqual(self.code_sent(), "123457")
 
+    def test_resend_provider_failure_keeps_a_generic_unusable_challenge(self):
+        token, old_code = self.requested_token_and_code()
+        PasswordResetVerification.objects.filter(user=self.patient).update(
+            created_at=timezone.now() - dt.timedelta(seconds=61)
+        )
+        self.send_email.side_effect = PasswordResetEmailError("provider rejected")
+        response = self.post("/api/password-reset/resend", {"reset_token": token})
+        self.assertEqual(response.status_code, 202, response.content)
+        self.assertTrue(response.json()["reset_token"])
+        challenge = PasswordResetVerification.objects.get(user=self.patient, is_used=False)
+        undelivered_code = self.code_sent()
+        self.assertFalse(check_password(undelivered_code, challenge.code_hash))
+        self.assertEqual(
+            self.post("/api/password-reset/verify", {
+                "reset_token": response.json()["reset_token"], "code": undelivered_code,
+            }).status_code,
+            400,
+        )
+        self.assertNotEqual(
+            self.post("/api/password-reset/verify", {
+                "reset_token": token, "code": old_code,
+            }).status_code,
+            200,
+        )
+
+    def test_resend_can_recover_after_a_provider_failure(self):
+        self.send_email.side_effect = PasswordResetEmailError("provider rejected")
+        failed = self.request_reset()
+        failed_token = failed.json()["reset_token"]
+        failed_code = self.code_sent()
+        PasswordResetVerification.objects.filter(user=self.patient).update(
+            created_at=timezone.now() - dt.timedelta(seconds=61)
+        )
+
+        self.send_email.side_effect = None
+        resent = self.post("/api/password-reset/resend", {"reset_token": failed_token})
+        self.assertEqual(resent.status_code, 202, resent.content)
+        fresh_token = resent.json()["reset_token"]
+        fresh_code = self.code_sent()
+        self.assertNotEqual(fresh_token, failed_token)
+        self.assertEqual(
+            self.post("/api/password-reset/verify", {
+                "reset_token": fresh_token, "code": fresh_code,
+            }).status_code,
+            200,
+        )
+        self.assertNotEqual(
+            self.post("/api/password-reset/verify", {
+                "reset_token": failed_token, "code": failed_code,
+            }).status_code,
+            200,
+        )
+
     def test_expired_challenge_cannot_be_resent(self):
         token, _ = self.requested_token_and_code()
         PasswordResetVerification.objects.filter(user=self.patient).update(
@@ -376,7 +479,8 @@ class PasswordResetTests(TestCase):
 
     def test_confirm_rejects_unverified_expired_and_invalid_tokens(self):
         token, _ = self.requested_token_and_code()
-        self.assertEqual(self.confirm(token).status_code, 400)
+        unknown = self.request_reset("missing@example.com").json()["reset_token"]
+        self.assertEqual(self.confirm(token).json(), self.confirm(unknown).json())
         self.assertEqual(self.confirm("a" * 43).status_code, 400)
         self.patient.refresh_from_db()
         self.assertTrue(self.patient.check_password("OldPatient123!"))
@@ -385,7 +489,7 @@ class PasswordResetTests(TestCase):
         PasswordResetVerification.objects.filter(user=self.doctor).update(
             expires_at=timezone.now() - dt.timedelta(seconds=1)
         )
-        self.assertEqual(self.confirm(verified, "NewDoctor456!").status_code, 410)
+        self.assertEqual(self.confirm(verified, "NewDoctor456!").status_code, 400)
 
     def test_confirm_requires_matching_strong_password_and_preserves_challenge(self):
         token = self.verified_token()
@@ -479,7 +583,7 @@ class PasswordResetTests(TestCase):
             csrf=csrf,
         )
         self.assertEqual(changed.status_code, 200, changed.content)
-        self.assertEqual(self.confirm(token).status_code, 409)
+        self.assertEqual(self.confirm(token).status_code, 400)
         challenge = PasswordResetVerification.objects.get(user=self.patient)
         self.assertTrue(challenge.is_used)
         self.assertEqual(challenge.code_hash, "")
