@@ -177,6 +177,18 @@ def _philsms_request_json(path, values=None):
             result = json.loads(response.read().decode("utf-8"))
     except HTTPError as error:
         # The URL, response body and request headers may contain private data.
+        if error.code == 403:
+            try:
+                details = json.loads(error.read(2048).decode("utf-8"))
+            except (ValueError, UnicodeError, OSError):
+                details = None
+            if (
+                isinstance(details, dict)
+                and str(details.get("error_code")) == "1010"
+            ):
+                raise SmsProviderError(
+                    "PHILSMS blocked this server's API requests (Cloudflare 1010). Contact PHILSMS support."
+                ) from None
         raise SmsProviderError(
             f"PhilSMS returned HTTP {error.code}. Check the account and sender ID.",
             uncertain=sending and error.code >= 500,

@@ -104,6 +104,10 @@ handles event SMS, seven-day balance reminders, and provider status polling
 independently of the browser. Production needs an always-on supervised worker
 with outbound HTTPS access to the configured provider (`app.philsms.com` for
 PHILSMS or `api.semaphore.co` for Semaphore).
+If PHILSMS returns Cloudflare error 1010 from the Railway service, PHILSMS is
+blocking server API requests before token authentication. Contact PHILSMS support
+to allow the integration; keep `SMS_PROVIDER=semaphore` until access and an
+approved PHILSMS sender ID are available.
 The same worker checks approved appointments within the next 24 hours and
 creates doctor dashboard reminders. Those reminders do not send patient SMS and
 still run when SMS sending is disabled. It also creates a doctor dashboard

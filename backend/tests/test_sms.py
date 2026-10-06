@@ -886,6 +886,18 @@ class PhilSmsTransportTests(TestCase):
                 sms_provider.send("09123456789", "Hello patient")
         self.assertTrue(ambiguous.exception.uncertain)
 
+    def test_cloudflare_signature_block_has_safe_actionable_error(self):
+        blocked = HTTPError(
+            "https://app.philsms.com/api/v3/sms/send", 403, "Forbidden", {},
+            BytesIO(b'{"cloudflare_error":true,"error_code":1010,"detail":"private-token"}'),
+        )
+        with patch("communications.sms_provider.urlopen", side_effect=blocked):
+            with self.assertRaises(sms_provider.SmsProviderError) as caught:
+                sms_provider.send("09123456789", "Hello patient")
+        self.assertIn("Cloudflare 1010", str(caught.exception))
+        self.assertNotIn("private-token", str(caught.exception))
+        self.assertFalse(caught.exception.uncertain)
+
     def test_philsms_status_and_legacy_semaphore_status(self):
         response = BytesIO(b'{"status":"success","data":{"uid":"abc_123","status":"delivered"}}')
         with patch("communications.sms_provider.urlopen", return_value=response) as opener:
