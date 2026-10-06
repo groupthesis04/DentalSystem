@@ -523,9 +523,16 @@ function selectPage(page) {
   width: 100%;
   min-width: 0;
   border: 0;
+  border-radius: 0;
   outline: 0;
   background: transparent;
+  padding: 0;
   color: var(--dashboard-text);
+  box-shadow: none;
+}
+
+.service-records-search input:focus {
+  border: 0;
   box-shadow: none;
 }
 
@@ -611,6 +618,11 @@ function selectPage(page) {
   color: var(--dashboard-muted);
 }
 
+.service-records-date-filter:focus-within {
+  border-color: var(--dashboard-blue);
+  box-shadow: 0 0 0 3px rgba(138, 101, 38, 0.12);
+}
+
 .service-records-date-filter.invalid {
   border-color: #ef4444;
 }
@@ -635,6 +647,11 @@ function selectPage(page) {
   padding: 2px;
   color: var(--dashboard-text);
   font-size: 0.75rem;
+  box-shadow: none;
+}
+
+.service-records-date-filter input:focus {
+  border: 0;
   box-shadow: none;
 }
 

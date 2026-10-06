@@ -4248,12 +4248,18 @@ body[data-page="home"] .site-search-input input {
   min-width: 0;
   height: 44px;
   border: 0;
+  border-radius: 0;
   outline: 0;
   background: transparent;
   color: var(--home-navy);
   padding: 0 42px 0 44px;
   font: inherit;
   font-size: 0.86rem;
+}
+
+body[data-page="home"] .site-search-input input:focus {
+  border: 0;
+  box-shadow: none;
 }
 
 body[data-page="home"] .site-search-input input::placeholder {

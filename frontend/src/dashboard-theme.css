@@ -3766,11 +3766,18 @@ html[data-dashboard-theme="dark"]
   min-width: 0;
   min-height: 36px;
   border: 0;
+  border-radius: 0;
   outline: 0;
   background: transparent;
+  padding: 0;
   color: var(--dashboard-text);
   font: inherit;
   font-size: 0.73rem;
+}
+
+.content-search-field input:focus {
+  border: 0;
+  box-shadow: none;
 }
 
 .content-table-wrap {
@@ -4329,6 +4336,7 @@ html[data-dashboard-theme="dark"]
   min-width: 0;
   min-height: 25px;
   border: 0;
+  border-radius: 0;
   outline: 0;
   background: transparent;
   padding: 0;
@@ -4341,6 +4349,11 @@ html[data-dashboard-theme="dark"]
 .report-date-range:focus-within {
   border-color: #8a6526;
   box-shadow: 0 0 0 3px rgba(138, 101, 38, 0.11);
+}
+
+.report-date-range input:focus {
+  border: 0;
+  box-shadow: none;
 }
 
 .report-export-button {

@@ -487,11 +487,19 @@ watch(pageCount, (count) => {
   min-width: 0;
   height: 40px;
   border: 0;
+  border-radius: 0;
   outline: 0;
   background: transparent;
+  padding: 0;
   color: #171511;
   font: inherit;
   font-size: 0.72rem;
+}
+
+.patient-record-search input:focus,
+.patient-record-range select:focus {
+  border: 0;
+  box-shadow: none;
 }
 
 .patient-record-range select {

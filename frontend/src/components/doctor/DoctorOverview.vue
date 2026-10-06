@@ -818,6 +818,11 @@ function trendIcon(direction) {
   background: #ffffff;
 }
 
+.home-period-select:focus-within {
+  border-color: #8a6526;
+  box-shadow: 0 0 0 3px rgba(138, 101, 38, 0.12);
+}
+
 .home-period-select select {
   width: 100%;
   min-height: 38px;
@@ -828,6 +833,11 @@ function trendIcon(direction) {
   background: transparent;
   font-size: 0.72rem;
   font-weight: 700;
+}
+
+.home-period-select select:focus {
+  border: 0;
+  box-shadow: none;
 }
 
 .home-period-select.compact {

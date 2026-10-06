@@ -634,16 +634,27 @@ async function submitAppointment() {
   box-shadow: 0 0 0 3px rgba(138, 101, 38, 12%);
 }
 
+.manual-control > svg {
+  flex: 0 0 auto;
+}
+
 .manual-control :is(input, select) {
   width: 100%;
   min-width: 0;
   height: 100%;
+  padding: 0;
   color: #171511;
   border: 0;
+  border-radius: 0;
   outline: 0;
   background: transparent;
   font: inherit;
   font-size: 0.75rem;
+}
+
+.manual-control :is(input, select):focus {
+  border: 0;
+  box-shadow: none;
 }
 
 .manual-control input::placeholder {

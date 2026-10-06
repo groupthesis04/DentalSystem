@@ -1059,6 +1059,11 @@ function closeFollowUp() {
   background: #ffffff;
 }
 
+.schedule-control:focus-within {
+  border-color: #8a6526;
+  box-shadow: 0 0 0 3px rgba(138, 101, 38, 0.12);
+}
+
 .schedule-control > svg {
   flex: 0 0 auto;
 }
@@ -1074,6 +1079,11 @@ function closeFollowUp() {
   padding: 0;
   font: inherit;
   font-size: 0.79rem;
+}
+
+.schedule-control :is(input, select):focus {
+  border: 0;
+  box-shadow: none;
 }
 
 .schedule-control input[readonly] {
@@ -1536,14 +1546,22 @@ function closeFollowUp() {
   min-width: 0;
   color: inherit;
   border: 0;
+  border-radius: 0;
   outline: 0;
   background: transparent;
   font: inherit;
 }
 
+.appointment-search input:focus,
+.appointment-filter select:focus {
+  border: 0;
+  box-shadow: none;
+}
+
 .appointment-search input {
   width: 100%;
   height: 100%;
+  padding: 0;
 }
 
 .appointment-search input::placeholder {
