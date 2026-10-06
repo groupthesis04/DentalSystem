@@ -65,6 +65,7 @@ if not DEBUG and "*" in ALLOWED_HOSTS:
 # ============================================================
 
 INSTALLED_APPS = [
+    "daphne",
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -116,6 +117,21 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "dental_backend.wsgi.application"
 ASGI_APPLICATION = "dental_backend.asgi.application"
+
+# Redis shares dashboard events across Railway web processes. The in-memory layer
+# is sufficient for a single local development process and automated tests.
+redis_url = os.environ.get("REDIS_URL", "").strip()
+test_sqlite = os.environ.get("DRMS_TEST_SQLITE", "0") == "1"
+CHANNEL_LAYERS = {
+    "default": (
+        {
+            "BACKEND": "channels_redis.core.RedisChannelLayer",
+            "CONFIG": {"hosts": [redis_url]},
+        }
+        if redis_url and not test_sqlite
+        else {"BACKEND": "channels.layers.InMemoryChannelLayer"}
+    )
+}
 
 
 # ============================================================
@@ -246,11 +262,13 @@ trusted_origins = os.environ.get(
     "",
 ).strip()
 
-# Keep the current Railway frontend origin trusted even if the Railway variable
+# Keep the current frontend origins trusted even if the Railway variable
 # is accidentally missing. Additional origins can still be supplied through
 # DRMS_CSRF_TRUSTED_ORIGINS as a comma-separated list.
 _default_csrf_origins = [
     "https://borjadentalclinic.up.railway.app",
+    "https://borjadentalclinic.site",
+    "https://www.borjadentalclinic.site",
 ]
 _configured_csrf_origins = [
     origin.strip()

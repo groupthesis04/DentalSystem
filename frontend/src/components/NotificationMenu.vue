@@ -11,17 +11,21 @@ const open = ref(false);
 const notifications = ref([]);
 const root = ref(null);
 let pollTimer;
+let refreshRequest = 0;
 
 const unreadCount = computed(() => notifications.value.filter((item) => !item.read).length);
 
 async function refresh(showErrors = false) {
+  const request = ++refreshRequest;
   try {
     const data = await apiRequest("/api/notifications");
-    notifications.value = data.notifications || [];
+    if (request === refreshRequest) notifications.value = data.notifications || [];
   } catch (error) {
     if (showErrors) showToast(error.message, "error");
   }
 }
+
+defineExpose({ refresh });
 
 async function markRead(item = null) {
   try {

@@ -32,6 +32,7 @@ from dental_backend.api import (
     validate_phone,
     verify_legacy_password,
 )
+from dental_backend.realtime import schedule_dashboard_change
 from records.models import TreatmentRecord
 from scheduling.models import Appointment
 
@@ -398,6 +399,7 @@ def register(request):
                     "PATIENT_CREATED", actor=user, target=profile,
                     metadata={"origin": "patient"},
                 )
+                schedule_dashboard_change()
     except IntegrityError:
         if User.objects.filter(email__iexact=email).exists():
             return api_error(ACCOUNT_EMAIL_EXISTS_MESSAGE, 409)
@@ -497,6 +499,8 @@ def verify_account(request):
                 profile.email = verification.email
                 changed.append("email")
             profile.save(update_fields=changed)
+            if "email" in changed:
+                Appointment.objects.filter(patient=profile).update(patient_email=profile.email)
             record_audit_event(
                 "PATIENT_UPDATED", actor=user, target=profile,
                 metadata={"origin": "patient"},
@@ -506,6 +510,7 @@ def verify_account(request):
             verification.password_hash = ""
             verification.profile_image = ""
             verification.save(update_fields=["is_used", "code_hash", "password_hash", "profile_image"])
+            schedule_dashboard_change()
     except IntegrityError:
         return api_error("This patient record is already linked to an account.", 409)
 
@@ -673,6 +678,7 @@ def profile(request):
             TreatmentRecord.objects.filter(doctor=user).update(doctor_name=name)
             if old_name != name:
                 Appointment.objects.filter(doctor__isnull=True, doctor_name=old_name).update(doctor_name=name)
+        schedule_dashboard_change()
     return JsonResponse({"user": authenticated_user_payload(user)})
 
 
@@ -829,6 +835,7 @@ def patients(request):
                     "ACCOUNT_ENABLED" if account.is_active else "ACCOUNT_DISABLED",
                     actor=request.user, target=account, request=request,
                 )
+                schedule_dashboard_change()
         return JsonResponse({"patient": patient_payload(patient)})
 
     if request.method == "PATCH" and payload.get("action"):
@@ -852,6 +859,7 @@ def patients(request):
             record_audit_event("PATIENT_DELETED", actor=request.user, target=patient, request=request)
             TreatmentRecord.objects.filter(patient=patient).delete()
             patient.delete()
+            schedule_dashboard_change()
         return JsonResponse({"ok": True})
 
     try:
@@ -883,11 +891,17 @@ def patients(request):
     try:
         with transaction.atomic():
             patient.save()
+            Appointment.objects.filter(patient=patient).update(
+                patient_name=patient.name,
+                patient_email=patient.email,
+                patient_phone=patient.phone,
+            )
             TreatmentRecord.objects.filter(patient=patient).update(patient_name=patient.name)
             record_audit_event(
                 "PATIENT_CREATED" if request.method == "POST" else "PATIENT_UPDATED",
                 actor=request.user, target=patient, request=request, metadata={"origin": "doctor"},
             )
+            schedule_dashboard_change()
     except IntegrityError:
         return api_error("A patient record with these details already exists.", 409)
     return JsonResponse({"patient": patient_payload(patient)}, status=status)

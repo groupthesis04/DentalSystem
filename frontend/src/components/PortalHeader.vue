@@ -13,7 +13,11 @@ const props = defineProps({
 });
 const emit = defineEmits(["open-notification", "toggle-navigation"]);
 const navigationButton = ref(null);
-defineExpose({ focusNavigationButton: () => navigationButton.value?.focus() });
+const notificationMenu = ref(null);
+defineExpose({
+  focusNavigationButton: () => navigationButton.value?.focus(),
+  refreshNotifications: () => notificationMenu.value?.refresh(),
+});
 
 const isDoctor = computed(() => props.mode === "doctor");
 const displayName = computed(
@@ -67,7 +71,7 @@ const currentDate = computed(() =>
       </div>
     </div>
     <div class="auth-actions">
-      <NotificationMenu @open-target="emit('open-notification', $event)" />
+      <NotificationMenu ref="notificationMenu" @open-target="emit('open-notification', $event)" />
       <button
         class="theme-toggle-button"
         type="button"

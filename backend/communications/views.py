@@ -5,6 +5,7 @@ from django.views.decorators.http import require_http_methods
 
 from accounts.models import User
 from dental_backend.api import api_error, doctor_required, make_id, rate_limit, read_json, user_payload
+from dental_backend.realtime import schedule_dashboard_change
 
 from .models import DOCTOR_NOTIFICATION_KEYS, DoctorNotificationPreference, Message, Notification
 
@@ -145,4 +146,6 @@ def messages(request):
         recipient=recipient,
         body=body,
     )
+    if request.user.role == "patient":
+        schedule_dashboard_change()
     return JsonResponse({"message": message_payload(item)}, status=201)

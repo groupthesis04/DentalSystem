@@ -3,6 +3,7 @@ from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
 
 from dental_backend.api import api_error, doctor_required, make_id, rate_limit, read_json, validate_name
+from dental_backend.realtime import schedule_dashboard_change
 
 from .models import Feedback, Promotion, Service
 
@@ -187,6 +188,7 @@ def feedback(request):
             rating=rating,
             message=message[:500],
         )
+        schedule_dashboard_change()
         status = 201
     else:
         try:

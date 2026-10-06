@@ -24,6 +24,7 @@ from dental_backend.api import (
     validate_name,
     validate_phone,
 )
+from dental_backend.realtime import schedule_dashboard_change
 
 from .models import Appointment, AvailabilitySlot
 
@@ -317,6 +318,7 @@ def create_appointment(request, payload):
             else:
                 create_notification(request.user, "appointment_created", "Appointment request submitted", f"{service_summary} with {doctor_name} on {appointment_date.isoformat()} at {appointment_time.strftime('%H:%M')} is pending approval.", "appointment", item.id)
                 notify_doctors("appointment_created", "New appointment request", f"{request.user.name} requested {service_summary} on {appointment_date.isoformat()} at {appointment_time.strftime('%H:%M')}.", "appointment", item.id, preference_key="new_appointment_booking")
+            schedule_dashboard_change()
     except PatientIdentityConflict as error:
         return api_error(str(error), 409)
     except ValueError as error:
@@ -379,6 +381,8 @@ def update_appointment(request, payload):
                     record_audit_event("APPOINTMENT_CANCELLED", actor=request.user, target=item, request=request)
                 if label not in {"Accepted", "Cancelled"}:
                     notify_doctors("appointment_status", "Appointment status updated", f"{item.patient_name}'s {appointment_service_summary(item)} is now {label}.", "appointment", item.id)
+            if status != previous_status or cancelled_ids:
+                schedule_dashboard_change()
     except Appointment.DoesNotExist:
         return api_error("Appointment not found.", 404)
     return JsonResponse({"appointment": appointment_payload(item), "cancelled_appointment_ids": cancelled_ids})
@@ -413,6 +417,8 @@ def clear_appointments(request, payload):
         slots = AvailabilitySlot.objects.filter(doctor=request.user, date__in=dates)
         removed_ids = list(slots.values_list("id", flat=True))
         slots.delete()
+        if entries or removed_ids:
+            schedule_dashboard_change()
     if not entries and not removed_ids:
         return api_error("No appointments or available time slots were found on the selected dates.", 404)
     return JsonResponse({

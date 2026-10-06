@@ -1,8 +1,7 @@
 import { defineConfig } from "vite";
 import vue from "@vitejs/plugin-vue";
 
-const apiTarget =
-  process.env.API_PROXY_TARGET || "http://127.0.0.1:8000";
+const apiTarget = process.env.API_PROXY_TARGET || "http://127.0.0.1:8000";
 
 const securityHeaders = {
   "Content-Security-Policy": [
@@ -14,7 +13,7 @@ const securityHeaders = {
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data:",
     "font-src 'self' data:",
-    "connect-src 'self'",
+    "connect-src 'self' ws://localhost:* ws://127.0.0.1:* wss://borjadentalclinic.up.railway.app wss://www.borjadentalclinic.site wss://borjadentalclinic.site",
     "form-action 'self'",
   ].join("; "),
   "Strict-Transport-Security": "max-age=3600",
@@ -38,6 +37,11 @@ export default defineConfig({
         target: apiTarget,
         changeOrigin: true,
       },
+      "/ws": {
+        target: apiTarget,
+        changeOrigin: true,
+        ws: true,
+      },
     },
   },
 
@@ -59,6 +63,11 @@ export default defineConfig({
       "/api": {
         target: apiTarget,
         changeOrigin: true,
+      },
+      "/ws": {
+        target: apiTarget,
+        changeOrigin: true,
+        ws: true,
       },
     },
   },
