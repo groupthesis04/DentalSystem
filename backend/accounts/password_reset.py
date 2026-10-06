@@ -85,7 +85,7 @@ def email_delivery_ready():
     return bool(settings.RESEND_API_KEY and settings.RESEND_FROM_EMAIL)
 
 
-def send_password_reset_email(to_email, code):
+def send_password_reset_email(to_email, code, request_ref):
     """Ask Resend to accept one email addressed only to a stored User.email."""
     if not email_delivery_ready():
         raise PasswordResetEmailError("Resend sender is not configured")
@@ -103,12 +103,16 @@ def send_password_reset_email(to_email, code):
         "Password Reset Request\n\n"
         "We received a request to reset the password for your BORJA Dental Clinic account.\n\n"
         f"Your verification code is: {code}\n\n"
+        f"Request reference: {request_ref}\n\n"
+        "Use this code only with the verification screen showing the same request reference. "
+        "A newer request or resend replaces earlier codes.\n\n"
         "This code will expire in 5 minutes.\n\n"
         "If you did not request a password reset, you can safely ignore this email.\n\n"
         "For your security, never share this verification code with anyone.\n\n"
         "BORJA Dental Clinic"
     )
     safe_code = html.escape(code)
+    safe_request_ref = html.escape(request_ref)
     html_body = (
         '<!doctype html><html lang="en"><head><meta charset="utf-8">'
         '<meta name="viewport" content="width=device-width, initial-scale=1">'
@@ -123,6 +127,10 @@ def send_password_reset_email(to_email, code):
         '<p style="font-size:16px">Your verification code is:</p>'
         f'<p style="margin:20px 0;text-align:center;font-family:monospace;font-size:32px;'
         f'font-weight:700;letter-spacing:8px;color:#1b1813">{safe_code}</p>'
+        f'<p style="font-size:16px;line-height:1.5">Request reference: '
+        f'<strong>{safe_request_ref}</strong></p>'
+        '<p style="font-size:16px;line-height:1.5">Use this code only with the verification '
+        'screen showing the same request reference. A newer request or resend replaces earlier codes.</p>'
         '<p style="font-size:16px;line-height:1.5">This code will expire in 5 minutes.</p>'
         '<p style="font-size:16px;line-height:1.5">If you did not request a password reset, '
         'you can safely ignore this email.</p>'
@@ -134,7 +142,7 @@ def send_password_reset_email(to_email, code):
     body = json.dumps({
         "from": sender,
         "to": [to_email],
-        "subject": "BORJA Dental Clinic – Password Reset Verification Code",
+        "subject": f"BORJA Dental Clinic – Password Reset Verification Code ({request_ref})",
         "html": html_body,
         "text": plain_text,
     }).encode("utf-8")
@@ -206,6 +214,7 @@ def _challenge_response(token, masked_email):
         "verification_required": True,
         "reset_token": token,
         "masked_email": masked_email,
+        "request_ref": _token_hash(token)[:8].upper(),
         "expires_in": int(OTP_LIFETIME.total_seconds()),
         "resend_after": int(OTP_RESEND_COOLDOWN.total_seconds()),
         "message": GENERIC_REQUEST_MESSAGE,
@@ -283,7 +292,7 @@ def request_password_reset(request):
 
     if user:
         try:
-            send_password_reset_email(user.email, code)
+            send_password_reset_email(user.email, code, challenge.token_hash[:8].upper())
         except PasswordResetEmailError:
             _discard_undelivered_code(challenge)
     return _challenge_response(token, challenge.masked_email)
@@ -326,7 +335,7 @@ def verify_password_reset(request):
             challenge.save(update_fields=["attempts"])
             if challenge.attempts >= OTP_MAX_ATTEMPTS:
                 return api_error("Too many incorrect attempts. Request a new code.", 429)
-            return api_error("Invalid or expired verification code.")
+            return api_error("Verification code does not match this request.")
 
         challenge.is_verified = True
         challenge.verified_at = timezone.now()
@@ -368,7 +377,7 @@ def resend_password_reset(request):
 
     if user:
         try:
-            send_password_reset_email(user.email, code)
+            send_password_reset_email(user.email, code, challenge.token_hash[:8].upper())
         except PasswordResetEmailError:
             _discard_undelivered_code(challenge)
     return _challenge_response(token, challenge.masked_email)

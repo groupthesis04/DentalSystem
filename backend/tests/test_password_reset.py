@@ -66,8 +66,9 @@ class PasswordResetTests(TestCase):
     def code_sent(self):
         self.assertTrue(self.send_email.called)
         args, _ = self.send_email.call_args
-        self.assertEqual(len(args), 2)
+        self.assertEqual(len(args), 3)
         self.assertRegex(args[1], r"^[0-9]{6}$")
+        self.assertRegex(args[2], r"^[0-9A-F]{8}$")
         return args[1]
 
     def requested_token_and_code(self, email=None):
@@ -115,11 +116,13 @@ class PasswordResetTests(TestCase):
                 data = response.json()
                 self.assertTrue(data["verification_required"])
                 self.assertTrue(data["reset_token"])
+                self.assertRegex(data["request_ref"], r"^[0-9A-F]{8}$")
                 self.assertEqual(data["expires_in"], 300)
                 self.assertEqual(data["resend_after"], 60)
                 self.assertNotIn(user.email, data["masked_email"])
                 code = self.code_sent()
                 self.assertEqual(self.send_email.call_args.args[0], user.email)
+                self.assertEqual(self.send_email.call_args.args[2], data["request_ref"])
                 self.assertNotIn(code, response.content.decode())
                 self.assertNotIn("password", data)
                 challenge = PasswordResetVerification.objects.get(user=user)
@@ -127,6 +130,7 @@ class PasswordResetTests(TestCase):
                 self.assertNotEqual(challenge.code_hash, code)
                 self.assertTrue(check_password(code, challenge.code_hash))
                 self.assertEqual(len(challenge.token_hash), 64)
+                self.assertEqual(data["request_ref"], challenge.token_hash[:8].upper())
                 self.assertGreater(challenge.expires_at, timezone.now())
 
     def test_forgot_password_never_uses_sms(self):
@@ -195,7 +199,7 @@ class PasswordResetTests(TestCase):
         provider_response.read.return_value = b'{"id":"email_test_123"}'
         provider_response.__enter__.return_value = provider_response
         with patch("accounts.password_reset.urlopen", return_value=provider_response) as open_url:
-            send_password_reset_email(self.patient.email, "123456")
+            send_password_reset_email(self.patient.email, "123456", "A1B2C3D4")
 
         request = open_url.call_args.args[0]
         self.assertEqual(request.full_url, "https://api.resend.com/emails")
@@ -211,6 +215,10 @@ class PasswordResetTests(TestCase):
         self.assertIn("Password Reset Verification Code", payload["subject"])
         self.assertIn("123456", payload["html"])
         self.assertIn("123456", payload["text"])
+        self.assertIn("A1B2C3D4", payload["subject"])
+        self.assertIn("A1B2C3D4", payload["html"])
+        self.assertIn("A1B2C3D4", payload["text"])
+        self.assertIn("newer request or resend replaces earlier codes", payload["text"])
         self.assertIn("5 minutes", payload["html"])
         self.assertIn("5 minutes", payload["text"])
         self.assertNotIn("http", payload["text"].lower())
@@ -229,7 +237,7 @@ class PasswordResetTests(TestCase):
         with patch("accounts.password_reset.urlopen", side_effect=rejection):
             with self.assertLogs("accounts.password_reset", level="WARNING") as captured:
                 with self.assertRaises(PasswordResetEmailError) as error:
-                    send_password_reset_email(self.patient.email, "123456")
+                    send_password_reset_email(self.patient.email, "123456", "A1B2C3D4")
         self.assertNotIn("123456", str(error.exception))
         self.assertNotIn("re_test_password_reset", str(error.exception))
         log = " ".join(captured.output)
@@ -254,7 +262,7 @@ class PasswordResetTests(TestCase):
                 with patch("accounts.password_reset.urlopen", side_effect=rejection):
                     with self.assertLogs("accounts.password_reset", level="WARNING") as captured:
                         with self.assertRaises(PasswordResetEmailError):
-                            send_password_reset_email(self.patient.email, "123456")
+                            send_password_reset_email(self.patient.email, "123456", "A1B2C3D4")
                 self.assertIn(expected, " ".join(captured.output))
 
     def test_missing_resend_configuration_fails_safely(self):
@@ -351,6 +359,41 @@ class PasswordResetTests(TestCase):
             429,
         )
         self.assertEqual(self.send_email.call_count, 1)
+
+    def test_second_tab_request_pairs_only_its_own_email_code(self):
+        first = self.request_reset()
+        self.assertEqual(first.status_code, 202)
+        first_token = first.json()["reset_token"]
+        first_code = self.code_sent()
+        first_ref = first.json()["request_ref"]
+        PasswordResetVerification.objects.filter(user=self.patient).update(
+            created_at=timezone.now() - dt.timedelta(seconds=61)
+        )
+
+        second = self.request_reset()
+        self.assertEqual(second.status_code, 202)
+        second_token = second.json()["reset_token"]
+        second_code = self.code_sent()
+        second_ref = second.json()["request_ref"]
+        self.assertNotEqual(first_ref, second_ref)
+        self.assertEqual(self.send_email.call_args.args[2], second_ref)
+        self.assertNotEqual(first_code, second_code)
+
+        stale = self.post(
+            "/api/password-reset/verify", {"reset_token": first_token, "code": first_code}
+        )
+        self.assertEqual(stale.status_code, 409)
+        mismatched = self.post(
+            "/api/password-reset/verify", {"reset_token": second_token, "code": first_code}
+        )
+        self.assertEqual(mismatched.status_code, 400)
+        self.assertEqual(
+            mismatched.json()["error"], "Verification code does not match this request."
+        )
+        current = self.post(
+            "/api/password-reset/verify", {"reset_token": second_token, "code": second_code}
+        )
+        self.assertEqual(current.status_code, 200)
 
     def test_resend_rotates_token_and_code_and_invalidates_previous(self):
         token, code = self.requested_token_and_code()

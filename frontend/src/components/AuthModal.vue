@@ -107,6 +107,7 @@ const expiresAt = ref(0);
 const resetEmail = ref("");
 const resetToken = ref("");
 const resetMaskedEmail = ref("");
+const resetRequestRef = ref("");
 const resetCode = ref("");
 const resetNewPassword = ref("");
 const resetConfirmPassword = ref("");
@@ -244,6 +245,7 @@ function clearResetState() {
   resetEmail.value = "";
   resetToken.value = "";
   resetMaskedEmail.value = "";
+  resetRequestRef.value = "";
   resetCode.value = "";
   resetNewPassword.value = "";
   resetConfirmPassword.value = "";
@@ -280,6 +282,10 @@ function switchTab(next) {
 function showResetChallenge(data) {
   resetToken.value = data.reset_token;
   resetMaskedEmail.value = data.masked_email || "";
+  resetRequestRef.value =
+    typeof data.request_ref === "string" && /^[0-9A-F]{8}$/.test(data.request_ref)
+      ? data.request_ref
+      : "";
   resetCode.value = "";
   resetNotice.value = "";
   now.value = Date.now();
@@ -290,6 +296,7 @@ function showResetChallenge(data) {
 
 function handleResetCodeInput() {
   resetCode.value = resetCode.value.replace(/\D/g, "").slice(0, 6);
+  errorMessage.value = "";
 }
 
 async function requestPasswordReset() {
@@ -334,11 +341,24 @@ async function verifyPasswordResetCode() {
       body: { reset_token: resetToken.value, code: resetCode.value },
     });
     if (flowVersion !== resetFlowVersion) return;
-    if (!data.verified) throw new Error("Invalid or expired verification code.");
+    if (!data.verified) throw new Error("Verification code does not match this request.");
     resetCode.value = "";
     tab.value = "new-password";
   } catch (error) {
-    if (flowVersion === resetFlowVersion) errorMessage.value = error.message;
+    if (flowVersion === resetFlowVersion) {
+      if (
+        error.status === 400 &&
+        [
+          "Invalid or expired verification code.",
+          "Verification code does not match this request.",
+        ].includes(error.message)
+      ) {
+        const emailReference = resetRequestRef.value ? ` marked ${resetRequestRef.value}` : "";
+        errorMessage.value = `${error.message} Use the code from the most recent reset email${emailReference}. Requesting or resending a code replaces earlier codes.`;
+      } else {
+        errorMessage.value = error.message;
+      }
+    }
   } finally {
     busy.value = false;
   }
@@ -775,6 +795,17 @@ function handleRegisterInvalid(event) {
           </div>
           <p v-if="resetMaskedEmail" class="verification-intro">
             Address entered: <strong>{{ resetMaskedEmail }}</strong>
+          </p>
+          <p v-if="resetRequestRef" class="verification-intro">
+            Current email reference: <strong>{{ resetRequestRef }}</strong>
+          </p>
+          <p v-if="resetRequestRef" class="verification-hint">
+            Use the code from the email with this reference. Requesting or resending a code replaces
+            earlier codes.
+          </p>
+          <p v-else class="verification-hint">
+            Use the code from the most recent reset email. Requesting or resending a code replaces
+            earlier codes.
           </p>
           <label class="auth-field">
             <span>Verification Code</span>
