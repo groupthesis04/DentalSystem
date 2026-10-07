@@ -207,12 +207,12 @@ class DoctorNotificationPreferenceTests(TestCase):
         sms.dispatch(second.id, timezone.now())
         self.assertEqual(Notification.objects.filter(recipient=self.doctor, notification_type="sms_delivery_failure").count(), 1)
 
-    @patch("communications.sms.sms_provider.status", return_value=("125", "refunded"))
+    @patch("communications.sms.sms_provider.status", return_value=("philsms:125", "refunded"))
     @patch("communications.sms.sms_provider.ready", return_value=True)
     def test_provider_status_failure_creates_one_dashboard_notice(self, _ready, _status):
         item = sms.enqueue("booking", self.patient, "failure:provider", sms.message_context(self.patient), is_test=True)
         SmsMessage.objects.filter(pk=item.pk).update(
-            status="submitted", provider_id="125", checked_at=timezone.now() - dt.timedelta(minutes=2)
+            status="submitted", provider_id="philsms:125", checked_at=timezone.now() - dt.timedelta(minutes=2)
         )
         sms.process_queue()
         self.assertEqual(Notification.objects.filter(recipient=self.doctor, notification_type="sms_delivery_failure").count(), 1)

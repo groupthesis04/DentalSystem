@@ -311,13 +311,13 @@ SMS_CLINIC_NAME = os.environ.get(
     "BORJA Dental Clinic",
 )
 
-SEMAPHORE_API_KEY = os.environ.get(
-    "SEMAPHORE_API_KEY",
+PHILSMS_API_TOKEN = os.environ.get(
+    "PHILSMS_API_TOKEN",
     "",
 ).strip()
 
-SEMAPHORE_SENDER_NAME = os.environ.get(
-    "SEMAPHORE_SENDER_NAME",
+PHILSMS_SENDER_ID = os.environ.get(
+    "PHILSMS_SENDER_ID",
     "",
 ).strip()
 
@@ -326,5 +326,5 @@ RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "").strip()
 RESEND_FROM_EMAIL = os.environ.get("RESEND_FROM_EMAIL", "").strip()
 RESEND_FROM_NAME = os.environ.get("RESEND_FROM_NAME", "BORJA Dental Clinic").strip()
 
-# Semaphore permits two account lookups per minute.
+# Cache provider balance reads for the SMS dashboard.
 SMS_ACCOUNT_CACHE_SECONDS = 60

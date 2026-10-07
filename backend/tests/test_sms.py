@@ -18,11 +18,17 @@ from scheduling.models import Appointment
 from tests import test_django_api
 
 
-@override_settings(PASSWORD_HASHERS=["django.contrib.auth.hashers.MD5PasswordHasher"], SMS_ENABLED=True, SEMAPHORE_API_KEY="fake-key")
+@override_settings(PASSWORD_HASHERS=["django.contrib.auth.hashers.MD5PasswordHasher"], SMS_ENABLED=True, PHILSMS_API_TOKEN="fake-token", PHILSMS_SENDER_ID="BORJA")
 class SmsTests(TestCase):
     def setUp(self):
         test_django_api.DentalApiTests.setUp(self)
         cache.clear()
+        account = patch(
+            "communications.sms_views.sms_provider.account",
+            side_effect=sms_provider.SmsProviderError("PhilSMS account information is unavailable."),
+        )
+        account.start()
+        self.addCleanup(account.stop)
         # These provider tests exercise delivery after a patient has opted in.
         self.profile.sms_consent = True
         self.profile.sms_consent_at = timezone.now()
@@ -381,7 +387,7 @@ class SmsTests(TestCase):
         self.assertEqual(SmsMessage.objects.filter(rule_id="approval").count(), 1)
         self.assertEqual(SmsMessage.objects.filter(rule_id="cancellation").count(), 1)
         self.assertTrue(SmsMessage.objects.filter(rule_id="booking", status="suppressed").exists())
-        with patch("communications.sms_provider.send", return_value=("123", "submitted")) as send:
+        with patch("communications.sms_provider.send", return_value=("philsms:123", "submitted")) as send:
             sms.process_queue()
         self.assertEqual(send.call_count, 1)
         self.assertIn("cancelled", send.call_args.args[1])
@@ -408,7 +414,7 @@ class SmsTests(TestCase):
             appointment_time=visit.time(), status="approved", source="patient",
         )
         with patch(
-            "communications.sms_provider.send", return_value=("456", "submitted")
+            "communications.sms_provider.send", return_value=("philsms:456", "submitted")
         ) as send:
             sms.process_queue()
             sms.process_queue()
@@ -509,7 +515,7 @@ class SmsTests(TestCase):
         self.assertEqual(SmsMessage.objects.get().status, "suppressed")
 
     def test_invalid_templates(self):
-        for template in ("", "{Unknown}", "{PatientName.__class__}", "{PatientName!r}", "{Balance:1000000}", "TEST message"):
+        for template in ("", "{Unknown}", "{PatientName.__class__}", "{PatientName!r}", "{Balance:1000000}"):
             self.assertEqual(self.write("/api/sms/rules", {"key": "booking", "template": template}, "patch").status_code, 400, template)
 
     def test_admin_only_and_csrf(self):
@@ -542,7 +548,7 @@ class SmsTests(TestCase):
         SmsRule.objects.filter(pk="booking").update(template="Hello {PatientName}. {ClinicName} is reviewing your request.")
         self.profile.mobile_number = "09123456780"
         self.profile.save()
-        with patch("communications.sms_provider.send", return_value=("123", "submitted")) as send:
+        with patch("communications.sms_provider.send", return_value=("philsms:123", "submitted")) as send:
             sms.process_queue()
             sms.process_queue()
         self.assertEqual(send.call_count, 1)
@@ -550,9 +556,11 @@ class SmsTests(TestCase):
         self.assertTrue(send.call_args.args[1].startswith("Hello"))
         message = SmsMessage.objects.get()
         self.assertEqual(message.status, "submitted")
+        self.assertEqual(message.provider_id, "philsms:123")
         SmsMessage.objects.filter(pk=message.pk).update(checked_at=timezone.now() - dt.timedelta(minutes=2))
-        with patch("communications.sms_provider.status", return_value=("123", "sent")):
+        with patch("communications.sms_provider.status", return_value=("philsms:123", "sent")) as status:
             sms.process_queue()
+        status.assert_called_once_with("philsms:123")
         message.refresh_from_db()
         self.assertEqual(message.status, "sent")
 
@@ -573,6 +581,34 @@ class SmsTests(TestCase):
         self.assertEqual(SmsMessage.objects.get().status, "queued")
         self.assertGreater(SmsMessage.objects.get().scheduled_for, timezone.now())
 
+    def test_one_failed_message_does_not_stop_next_queued_message(self):
+        first = sms.enqueue_manual(self.profile, "manual:first", "First clinic message")
+        second = sms.enqueue_manual(self.profile, "manual:second", "Second clinic message")
+        with patch("communications.sms_provider.send", side_effect=[
+            sms_provider.SmsProviderError("PhilSMS rejected the recipient."),
+            ("philsms:second", "sent"),
+        ]) as send:
+            self.assertEqual(sms.process_queue(), 2)
+        self.assertEqual(send.call_count, 2)
+        first.refresh_from_db()
+        second.refresh_from_db()
+        self.assertEqual((first.status, first.attempts), ("failed", 1))
+        self.assertEqual((second.status, second.attempts, second.provider_id), ("sent", 1, "philsms:second"))
+
+    def test_unexpected_send_error_marks_attempt_unknown_and_continues(self):
+        first = sms.enqueue_manual(self.profile, "manual:unexpected:first", "First clinic message")
+        second = sms.enqueue_manual(self.profile, "manual:unexpected:second", "Second clinic message")
+        with patch("communications.sms_provider.send", side_effect=[
+            RuntimeError("private-token"), ("philsms:second", "sent"),
+        ]) as send:
+            self.assertEqual(sms.process_queue(), 2)
+        self.assertEqual(send.call_count, 2)
+        first.refresh_from_db()
+        second.refresh_from_db()
+        self.assertEqual((first.status, first.attempts), ("unknown", 1))
+        self.assertNotIn("private-token", first.error)
+        self.assertEqual((second.status, second.attempts), ("sent", 1))
+
     def test_stale_processing_needs_review(self):
         self.booking()
         SmsMessage.objects.update(status="processing", updated_at=timezone.now() - dt.timedelta(minutes=6))
@@ -589,14 +625,14 @@ class SmsTests(TestCase):
             status="submitted", provider_id="former:earlier",
             checked_at=timezone.now() - dt.timedelta(minutes=2),
         )
-        with patch("communications.sms.sms_provider.send", return_value=("456", "submitted")) as send, \
+        with patch("communications.sms.sms_provider.send", return_value=("philsms:456", "submitted")) as send, \
              patch("communications.sms.sms_provider.status") as status:
             self.assertEqual(sms.process_queue(), 1)
         send.assert_called_once()
         status.assert_not_called()
         queued.refresh_from_db()
         earlier.refresh_from_db()
-        self.assertEqual((queued.status, queued.attempts, queued.provider_id), ("submitted", 1, "456"))
+        self.assertEqual((queued.status, queued.attempts, queued.provider_id), ("submitted", 1, "philsms:456"))
         self.assertEqual((earlier.status, earlier.provider_id), ("unknown", "former:earlier"))
         self.assertIn("original provider logs", earlier.error)
 
@@ -639,13 +675,13 @@ class SmsTests(TestCase):
         self.assertIsNotNone(data["provider"]["credit_checked_at"])
         self.assertEqual(cached.json()["provider"]["credit_balance"], 1749.0)
         account.assert_called_once()
-        self.assertNotIn("fake-key", response.content.decode())
+        self.assertNotIn("fake-token", response.content.decode())
 
     def test_dashboard_credit_lookup_failure_and_missing_key(self):
         self.client.force_login(self.doctor)
         with patch(
             "communications.sms_views.sms_provider.account",
-            side_effect=sms_provider.SmsProviderError("Semaphore account information is unavailable."),
+            side_effect=sms_provider.SmsProviderError("PhilSMS account information is unavailable."),
         ):
             provider = self.client.get("/api/sms").json()["provider"]
         self.assertIsNone(provider["credit_balance"])
@@ -653,7 +689,7 @@ class SmsTests(TestCase):
         self.assertTrue(provider["credit_error"])
 
         cache.clear()
-        with override_settings(SEMAPHORE_API_KEY=""), patch(
+        with override_settings(PHILSMS_API_TOKEN=""), patch(
             "communications.sms_views.sms_provider.account"
         ) as account:
             provider = self.client.get("/api/sms").json()["provider"]
@@ -895,13 +931,12 @@ class SmsTests(TestCase):
             send.assert_not_called()
 
 
-@override_settings(SEMAPHORE_API_KEY="private-token", SEMAPHORE_SENDER_NAME="BORJA")
-class SemaphoreTransportTests(TestCase):
-    def test_semaphore_is_the_only_active_provider(self):
-        with override_settings(SMS_ENABLED=True):
-            self.assertEqual(sms_provider.name(), "Semaphore")
-            self.assertTrue(sms_provider.ready())
-            self.assertEqual(sms_provider.sender_name(), "BORJA")
+@override_settings(PHILSMS_API_TOKEN="private-token", PHILSMS_SENDER_ID="BORJA", SMS_ENABLED=True)
+class PhilSmsTransportTests(TestCase):
+    def test_philsms_is_the_active_provider(self):
+        self.assertEqual(sms_provider.name(), "PhilSMS")
+        self.assertTrue(sms_provider.ready())
+        self.assertEqual(sms_provider.sender_name(), "BORJA")
 
     def test_normalize_numbers(self):
         for value in ("09123456789", "+63 912 345 6789", "9123456789", "639123456789"):
@@ -910,44 +945,214 @@ class SemaphoreTransportTests(TestCase):
             with self.assertRaises(ValueError):
                 sms_provider.normalize_phone(value)
 
-    def test_post_secret_in_body_and_network_status(self):
-        response = BytesIO(b'[{"message_id":123,"status":"Sent"}]')
+    def test_post_uses_bearer_authorization_and_philsms_fields(self):
+        response = BytesIO(b'{"status":"success","data":{"uid":"abc123","status":"queued"}}')
         with patch("communications.sms_provider.urlopen", return_value=response) as opener:
-            self.assertEqual(sms_provider.send("09123456789", "Hello patient"), ("123", "sent"))
+            self.assertEqual(sms_provider.send("09123456789", "Hello patient"), ("philsms:abc123", "submitted"))
         req = opener.call_args.args[0]
         self.assertEqual(req.method, "POST")
+        self.assertEqual(req.full_url, "https://dashboard.philsms.com/api/v3/sms/send")
         self.assertNotIn("private-token", req.full_url)
-        self.assertIn(b"sendername=BORJA", req.data)
+        self.assertNotIn(b"private-token", req.data)
+        self.assertEqual(req.get_header("Authorization"), "Bearer private-token")
+        self.assertEqual(json.loads(req.data), {
+            "recipient": "639123456789", "sender_id": "BORJA",
+            "type": "plain", "message": "Hello patient",
+        })
+        self.assertGreater(opener.call_args.kwargs["timeout"], 0)
 
-    def test_account_credit_balance_uses_semaphore_account_endpoint(self):
-        response = BytesIO(
-            b'{"account_id":42,"account_name":"BORJA","status":"Active","credit_balance":"1749.50"}'
-        )
+    def test_account_credit_balance_uses_philsms_balance_endpoint(self):
+        response = BytesIO(b'{"status":"success","data":{"remaining_balance":"12.50"}}')
         with patch("communications.sms_provider.urlopen", return_value=response) as opener:
             account = sms_provider.account()
-        self.assertEqual(account["credit_balance"], Decimal("1749.50"))
-        self.assertEqual(account["status"], "Active")
+        self.assertEqual(account["credit_balance"], Decimal("12.50"))
+        self.assertTrue(account["status"])
         request = opener.call_args.args[0]
         self.assertEqual(request.get_method(), "GET")
-        self.assertIn("/api/v4/account?", request.full_url)
+        self.assertEqual(request.full_url, "https://dashboard.philsms.com/api/v3/balance")
+        self.assertEqual(request.get_header("Authorization"), "Bearer private-token")
+
+    def test_account_prefers_new_dashboard_remaining_balance(self):
+        response = BytesIO(b'{"status":"success","data":{"remaining_balance":"12.75","balance":"99.00"}}')
+        with patch("communications.sms_provider.urlopen", return_value=response):
+            account = sms_provider.account()
+        self.assertEqual(account["credit_balance"], Decimal("12.75"))
+
+    def test_account_accepts_peso_prefixed_balance(self):
+        response = BytesIO(json.dumps({
+            "status": "success", "data": {"remaining_balance": "₱1,234.50"},
+        }).encode("utf-8"))
+        with patch("communications.sms_provider.urlopen", return_value=response):
+            account = sms_provider.account()
+        self.assertEqual(account["credit_balance"], Decimal("1234.50"))
+
+    def test_account_rejects_malformed_peso_balance(self):
+        for value in ("₱not-a-number", "₱1,23.50"):
+            response = BytesIO(json.dumps({
+                "status": "success", "data": {"remaining_balance": value},
+            }).encode("utf-8"))
+            with self.subTest(value=value), patch(
+                "communications.sms_provider.urlopen", return_value=response
+            ):
+                with self.assertRaises(sms_provider.SmsProviderError):
+                    sms_provider.account()
+
+    def test_account_and_send_set_an_explicit_user_agent(self):
+        responses = (
+            BytesIO(b'{"status":"success","data":{"remaining_balance":"10"}}'),
+            BytesIO(b'{"status":"success","data":{"uid":"abc123","status":"queued"}}'),
+        )
+        with patch("communications.sms_provider.urlopen", side_effect=responses) as opener:
+            sms_provider.account()
+            sms_provider.send("09123456789", "Hello")
+        self.assertEqual(opener.call_count, 2)
+        for call in opener.call_args_list:
+            request = call.args[0]
+            self.assertEqual(request.get_header("User-agent"), "BORJA-Dental-System/1.0")
+            self.assertNotIn("private-token", request.get_header("User-agent"))
+
+    def test_unauthenticated_envelope_reports_credentials_without_exposing_token(self):
+        body = b'{"status":"error","message":"Unauthenticated."}'
+        for operation in (
+            sms_provider.account,
+            lambda: sms_provider.send("09123456789", "Hello"),
+        ):
+            with self.subTest(operation=operation), patch(
+                "communications.sms_provider.urlopen", return_value=BytesIO(body)
+            ):
+                with self.assertRaises(sms_provider.SmsProviderError) as caught:
+                    operation()
+            self.assertIn("PHILSMS_API_TOKEN", str(caught.exception))
+            self.assertNotIn("private-token", str(caught.exception))
+            self.assertFalse(caught.exception.uncertain)
+            self.assertFalse(caught.exception.retryable)
 
     def test_account_rejects_invalid_credit_balance(self):
-        for body in (b'{}', b'{"credit_balance":"not-a-number"}', b'{"credit_balance":-1}'):
+        for body in (b'{}', b'{"status":"success","data":{"remaining_balance":"not-a-number"}}', b'{"status":"success","data":{"remaining_balance":-1}}'):
             with self.subTest(body=body), patch(
                 "communications.sms_provider.urlopen", return_value=BytesIO(body)
             ):
                 with self.assertRaises(sms_provider.SmsProviderError):
                     sms_provider.account()
 
-    def test_status_rejects_non_semaphore_id_without_network(self):
+    def test_status_rejects_non_philsms_id_without_network(self):
         with patch("communications.sms_provider.urlopen") as opener:
             with self.assertRaises(sms_provider.SmsProviderError):
-                sms_provider.status("former:abc")
+                sms_provider.status("123")
         opener.assert_not_called()
 
-    def test_errors_do_not_expose_secrets(self):
-        with patch("communications.sms_provider.urlopen", side_effect=HTTPError("https://example/?apikey=private-token", 401, "private-token", {}, None)):
+    def test_status_checks_only_the_saved_philsms_reference(self):
+        response = BytesIO(b'{"status":"success","data":{"uid":"abc123","status":"delivered"}}')
+        with patch("communications.sms_provider.urlopen", return_value=response) as opener:
+            self.assertEqual(sms_provider.status("philsms:abc123"), ("philsms:abc123", "delivered"))
+        request = opener.call_args.args[0]
+        self.assertEqual(request.get_method(), "GET")
+        self.assertEqual(request.full_url, "https://dashboard.philsms.com/api/v3/sms/abc123")
+        self.assertEqual(request.get_header("Authorization"), "Bearer private-token")
+
+    def test_status_rejects_missing_delivery_state(self):
+        response = BytesIO(b'{"status":"success","data":{"uid":"abc123"}}')
+        with patch("communications.sms_provider.urlopen", return_value=response):
+            with self.assertRaisesRegex(sms_provider.SmsProviderError, "invalid message status"):
+                sms_provider.status("philsms:abc123")
+
+    def test_missing_credentials_and_disabled_switch_never_open_network(self):
+        for changes in (
+            {"PHILSMS_API_TOKEN": ""},
+            {"PHILSMS_SENDER_ID": ""},
+            {"SMS_ENABLED": False},
+        ):
+            with self.subTest(changes=changes), override_settings(**changes), patch(
+                "communications.sms_provider.urlopen"
+            ) as opener:
+                self.assertFalse(sms_provider.ready())
+                with self.assertRaises(sms_provider.SmsProviderError):
+                    sms_provider.send("09123456789", "Hello")
+                opener.assert_not_called()
+
+    def test_http_failures_are_sanitized_and_classified(self):
+        for code, retryable, uncertain in (
+            (400, False, False), (401, False, False), (403, False, False),
+            (422, False, False), (429, True, False), (500, False, True),
+            (503, False, True),
+        ):
+            with self.subTest(code=code), patch(
+                "communications.sms_provider.urlopen",
+                side_effect=HTTPError("https://example/private-token", code, "private-token", {}, BytesIO(b'{}')),
+            ):
+                with self.assertRaises(sms_provider.SmsProviderError) as caught:
+                    sms_provider.send("09123456789", "Hello")
+            self.assertEqual(caught.exception.retryable, retryable)
+            self.assertEqual(caught.exception.uncertain, uncertain)
+            self.assertNotIn("private-token", str(caught.exception))
+
+    def test_http_rejections_use_safe_specific_reasons(self):
+        cases = (
+            (401, {"status": "error", "message": "Unauthenticated."}, "API token", False),
+            (403, {"status": "error", "message": "The string supplied did not seem to be a phone number."}, "recipient phone number", False),
+            (403, {"status": "error", "message": "Sender ID is not approved."}, "sender ID", False),
+            (403, {"status": "error", "message": "Insufficient credits for this request."}, "balance or credits", False),
+            (429, {"status": "error", "message": "Too many requests."}, "rate limit", True),
+            (422, {"status": "error", "message": "The given data was invalid.",
+                   "errors": {"recipient": ["Invalid."]}}, "recipient phone number", False),
+        )
+        for code, provider_body, expected, retryable in cases:
+            response = BytesIO(json.dumps(provider_body).encode("utf-8"))
+            error = HTTPError("https://example/private-token", code, "private-token", {}, response)
+            with self.subTest(code=code, expected=expected), patch(
+                "communications.sms_provider.urlopen", side_effect=error
+            ):
+                with self.assertRaises(sms_provider.SmsProviderError) as caught:
+                    sms_provider.send("09123456789", "Hello patient")
+            self.assertIn(expected, str(caught.exception))
+            self.assertEqual(caught.exception.retryable, retryable)
+            for private_value in ("private-token", "639123456789", "Hello patient"):
+                self.assertNotIn(private_value, str(caught.exception))
+
+    def test_unknown_http_rejections_never_echo_provider_response(self):
+        for response_body in (
+            b'<html>private-token 639123456789 Hello patient</html>',
+            b'{"status":"error","message":"private-token 639123456789 Hello patient"}',
+        ):
+            error = HTTPError(
+                "https://example/private-token", 403, "private-token", {}, BytesIO(response_body)
+            )
+            with self.subTest(response_body=response_body), patch(
+                "communications.sms_provider.urlopen", side_effect=error
+            ):
+                with self.assertRaises(sms_provider.SmsProviderError) as caught:
+                    sms_provider.send("09123456789", "Hello patient")
+            self.assertIn("HTTP 403", str(caught.exception))
+            self.assertNotIn("account credentials", str(caught.exception))
+            for private_value in ("private-token", "639123456789", "Hello patient"):
+                self.assertNotIn(private_value, str(caught.exception))
+
+    def test_error_envelope_classifies_recipient_without_echoing_provider_message(self):
+        body = json.dumps({
+            "status": "error",
+            "message": "The string supplied did not seem to be a phone number: 639123456789",
+        }).encode("utf-8")
+        with patch("communications.sms_provider.urlopen", return_value=BytesIO(body)):
+            with self.assertRaises(sms_provider.SmsProviderError) as caught:
+                sms_provider.send("09123456789", "Hello patient")
+        self.assertIn("recipient phone number", str(caught.exception))
+        self.assertNotIn("639123456789", str(caught.exception))
+
+    def test_timeout_and_invalid_response_do_not_expose_secrets(self):
+        with patch("communications.sms_provider.urlopen", side_effect=TimeoutError("private-token")):
             with self.assertRaises(sms_provider.SmsProviderError) as caught:
                 sms_provider.send("09123456789", "Hello")
+        self.assertTrue(caught.exception.uncertain)
         self.assertNotIn("private-token", str(caught.exception))
-        self.assertFalse(caught.exception.uncertain)
+
+        for body in (b'not-json', b'[]', b'{"status":"error","message":"private-token"}'):
+            with self.subTest(body=body), patch("communications.sms_provider.urlopen", return_value=BytesIO(body)):
+                with self.assertRaises(sms_provider.SmsProviderError) as caught:
+                    sms_provider.send("09123456789", "Hello")
+            self.assertNotIn("private-token", str(caught.exception))
+
+    def test_success_without_provider_id_is_uncertain_without_fake_reference(self):
+        with patch("communications.sms_provider.urlopen", return_value=BytesIO(b'{"status":"success","data":{}}')):
+            with self.assertRaises(sms_provider.SmsProviderError) as caught:
+                sms_provider.send("09123456789", "Hello")
+        self.assertTrue(caught.exception.uncertain)

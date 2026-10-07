@@ -24,7 +24,8 @@ from scheduling.models import Appointment, AvailabilitySlot
 
 @override_settings(
     SMS_ENABLED=True,
-    SEMAPHORE_API_KEY="fake-key",
+    PHILSMS_API_TOKEN="fake-token",
+    PHILSMS_SENDER_ID="BORJA",
     PASSWORD_HASHERS=["django.contrib.auth.hashers.MD5PasswordHasher"],
 )
 class RegistrationLinkingTests(TestCase):
