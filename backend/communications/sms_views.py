@@ -73,9 +73,17 @@ def provider_credit_payload():
 
 def rule_payload(rule):
     name, trigger, _ = RULES[rule.key]
-    frequency = "Every 7 days until fully paid" if rule.key == "balance" else "Immediately"
+    frequency = (
+        "Every 7 days until fully paid" if rule.key == "balance" else
+        "About 24 hours before the appointment" if rule.key == "appointment_reminder" else
+        "Immediately"
+    )
     if rule.delay_minutes:
-        frequency = f"{frequency}; {rule.delay_minutes}-minute delay" if rule.key == "balance" else f"After {rule.delay_minutes} minutes"
+        frequency = (
+            f"{frequency}; {rule.delay_minutes}-minute delay"
+            if rule.key in {"balance", "appointment_reminder"}
+            else f"After {rule.delay_minutes} minutes"
+        )
     return {"key": rule.key, "name": name, "trigger": trigger, "frequency": frequency, "enabled": rule.enabled, "template": rule.template, "updated_at": rule.updated_at.isoformat()}
 
 
@@ -100,7 +108,11 @@ def resend_block_reason(item, resend_id=""):
 def message_payload(item, resend_id=""):
     reason = resend_block_reason(item, resend_id)
     source = "test" if item.is_test else "manual" if item.rule_id == MANUAL_RULE_KEY or item.event_key.startswith("resend:") else "automated"
-    name, trigger = ("Manual Clinic Message", "Sent by the clinic") if item.rule_id == MANUAL_RULE_KEY else RULES[item.rule_id][:2]
+    name, trigger = (
+        ("Manual Clinic Message", "Sent by the clinic")
+        if item.rule_id == MANUAL_RULE_KEY
+        else RULES.get(item.rule_id, (item.rule_id.replace("_", " ").title(), "Clinic message"))[:2]
+    )
     return {
         "id": item.pk, "rule": item.rule_id, "name": name,
         "trigger": trigger, "source": source,
@@ -182,7 +194,8 @@ def template_payload(item):
     return {
         "id": item.pk, "rule": item.rule_id, "name": item.name, "body": item.body,
         "enabled": item.rule.enabled and active, "active": active, "can_delete": not active,
-        "delay_minutes": item.delay_minutes, "trigger": RULES[item.rule_id][1],
+        "delay_minutes": item.delay_minutes,
+        "trigger": RULES.get(item.rule_id, (item.name, "Clinic message"))[1],
         "updated_at": item.updated_at.isoformat(),
     }
 

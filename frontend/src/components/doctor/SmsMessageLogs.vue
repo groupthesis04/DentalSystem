@@ -49,6 +49,7 @@ let disposed = false;
 const types = {
   booking: "Booking Confirmation",
   approval: "Appointment Approved",
+  appointment_reminder: "Appointment Reminder",
   walk_in: "Walk-in Added",
   next_visit: "Next Visit Reminder",
   balance: "Payment Reminder",
@@ -58,6 +59,7 @@ const types = {
 const typeIcons = {
   booking: CalendarDays,
   approval: CheckCircle2,
+  appointment_reminder: Clock3,
   walk_in: UserRound,
   next_visit: Bell,
   balance: CreditCard,
@@ -128,7 +130,7 @@ const metrics = computed(() => {
     {
       label: "Automation Rules Active",
       value: stats?.active_rules,
-      detail: `of ${stats?.total_rules ?? 6} total rules`,
+      detail: stats ? `of ${stats.total_rules} total rules` : "Automation rules",
       icon: Settings2,
       color: "violet",
     },
@@ -1126,7 +1128,8 @@ onBeforeUnmount(() => {
   color: #1767e2;
   background: #e8f0ff;
 }
-.next_visit {
+.next_visit,
+.appointment_reminder {
   color: #ae6908;
   background: #fff2da;
 }

@@ -107,7 +107,7 @@ class SmsTests(TestCase):
             item = sms.enqueue("booking", self.profile, "metric:" + state, sms.message_context(self.profile))
             SmsMessage.objects.filter(pk=item.pk).update(status=state, scheduled_for=timezone.now() + dt.timedelta(minutes=20))
         stats = self.client.get("/api/sms/logs").json()["stats"]
-        self.assertEqual(stats, {"total": 6, "delivered": 1, "failed": 2, "scheduled": 1, "active_rules": 6, "total_rules": 6})
+        self.assertEqual(stats, {"total": 6, "delivered": 1, "failed": 2, "scheduled": 1, "active_rules": 7, "total_rules": 7})
         filtered = self.client.get("/api/sms/logs", {"status": "failed"}).json()["stats"]
         self.assertEqual(filtered["total"], 2)
         self.assertEqual(filtered["delivered"], 0)
@@ -230,11 +230,34 @@ class SmsTests(TestCase):
         rule = SmsRule.objects.get(pk="booking")
         self.assertEqual(rule.active_template.body, rule.template)
         result = self.client.get("/api/sms/templates").json()
-        self.assertEqual(len(result["templates"]), 6)
-        self.assertEqual(sum(item["enabled"] for item in result["templates"]), 6)
+        self.assertEqual(len(result["templates"]), 7)
+        self.assertEqual(sum(item["enabled"] for item in result["templates"]), 7)
+        self.assertIn("appointment_reminder", {item["rule"] for item in result["templates"]})
         self.assertTrue(all(item["active"] and not item["can_delete"] for item in result["templates"]))
         sms.ensure_rules()
-        self.assertEqual(SmsTemplate.objects.count(), 6)
+        self.assertEqual(SmsTemplate.objects.count(), 7)
+
+    def test_template_library_handles_other_saved_rule_without_crashing(self):
+        legacy_rule = SmsRule.objects.create(key="legacy_reminder", template="Legacy reminder")
+        legacy_template = SmsTemplate.objects.create(
+            id="smst_legacy_reminder", rule=legacy_rule,
+            name="Legacy reminder", body="Legacy reminder",
+        )
+        legacy_rule.active_template = legacy_template
+        legacy_rule.save(update_fields=["active_template"])
+
+        response = self.client.get("/api/sms/templates")
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertEqual(len(response.json()["templates"]), 8)
+        self.assertEqual(
+            next(item for item in response.json()["templates"] if item["id"] == legacy_template.pk)["trigger"],
+            "Clinic message",
+        )
+        sms.enqueue("legacy_reminder", self.profile, "legacy:message", sms.message_context(self.profile))
+        logs = self.client.get("/api/sms/logs")
+        self.assertEqual(logs.status_code, 200, logs.content)
+        self.assertEqual(logs.json()["messages"][0]["name"], "Legacy Reminder")
+        self.assertTrue(SmsTemplate.objects.filter(pk=legacy_template.pk).exists())
 
     def create_template(self, **changes):
         payload = {"rule": "booking", "name": "Booking copy", "body": "Hello {PatientName}, {ClinicName} received your booking.", "delay_minutes": 15, "enabled": False, **changes}
@@ -273,7 +296,7 @@ class SmsTests(TestCase):
         self.assertEqual(response.status_code, 200, response.content)
         self.assertEqual(response.json(), {"ok": True, "id": item["id"]})
         self.assertFalse(SmsTemplate.objects.filter(pk=item["id"]).exists())
-        self.assertEqual(SmsTemplate.objects.count(), 6)
+        self.assertEqual(SmsTemplate.objects.count(), 7)
 
     def test_active_template_cannot_be_deleted_even_when_rule_is_off(self):
         rule = SmsRule.objects.get(pk="booking")
@@ -375,6 +398,73 @@ class SmsTests(TestCase):
         self.assertEqual(response.status_code, 201, response.content)
         self.assertEqual(SmsMessage.objects.get().rule_id, "next_visit")
 
+    def test_approved_appointment_gets_one_before_visit_reminder(self):
+        now = timezone.now().replace(second=0, microsecond=0)
+        visit = timezone.localtime(now + dt.timedelta(hours=23))
+        appointment = Appointment.objects.create(
+            id="reminder_visit", patient=self.profile, doctor=self.doctor,
+            patient_name=self.profile.name, doctor_name=self.doctor.name,
+            service_name=self.service.name, appointment_date=visit.date(),
+            appointment_time=visit.time(), status="approved", source="patient",
+        )
+        with override_settings(SMS_PROVIDER="semaphore"), patch(
+            "communications.sms_provider.send", return_value=("provider-reminder", "submitted")
+        ) as send:
+            sms.process_queue()
+            sms.process_queue()
+        reminders = SmsMessage.objects.filter(appointment=appointment, rule_id="appointment_reminder")
+        self.assertEqual(reminders.count(), 1)
+        self.assertEqual(reminders.get().status, "submitted")
+        self.assertEqual(send.call_count, 1)
+
+    def test_before_visit_reminder_respects_consent_and_schedule_changes(self):
+        now = timezone.now().replace(second=0, microsecond=0)
+        visit = timezone.localtime(now + dt.timedelta(hours=23))
+        consented = Appointment.objects.create(
+            id="reminder_consented", patient=self.profile, doctor=self.doctor,
+            patient_name=self.profile.name, doctor_name=self.doctor.name,
+            service_name=self.service.name, appointment_date=visit.date(),
+            appointment_time=visit.time(), status="approved", source="patient",
+        )
+        no_consent = Appointment.objects.create(
+            id="reminder_no_consent", patient=self.other_profile, doctor=self.doctor,
+            patient_name=self.other_profile.name, doctor_name=self.doctor.name,
+            service_name=self.service.name, appointment_date=visit.date(),
+            appointment_time=visit.time(),
+            status="approved", source="patient",
+        )
+        sms.queue_upcoming_patient_reminders(now)
+        old_reminder = SmsMessage.objects.get(appointment=consented, rule_id="appointment_reminder")
+        self.assertEqual(old_reminder.status, "queued")
+        self.assertEqual(SmsMessage.objects.get(appointment=no_consent).status, "suppressed")
+
+        rescheduled = timezone.localtime(now + dt.timedelta(hours=23, minutes=30))
+        consented.appointment_date = rescheduled.date()
+        consented.appointment_time = rescheduled.time()
+        consented.save(update_fields=["appointment_date", "appointment_time", "updated_at"])
+        with patch("communications.sms_provider.send") as send:
+            sms.dispatch(old_reminder.pk, now)
+        send.assert_not_called()
+        old_reminder.refresh_from_db()
+        self.assertEqual(old_reminder.status, "suppressed")
+        sms.queue_upcoming_patient_reminders(now)
+        self.assertEqual(SmsMessage.objects.filter(appointment=consented, rule_id="appointment_reminder").count(), 2)
+
+    def test_cancelled_appointment_reminder_is_suppressed(self):
+        now = timezone.now().replace(second=0, microsecond=0)
+        visit = timezone.localtime(now + dt.timedelta(hours=23))
+        appointment = Appointment.objects.create(
+            id="reminder_cancelled", patient=self.profile, doctor=self.doctor,
+            patient_name=self.profile.name, doctor_name=self.doctor.name,
+            service_name=self.service.name, appointment_date=visit.date(),
+            appointment_time=visit.time(), status="approved", source="patient",
+        )
+        sms.queue_upcoming_patient_reminders(now)
+        appointment.status = "cancelled"
+        appointment.save(update_fields=["status", "updated_at"])
+        sms.appointment_event(appointment, "cancellation")
+        self.assertEqual(SmsMessage.objects.get(appointment=appointment, rule_id="appointment_reminder").status, "suppressed")
+
     def test_bulk_cancellation_without_portal_notification(self):
         item = self.booking()
         self.client.force_login(self.doctor)
@@ -407,7 +497,7 @@ class SmsTests(TestCase):
         self.write("/api/sms/rules", {"key": "all", "enabled": False}, "patch")
         self.assertFalse(SmsRule.objects.filter(enabled=True).exists())
         self.write("/api/sms/rules", {"key": "all", "enabled": True}, "patch")
-        self.assertEqual(SmsRule.objects.filter(enabled=True).count(), 6)
+        self.assertEqual(SmsRule.objects.filter(enabled=True).count(), 7)
         self.assertEqual(SmsMessage.objects.get(appointment=item).status, "suppressed")
 
     def test_disabled_rule_never_sends(self):
@@ -706,8 +796,8 @@ class SmsTests(TestCase):
         logs = self.client.get("/api/sms/logs", {"source": "manual", "rule": "manual"}).json()
         self.assertEqual(logs["total"], 2)
         self.assertEqual({item["source"] for item in logs["messages"]}, {"manual"})
-        self.assertEqual(self.client.get("/api/sms").json()["stats"]["active"], 6)
-        self.assertEqual(len(self.client.get("/api/sms").json()["rules"]), 6)
+        self.assertEqual(self.client.get("/api/sms").json()["stats"]["active"], 7)
+        self.assertEqual(len(self.client.get("/api/sms").json()["rules"]), 7)
         self.write("/api/sms/rules", {"key": "all", "enabled": False}, "patch")
         self.assertTrue(SmsRule.objects.get(pk="manual").enabled)
         self.assertEqual(set(SmsMessage.objects.values_list("status", flat=True)), {"queued"})

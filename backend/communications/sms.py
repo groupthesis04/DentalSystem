@@ -12,6 +12,7 @@ from accounts.audit import record_audit_event
 from accounts.models import PatientProfile
 from dental_backend.api import make_id
 from records.models import TreatmentRecord
+from scheduling.models import Appointment
 
 from . import sms_provider
 from .models import SmsBalanceSchedule, SmsMessage, SmsRule, SmsTemplate, SmsWorker
@@ -21,6 +22,7 @@ from .services import notify_doctors, notify_due_next_visits, notify_upcoming_ap
 RULES = {
     "booking": ("Appointment Booking Confirmation", "When a patient books an appointment", "Hi {PatientName}, your appointment request at {ClinicName} for {AppointmentDate} at {Time} was received and is pending approval."),
     "approval": ("Appointment Approval Message", "When admin accepts an appointment", "Hi {PatientName}, your appointment at {ClinicName} on {AppointmentDate} at {Time} has been approved. We look forward to seeing you."),
+    "appointment_reminder": ("Appointment Reminder", "About 24 hours before an accepted appointment", "Hi {PatientName}, this is a reminder of your appointment at {ClinicName} on {AppointmentDate} at {Time}. We look forward to seeing you."),
     "walk_in": ("Walk-in Appointment Message", "When admin adds a walk-in appointment", "Hi {PatientName}, the clinic has scheduled your appointment at {ClinicName} on {AppointmentDate} at {Time}. Thank you."),
     "next_visit": ("Next Visit Reminder", "When admin assigns a next visit", "Hi {PatientName}, your next visit at {ClinicName} is on {AppointmentDate}. Time: {Time}. Please contact the clinic with any questions."),
     "balance": ("Balance Reminder Every 7 Days", "While the patient has an outstanding balance", "Hi {PatientName}, this is a reminder from {ClinicName} that your current balance is PHP {Balance}. Please contact the clinic about payment. Thank you."),
@@ -29,6 +31,7 @@ RULES = {
 PLACEHOLDERS = ["PatientName", "AppointmentDate", "Time", "Balance", "ClinicName"]
 TEMPLATE_NAMES = {
     "booking": "Appointment Booked", "approval": "Appointment Approved",
+    "appointment_reminder": "Appointment Reminder",
     "walk_in": "Walk-in Appointment Added", "next_visit": "Next Visit Reminder",
     "balance": "Payment Reminder", "cancellation": "Appointment Cancelled",
 }
@@ -208,6 +211,28 @@ def queue_due_balances(now):
             schedule.save(update_fields=["next_due_at"])
 
 
+def queue_upcoming_patient_reminders(now):
+    """Queue one patient SMS when an accepted appointment enters the next 24 hours."""
+    deadline = now + dt.timedelta(hours=24)
+    for appointment in Appointment.objects.filter(
+        status="approved",
+        appointment_date__gte=timezone.localdate(now),
+        appointment_date__lte=timezone.localdate(deadline),
+    ).select_related("patient__user"):
+        visit_at = timezone.make_aware(dt.datetime.combine(appointment.appointment_date, appointment.appointment_time))
+        if not now < visit_at <= deadline:
+            continue
+        event_key = (
+            f"appointment:{appointment.pk}:appointment_reminder:"
+            f"{appointment.appointment_date.isoformat()}:{appointment.appointment_time.isoformat()}"
+        )
+        enqueue(
+            "appointment_reminder", appointment.patient, event_key,
+            message_context(appointment.patient, appointment.appointment_date, appointment.appointment_time),
+            appointment=appointment,
+        )
+
+
 def suppression_reason(item, now):
     if item.expires_at <= now:
         return "Unsent message expired after 24 hours."
@@ -221,14 +246,18 @@ def suppression_reason(item, now):
         return "Patient SMS consent is not active."
     if item.rule_id == "balance" and patient_balance(item.patient) <= 0:
         return "Balance fully paid."
-    if item.rule_id in {"booking", "approval", "walk_in", "cancellation"} and not item.appointment_id:
+    if item.rule_id in {"booking", "approval", "appointment_reminder", "walk_in", "cancellation"} and not item.appointment_id:
         return "Appointment is no longer available."
     if item.appointment:
+        if item.rule_id == "appointment_reminder":
+            if (item.context.get("AppointmentDate") != item.appointment.appointment_date.strftime("%b %d, %Y")
+                    or item.context.get("Time") != item.appointment.appointment_time.strftime("%I:%M %p")):
+                return "Appointment schedule changed since this reminder was queued."
         if item.rule_id != "cancellation":
             visit_at = timezone.make_aware(dt.datetime.combine(item.appointment.appointment_date, item.appointment.appointment_time))
             if visit_at <= now:
                 return "Appointment time has already passed."
-        expected = {"booking": {"pending"}, "approval": {"approved"}, "walk_in": {"approved"}, "next_visit": {"approved"}, "cancellation": {"cancelled"}}
+        expected = {"booking": {"pending"}, "approval": {"approved"}, "appointment_reminder": {"approved"}, "walk_in": {"approved"}, "next_visit": {"approved"}, "cancellation": {"cancelled"}}
         if item.appointment.status not in expected.get(item.rule_id, set()):
             return "Appointment status has changed since this message was queued."
     if item.rule_id == "next_visit" and not item.appointment_id:
@@ -297,6 +326,7 @@ def process_queue():
         # A crashed send may have reached the provider; never automatically resend it.
         SmsMessage.objects.filter(status="processing", updated_at__lt=now - dt.timedelta(minutes=5)).update(status="unknown", error="Worker stopped during sending. Check provider logs before resending.")
         queue_due_balances(now)
+        queue_upcoming_patient_reminders(now)
         notify_upcoming_appointments(now)
         notify_due_next_visits(now)
         SmsMessage.objects.filter(status="queued", expires_at__lte=now).update(status="expired", error="Unsent message expired after 24 hours.")

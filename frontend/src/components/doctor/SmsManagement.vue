@@ -49,6 +49,7 @@ let refreshing = false;
 const icons = {
   booking: CalendarDays,
   approval: CheckCircle2,
+  appointment_reminder: Clock3,
   walk_in: UserRoundPlus,
   next_visit: CalendarPlus,
   balance: Wallet,
@@ -300,7 +301,7 @@ onBeforeUnmount(() => window.clearInterval(timer));
           <span class="stat-icon green"><Settings2 :size="27" /></span>
           <div>
             <p>Automations Active</p>
-            <strong>{{ data.stats.active }} / 6</strong
+            <strong>{{ data.stats.active }} / {{ data.rules.length }}</strong
             ><small>{{ allOff ? "All automations paused" : "Rules enabled" }}</small>
           </div>
         </article>
@@ -374,7 +375,7 @@ onBeforeUnmount(() => window.clearInterval(timer));
                     <td>
                       <div class="rule-name">
                         <span class="rule-icon" :class="item.key"
-                          ><component :is="icons[item.key]" :size="21" /></span
+                          ><component :is="icons[item.key] || MessageCircleMore" :size="21" /></span
                         ><strong>{{ item.name }}</strong>
                       </div>
                     </td>
@@ -897,7 +898,8 @@ onBeforeUnmount(() => window.clearInterval(timer));
   color: #8a6526;
 }
 .walk_in,
-.next_visit {
+.next_visit,
+.appointment_reminder {
   background: #f8f1e2;
   color: #8a6526;
 }
@@ -1154,6 +1156,7 @@ onBeforeUnmount(() => window.clearInterval(timer));
   color: #1459b5;
 }
 .type-badge.next_visit,
+.type-badge.appointment_reminder,
 .type-badge.balance {
   background: #fbf0db;
   color: #925905;

@@ -53,6 +53,7 @@ const pageRoot = ref(null);
 const icons = {
   booking: CalendarDays,
   approval: CheckCircle2,
+  appointment_reminder: Clock3,
   walk_in: UserRoundPlus,
   next_visit: CalendarPlus,
   balance: Wallet,
@@ -123,7 +124,10 @@ function selectTemplate(id, scroll = false) {
 async function load(preferredId = selectedId.value) {
   const result = await apiRequest("/api/sms/templates");
   const order = Object.keys(icons);
-  templates.value = result.templates.sort((a, b) => order.indexOf(a.rule) - order.indexOf(b.rule));
+  templates.value = result.templates.sort((a, b) =>
+    (order.indexOf(a.rule) < 0 ? order.length : order.indexOf(a.rule)) -
+    (order.indexOf(b.rule) < 0 ? order.length : order.indexOf(b.rule)),
+  );
   placeholders.value = result.placeholders;
   clinicName.value = result.clinic_name;
   const first =
@@ -332,7 +336,7 @@ onMounted(async () => {
             >
               <header>
                 <span class="template-icon" :class="item.rule"
-                  ><component :is="icons[item.rule]" :size="23"
+                  ><component :is="icons[item.rule] || MessageCircleMore" :size="23"
                 /></span>
                 <div class="template-card-title">
                   <button
@@ -765,7 +769,8 @@ onMounted(async () => {
 }
 .violet,
 .walk_in,
-.next_visit {
+.next_visit,
+.appointment_reminder {
   background: #f8f1e2;
   color: #8a6526;
 }
