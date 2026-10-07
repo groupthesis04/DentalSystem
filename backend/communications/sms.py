@@ -300,9 +300,18 @@ def process_queue():
         notify_upcoming_appointments(now)
         notify_due_next_visits(now)
         SmsMessage.objects.filter(status="queued", expires_at__lte=now).update(status="expired", error="Unsent message expired after 24 hours.")
-        if not sms_provider.ready():
-            return 0
-        for item_id in list(SmsMessage.objects.filter(status="queued", scheduled_for__lte=now).order_by("scheduled_for").values_list("pk", flat=True)[:5]):
+        due_ids = (
+            list(SmsMessage.objects.filter(status="queued", scheduled_for__lte=now)
+                 .order_by("scheduled_for").values_list("pk", flat=True)[:5])
+            if sms_provider.ready() else []
+        )
+        if due_ids and settings.SMS_PROVIDER == "philsms":
+            try:
+                sms_provider.preflight_send()
+            except sms_provider.SmsProviderError:
+                # A failed read-only check attempted no POST; retry later.
+                due_ids = []
+        for item_id in due_ids:
             dispatch(item_id, now)
             count += 1
         waiting = SmsMessage.objects.filter(status__in=["submitted", "pending"], provider_id__isnull=False).filter(Q(checked_at__isnull=True) | Q(checked_at__lte=now - dt.timedelta(minutes=1))).order_by("checked_at")[:5]

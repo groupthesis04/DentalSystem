@@ -143,7 +143,7 @@ def _semaphore_account():
     }
 
 
-_PHILSMS_API_ROOT = "https://app.philsms.com/api/v3/"
+_PHILSMS_API_ROOT = "https://dashboard.philsms.com/api/v3/"
 _PHILSMS_UID = re.compile(r"[A-Za-z0-9_-]{1,72}\Z")
 _PHILSMS_STATUSES = {
     "queued": "submitted", "scheduled": "submitted", "submitted": "submitted",
@@ -179,12 +179,16 @@ def _philsms_request_json(path, values=None):
         # The URL, response body and request headers may contain private data.
         if error.code == 403:
             try:
-                details = json.loads(error.read(2048).decode("utf-8"))
-            except (ValueError, UnicodeError, OSError):
+                body = error.read(16384)
+            except OSError:
+                body = b""
+            try:
+                details = json.loads(body.decode("utf-8"))
+            except (ValueError, UnicodeError):
                 details = None
             if (
-                isinstance(details, dict)
-                and str(details.get("error_code")) == "1010"
+                (isinstance(details, dict) and str(details.get("error_code")) == "1010")
+                or re.search(rb"\berror(?:\s+code)?\s*[:#-]?\s*1010\b", body, re.I)
             ):
                 raise SmsProviderError(
                     "PHILSMS blocked this server's API requests (Cloudflare 1010). Contact PHILSMS support."
@@ -286,6 +290,12 @@ def _philsms_account():
     if not credit_balance.is_finite() or credit_balance < 0:
         raise SmsProviderError("PhilSMS balance format is not recognized.")
     return {"credit_balance": credit_balance, "status": "available"}
+
+
+def preflight_send():
+    """Check PhilSMS API reachability without attempting message delivery."""
+    if settings.SMS_PROVIDER == "philsms":
+        _philsms_request_json("balance")
 
 
 def send(phone, body):

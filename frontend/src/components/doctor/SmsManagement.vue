@@ -267,7 +267,12 @@ onBeforeUnmount(() => window.clearInterval(timer));
     <template v-if="data">
       <div
         class="sms-provider"
-        :class="{ warning: !data.provider.ready || !data.provider.worker_active }"
+        :class="{
+          warning:
+            !data.provider.ready ||
+            !data.provider.worker_active ||
+            data.provider.credit_status === 'unavailable',
+        }"
         role="status"
       >
         <Info :size="19" />
@@ -275,13 +280,19 @@ onBeforeUnmount(() => window.clearInterval(timer));
           ><strong>{{ providerName }} is not ready.</strong> Phone delivery is inactive. Configure
           the provider credentials and approved sender, then enable sending.</span
         >
+        <span v-else-if="data.provider.credit_status === 'unavailable'"
+          ><strong>{{ providerName }} account check failed.</strong>
+          {{ data.provider.credit_error || "The provider API could not be reached." }} Worker
+          {{ data.provider.worker_active ? "online" : "offline" }} | Sender:
+          {{ data.provider.sender_name }}. Sending is not verified.</span
+        >
         <span v-else-if="!data.provider.worker_active"
           ><strong>SMS worker is offline.</strong> Messages remain queued until the background
           worker is running.</span
         >
         <span v-else
-          ><strong>{{ providerName }} connected</strong> | Worker online | Sender:
-          {{ data.provider.sender_name }}</span
+          ><strong>{{ providerName }} account API reachable</strong> | Worker online | Sender:
+          {{ data.provider.sender_name }}. Sending is not verified by the account check.</span
         >
       </div>
       <div class="sms-stats">

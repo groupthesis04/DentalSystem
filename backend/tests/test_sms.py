@@ -491,6 +491,35 @@ class SmsTests(TestCase):
             send.assert_not_called()
         self.assertEqual(SmsMessage.objects.get().status, "unknown")
 
+    def test_philsms_preflight_outage_preserves_queue_and_polls_submitted_messages(self):
+        self.booking()
+        queued = SmsMessage.objects.get(rule_id="booking")
+        earlier = sms.enqueue("booking", self.profile, "preflight:earlier", sms.message_context(self.profile))
+        SmsMessage.objects.filter(pk=earlier.pk).update(
+            status="submitted", provider_id="philsms:earlier",
+            checked_at=timezone.now() - dt.timedelta(minutes=2),
+        )
+        with override_settings(SMS_PROVIDER="philsms", PHILSMS_API_TOKEN="fake-token", PHILSMS_SENDER_ID="PhilSMS"):
+            with patch("communications.sms.sms_provider.preflight_send", side_effect=sms_provider.SmsProviderError("Cloudflare 1010")) as preflight, \
+                 patch("communications.sms.sms_provider.send") as send, \
+                 patch("communications.sms.sms_provider.status", return_value=("philsms:earlier", "sent")) as status:
+                self.assertEqual(sms.process_queue(), 0)
+        preflight.assert_called_once_with()
+        send.assert_not_called()
+        status.assert_called_once_with("philsms:earlier")
+        queued.refresh_from_db()
+        earlier.refresh_from_db()
+        self.assertEqual((queued.status, queued.attempts, queued.provider_id), ("queued", 0, None))
+        self.assertEqual(earlier.status, "sent")
+
+    def test_philsms_preflight_runs_only_for_due_messages(self):
+        self.booking()
+        SmsMessage.objects.filter(rule_id="booking").update(scheduled_for=timezone.now() + dt.timedelta(minutes=10))
+        with override_settings(SMS_PROVIDER="philsms", PHILSMS_API_TOKEN="fake-token", PHILSMS_SENDER_ID="PhilSMS"), \
+             patch("communications.sms.sms_provider.preflight_send") as preflight:
+            self.assertEqual(sms.process_queue(), 0)
+        preflight.assert_not_called()
+
     def test_expiry(self):
         self.booking()
         SmsMessage.objects.update(expires_at=timezone.now() - dt.timedelta(seconds=1))
@@ -859,7 +888,7 @@ class PhilSmsTransportTests(TestCase):
             )
         request = opener.call_args.args[0]
         self.assertEqual(request.method, "POST")
-        self.assertEqual(request.full_url, "https://app.philsms.com/api/v3/sms/send")
+        self.assertEqual(request.full_url, "https://dashboard.philsms.com/api/v3/sms/send")
         self.assertEqual(request.get_header("Authorization"), "Bearer private-token")
         self.assertEqual(request.get_header("Content-type"), "application/json")
         self.assertEqual(json.loads(request.data), {
@@ -888,7 +917,7 @@ class PhilSmsTransportTests(TestCase):
 
     def test_cloudflare_signature_block_has_safe_actionable_error(self):
         blocked = HTTPError(
-            "https://app.philsms.com/api/v3/sms/send", 403, "Forbidden", {},
+            "https://dashboard.philsms.com/api/v3/sms/send", 403, "Forbidden", {},
             BytesIO(b'{"cloudflare_error":true,"error_code":1010,"detail":"private-token"}'),
         )
         with patch("communications.sms_provider.urlopen", side_effect=blocked):
@@ -898,11 +927,24 @@ class PhilSmsTransportTests(TestCase):
         self.assertNotIn("private-token", str(caught.exception))
         self.assertFalse(caught.exception.uncertain)
 
+    def test_cloudflare_html_block_has_safe_actionable_error(self):
+        blocked = HTTPError(
+            "https://dashboard.philsms.com/api/v3/balance", 403, "Forbidden",
+            {"Content-Type": "text/html"},
+            BytesIO(b"<html><title>Access denied</title><h2>Error 1010</h2>private-token</html>"),
+        )
+        with patch("communications.sms_provider.urlopen", side_effect=blocked):
+            with self.assertRaises(sms_provider.SmsProviderError) as caught:
+                sms_provider.account()
+        self.assertIn("Cloudflare 1010", str(caught.exception))
+        self.assertNotIn("private-token", str(caught.exception))
+        self.assertFalse(caught.exception.uncertain)
+
     def test_philsms_status_and_legacy_semaphore_status(self):
         response = BytesIO(b'{"status":"success","data":{"uid":"abc_123","status":"delivered"}}')
         with patch("communications.sms_provider.urlopen", return_value=response) as opener:
             self.assertEqual(sms_provider.status("philsms:abc_123"), ("philsms:abc_123", "delivered"))
-        self.assertEqual(opener.call_args.args[0].full_url, "https://app.philsms.com/api/v3/sms/abc_123")
+        self.assertEqual(opener.call_args.args[0].full_url, "https://dashboard.philsms.com/api/v3/sms/abc_123")
 
         response = BytesIO(b'{"message_id":123,"status":"Sent"}')
         with patch("communications.sms_provider.urlopen", return_value=response) as opener:
@@ -911,8 +953,9 @@ class PhilSmsTransportTests(TestCase):
 
     def test_balance_is_only_reported_for_recognized_numeric_field(self):
         response = BytesIO(b'{"status":"success","data":{"balance":"12.5"}}')
-        with patch("communications.sms_provider.urlopen", return_value=response):
+        with patch("communications.sms_provider.urlopen", return_value=response) as opener:
             self.assertEqual(sms_provider.account()["credit_balance"], Decimal("12.5"))
+        self.assertEqual(opener.call_args.args[0].full_url, "https://dashboard.philsms.com/api/v3/balance")
         with patch("communications.sms_provider.urlopen", return_value=BytesIO(b'{"status":"success","data":{"used":30}}')):
             with self.assertRaises(sms_provider.SmsProviderError):
                 sms_provider.account()
