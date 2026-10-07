@@ -43,9 +43,8 @@ def provider_credit_payload():
     if not sms_provider.key_configured():
         return payload
 
-    credential = settings.PHILSMS_API_TOKEN if settings.SMS_PROVIDER == "philsms" else settings.SEMAPHORE_API_KEY
-    key_digest = hashlib.sha256(credential.encode("utf-8")).hexdigest()[:16]
-    cache_key = f"communications:{settings.SMS_PROVIDER}-account:{key_digest}"
+    key_digest = hashlib.sha256(settings.SEMAPHORE_API_KEY.encode("utf-8")).hexdigest()[:16]
+    cache_key = f"communications:semaphore-account:{key_digest}"
     cached = cache.get(cache_key)
     if cached is not None:
         return cached
@@ -144,7 +143,7 @@ def dashboard(request):
     return JsonResponse({
         "rules": [rule_payload(rules[key]) for key in RULES],
         "placeholders": PLACEHOLDERS,
-        "provider": {"name": sms_provider.name(), "ready": sms_provider.ready(), "sending_enabled": settings.SMS_ENABLED, "key_configured": sms_provider.key_configured(), "sender_name": sms_provider.sender_name(), "credit_unit": "SMS units" if settings.SMS_PROVIDER == "philsms" else "credits", "worker_active": bool(last_run and last_run > timezone.now() - dt.timedelta(minutes=3)), "last_run_at": last_run.isoformat() if last_run else None, **credit},
+        "provider": {"name": sms_provider.name(), "ready": sms_provider.ready(), "sending_enabled": settings.SMS_ENABLED, "key_configured": sms_provider.key_configured(), "sender_name": sms_provider.sender_name(), "credit_unit": "credits", "worker_active": bool(last_run and last_run > timezone.now() - dt.timedelta(minutes=3)), "last_run_at": last_run.isoformat() if last_run else None, **credit},
         "stats": {"active": sum(rules[key].enabled for key in RULES), "sent_today": queryset.filter(status="sent", submitted_at__date=today).count(), "pending": queryset.filter(status__in=["queued", "processing", "submitted", "pending"]).count(), "success_rate": round(sent * 100 / decided) if decided else None},
         "clinic_name": settings.SMS_CLINIC_NAME,
     })

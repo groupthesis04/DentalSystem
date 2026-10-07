@@ -18,40 +18,19 @@ class SmsProviderError(Exception):
 
 
 def name():
-    return {"semaphore": "Semaphore", "philsms": "PhilSMS"}.get(
-        settings.SMS_PROVIDER, "Unknown SMS provider"
-    )
+    return "Semaphore"
 
 
 def key_configured():
-    if settings.SMS_PROVIDER == "semaphore":
-        return bool(settings.SEMAPHORE_API_KEY)
-    if settings.SMS_PROVIDER == "philsms":
-        return bool(settings.PHILSMS_API_TOKEN)
-    return False
+    return bool(settings.SEMAPHORE_API_KEY)
 
 
 def sender_name():
-    if settings.SMS_PROVIDER == "semaphore":
-        return settings.SEMAPHORE_SENDER_NAME or "Account default"
-    if settings.SMS_PROVIDER == "philsms":
-        return settings.PHILSMS_SENDER_ID or "Not configured"
-    return "Not configured"
-
-
-def _valid_philsms_sender():
-    sender = settings.PHILSMS_SENDER_ID
-    # Approved alphanumeric sender IDs may contain interior spaces (e.g. a
-    # clinic name); PHILSMS limits those IDs to 11 characters.
-    return bool(re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9 ]{0,10}|\+?[1-9][0-9]{5,14}", sender))
+    return settings.SEMAPHORE_SENDER_NAME or "Account default"
 
 
 def ready():
-    if not settings.SMS_ENABLED or not key_configured():
-        return False
-    if settings.SMS_PROVIDER == "philsms":
-        return _valid_philsms_sender()
-    return settings.SMS_PROVIDER == "semaphore"
+    return settings.SMS_ENABLED and key_configured()
 
 
 def normalize_phone(value):
@@ -143,180 +122,13 @@ def _semaphore_account():
     }
 
 
-_PHILSMS_API_ROOT = "https://dashboard.philsms.com/api/v3/"
-_PHILSMS_UID = re.compile(r"[A-Za-z0-9_-]{1,72}\Z")
-_PHILSMS_STATUSES = {
-    "queued": "submitted", "scheduled": "submitted", "submitted": "submitted",
-    "pending": "pending", "processing": "pending", "sending": "pending",
-    "sent": "sent", "delivered": "delivered",
-    "failed": "failed", "rejected": "failed", "undelivered": "failed",
-    "refunded": "refunded",
-}
-
-
-def _philsms_request_json(path, values=None):
-    if not settings.PHILSMS_API_TOKEN:
-        raise SmsProviderError("PhilSMS is not configured.")
-    headers = {
-        "Authorization": "Bearer " + settings.PHILSMS_API_TOKEN,
-        "Accept": "application/json",
-    }
-    sending = values is not None
-    if sending:
-        headers["Content-Type"] = "application/json"
-        req = Request(
-            _PHILSMS_API_ROOT + path,
-            data=json.dumps(values, ensure_ascii=False).encode("utf-8"),
-            headers=headers,
-            method="POST",
-        )
-    else:
-        req = Request(_PHILSMS_API_ROOT + path, headers=headers, method="GET")
-    try:
-        with urlopen(req, timeout=15) as response:
-            result = json.loads(response.read().decode("utf-8"))
-    except HTTPError as error:
-        # The URL, response body and request headers may contain private data.
-        if error.code == 403:
-            try:
-                body = error.read(16384)
-            except OSError:
-                body = b""
-            try:
-                details = json.loads(body.decode("utf-8"))
-            except (ValueError, UnicodeError):
-                details = None
-            if (
-                (isinstance(details, dict) and str(details.get("error_code")) == "1010")
-                or re.search(rb"\berror(?:\s+code)?\s*[:#-]?\s*1010\b", body, re.I)
-            ):
-                raise SmsProviderError(
-                    "PHILSMS blocked this server's API requests (Cloudflare 1010). Contact PHILSMS support."
-                ) from None
-        raise SmsProviderError(
-            f"PhilSMS returned HTTP {error.code}. Check the account and sender ID.",
-            uncertain=sending and error.code >= 500,
-            retryable=error.code == 429,
-        ) from None
-    except (URLError, TimeoutError, OSError, ValueError):
-        raise SmsProviderError(
-            "PhilSMS response could not be confirmed. Check its message logs before resending."
-            if sending else "PhilSMS information is temporarily unavailable.",
-            uncertain=sending,
-        ) from None
-    if not isinstance(result, dict):
-        raise SmsProviderError(
-            "PhilSMS returned an unrecognized response.", uncertain=sending
-        )
-    api_status = str(result.get("status", "")).lower()
-    if api_status == "error":
-        raise SmsProviderError("PhilSMS rejected the request. Check the account and sender ID.")
-    if api_status != "success":
-        raise SmsProviderError(
-            "PhilSMS response could not be confirmed.", uncertain=sending
-        )
-    return result
-
-
-def _philsms_record(result, *, sending):
-    data = result.get("data")
-    if isinstance(data, list) and len(data) == 1:
-        data = data[0]
-    if not isinstance(data, dict):
-        raise SmsProviderError(
-            "PhilSMS did not return message details. Check its message logs before resending."
-            if sending else "PhilSMS did not return message details.",
-            uncertain=sending,
-        )
-    uid = data.get("uid")
-    if not isinstance(uid, str) or not _PHILSMS_UID.fullmatch(uid):
-        raise SmsProviderError(
-            "PhilSMS did not return a valid message ID. Check its message logs before resending."
-            if sending else "PhilSMS did not return a valid message ID.",
-            uncertain=sending,
-        )
-    return uid, data
-
-
-def _philsms_message_status(data, *, sending):
-    raw = data.get("delivery_status", data.get("status"))
-    state = _PHILSMS_STATUSES.get(str(raw or "").strip().lower())
-    if state:
-        return state
-    if sending:
-        # The success envelope confirms creation, not handset delivery.
-        return "submitted"
-    raise SmsProviderError("PhilSMS did not return a recognizable delivery status.")
-
-
-def _philsms_send(phone, body):
-    if not _valid_philsms_sender():
-        raise SmsProviderError("PhilSMS sender ID is not configured or is invalid.")
-    result = _philsms_request_json("sms/send", {
-        "recipient": normalize_phone(phone),
-        "sender_id": settings.PHILSMS_SENDER_ID,
-        "type": "plain" if body.isascii() else "unicode",
-        "message": body,
-    })
-    uid, data = _philsms_record(result, sending=True)
-    return "philsms:" + uid, _philsms_message_status(data, sending=True)
-
-
-def _philsms_status(message_id):
-    uid = str(message_id).removeprefix("philsms:")
-    if not _PHILSMS_UID.fullmatch(uid):
-        raise SmsProviderError("The PhilSMS message ID is invalid.")
-    result = _philsms_request_json("sms/" + uid)
-    returned_uid, data = _philsms_record(result, sending=False)
-    if returned_uid != uid:
-        raise SmsProviderError("PhilSMS returned details for a different message.")
-    return "philsms:" + uid, _philsms_message_status(data, sending=False)
-
-
-def _philsms_account():
-    result = _philsms_request_json("balance")
-    data = result.get("data")
-    # The public API documents the endpoint but not its exact response fields.
-    # Only use an unambiguous numeric balance; otherwise show unavailable.
-    if not isinstance(data, dict):
-        raise SmsProviderError("PhilSMS balance format is not recognized.")
-    values = [data[key] for key in ("remaining_sms_units", "credit_balance", "balance") if key in data]
-    if len(values) != 1:
-        raise SmsProviderError("PhilSMS balance format is not recognized.")
-    try:
-        credit_balance = Decimal(str(values[0]))
-    except (InvalidOperation, TypeError, ValueError):
-        raise SmsProviderError("PhilSMS balance format is not recognized.") from None
-    if not credit_balance.is_finite() or credit_balance < 0:
-        raise SmsProviderError("PhilSMS balance format is not recognized.")
-    return {"credit_balance": credit_balance, "status": "available"}
-
-
-def preflight_send():
-    """Check PhilSMS API reachability without attempting message delivery."""
-    if settings.SMS_PROVIDER == "philsms":
-        _philsms_request_json("balance")
-
-
 def send(phone, body):
-    if settings.SMS_PROVIDER == "philsms":
-        return _philsms_send(phone, body)
-    if settings.SMS_PROVIDER == "semaphore":
-        return _semaphore_send(phone, body)
-    raise SmsProviderError("The configured SMS provider is not supported.")
+    return _semaphore_send(phone, body)
 
 
 def status(message_id):
-    if str(message_id).startswith("philsms:"):
-        return _philsms_status(message_id)
-    # Semaphore's historical IDs are bare decimal strings. Keep polling them
-    # through Semaphore after a temporary provider switch.
     return _semaphore_status(message_id)
 
 
 def account():
-    if settings.SMS_PROVIDER == "philsms":
-        return _philsms_account()
-    if settings.SMS_PROVIDER == "semaphore":
-        return _semaphore_account()
-    raise SmsProviderError("The configured SMS provider is not supported.")
+    return _semaphore_account()

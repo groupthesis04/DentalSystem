@@ -316,14 +316,12 @@ LOGIN_URL = "/api/login"
 
 
 # ============================================================
-# SMS providers
+# SMS
 # ============================================================
 
 SMS_ENABLED = (
     os.environ.get("SMS_ENABLED", "0") == "1"
 )
-
-SMS_PROVIDER = os.environ.get("SMS_PROVIDER", "semaphore").strip().lower()
 
 SMS_CLINIC_NAME = os.environ.get(
     "SMS_CLINIC_NAME",
@@ -339,9 +337,6 @@ SEMAPHORE_SENDER_NAME = os.environ.get(
     "SEMAPHORE_SENDER_NAME",
     "",
 ).strip()
-
-PHILSMS_API_TOKEN = os.environ.get("PHILSMS_API_TOKEN", "").strip()
-PHILSMS_SENDER_ID = os.environ.get("PHILSMS_SENDER_ID", "").strip()
 
 # Password recovery email is sent by Django only, through Resend.
 RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "").strip()

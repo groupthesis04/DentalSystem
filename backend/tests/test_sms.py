@@ -407,8 +407,8 @@ class SmsTests(TestCase):
             service_name=self.service.name, appointment_date=visit.date(),
             appointment_time=visit.time(), status="approved", source="patient",
         )
-        with override_settings(SMS_PROVIDER="semaphore"), patch(
-            "communications.sms_provider.send", return_value=("provider-reminder", "submitted")
+        with patch(
+            "communications.sms_provider.send", return_value=("456", "submitted")
         ) as send:
             sms.process_queue()
             sms.process_queue()
@@ -581,34 +581,24 @@ class SmsTests(TestCase):
             send.assert_not_called()
         self.assertEqual(SmsMessage.objects.get().status, "unknown")
 
-    def test_philsms_preflight_outage_preserves_queue_and_polls_submitted_messages(self):
+    def test_former_provider_message_remains_unresolved_without_polling_or_resending(self):
         self.booking()
         queued = SmsMessage.objects.get(rule_id="booking")
-        earlier = sms.enqueue("booking", self.profile, "preflight:earlier", sms.message_context(self.profile))
+        earlier = sms.enqueue("booking", self.profile, "former:earlier", sms.message_context(self.profile))
         SmsMessage.objects.filter(pk=earlier.pk).update(
-            status="submitted", provider_id="philsms:earlier",
+            status="submitted", provider_id="former:earlier",
             checked_at=timezone.now() - dt.timedelta(minutes=2),
         )
-        with override_settings(SMS_PROVIDER="philsms", PHILSMS_API_TOKEN="fake-token", PHILSMS_SENDER_ID="PhilSMS"):
-            with patch("communications.sms.sms_provider.preflight_send", side_effect=sms_provider.SmsProviderError("Cloudflare 1010")) as preflight, \
-                 patch("communications.sms.sms_provider.send") as send, \
-                 patch("communications.sms.sms_provider.status", return_value=("philsms:earlier", "sent")) as status:
-                self.assertEqual(sms.process_queue(), 0)
-        preflight.assert_called_once_with()
-        send.assert_not_called()
-        status.assert_called_once_with("philsms:earlier")
+        with patch("communications.sms.sms_provider.send", return_value=("456", "submitted")) as send, \
+             patch("communications.sms.sms_provider.status") as status:
+            self.assertEqual(sms.process_queue(), 1)
+        send.assert_called_once()
+        status.assert_not_called()
         queued.refresh_from_db()
         earlier.refresh_from_db()
-        self.assertEqual((queued.status, queued.attempts, queued.provider_id), ("queued", 0, None))
-        self.assertEqual(earlier.status, "sent")
-
-    def test_philsms_preflight_runs_only_for_due_messages(self):
-        self.booking()
-        SmsMessage.objects.filter(rule_id="booking").update(scheduled_for=timezone.now() + dt.timedelta(minutes=10))
-        with override_settings(SMS_PROVIDER="philsms", PHILSMS_API_TOKEN="fake-token", PHILSMS_SENDER_ID="PhilSMS"), \
-             patch("communications.sms.sms_provider.preflight_send") as preflight:
-            self.assertEqual(sms.process_queue(), 0)
-        preflight.assert_not_called()
+        self.assertEqual((queued.status, queued.attempts, queued.provider_id), ("submitted", 1, "456"))
+        self.assertEqual((earlier.status, earlier.provider_id), ("unknown", "former:earlier"))
+        self.assertIn("original provider logs", earlier.error)
 
     def test_expiry(self):
         self.booking()
@@ -907,6 +897,12 @@ class SmsTests(TestCase):
 
 @override_settings(SEMAPHORE_API_KEY="private-token", SEMAPHORE_SENDER_NAME="BORJA")
 class SemaphoreTransportTests(TestCase):
+    def test_semaphore_is_the_only_active_provider(self):
+        with override_settings(SMS_ENABLED=True):
+            self.assertEqual(sms_provider.name(), "Semaphore")
+            self.assertTrue(sms_provider.ready())
+            self.assertEqual(sms_provider.sender_name(), "BORJA")
+
     def test_normalize_numbers(self):
         for value in ("09123456789", "+63 912 345 6789", "9123456789", "639123456789"):
             self.assertEqual(sms_provider.normalize_phone(value), "639123456789")
@@ -943,109 +939,15 @@ class SemaphoreTransportTests(TestCase):
                 with self.assertRaises(sms_provider.SmsProviderError):
                     sms_provider.account()
 
+    def test_status_rejects_non_semaphore_id_without_network(self):
+        with patch("communications.sms_provider.urlopen") as opener:
+            with self.assertRaises(sms_provider.SmsProviderError):
+                sms_provider.status("former:abc")
+        opener.assert_not_called()
+
     def test_errors_do_not_expose_secrets(self):
         with patch("communications.sms_provider.urlopen", side_effect=HTTPError("https://example/?apikey=private-token", 401, "private-token", {}, None)):
             with self.assertRaises(sms_provider.SmsProviderError) as caught:
                 sms_provider.send("09123456789", "Hello")
         self.assertNotIn("private-token", str(caught.exception))
         self.assertFalse(caught.exception.uncertain)
-
-
-@override_settings(
-    SMS_ENABLED=True, SMS_PROVIDER="philsms", PHILSMS_API_TOKEN="private-token",
-    PHILSMS_SENDER_ID="BORJA", SEMAPHORE_API_KEY="old-key",
-)
-class PhilSmsTransportTests(TestCase):
-    def test_provider_selection_requires_token_and_sender(self):
-        self.assertEqual(sms_provider.name(), "PhilSMS")
-        self.assertTrue(sms_provider.key_configured())
-        self.assertEqual(sms_provider.sender_name(), "BORJA")
-        self.assertTrue(sms_provider.ready())
-        with override_settings(PHILSMS_API_TOKEN=""):
-            self.assertFalse(sms_provider.key_configured())
-            self.assertFalse(sms_provider.ready())
-        with override_settings(PHILSMS_SENDER_ID=""):
-            self.assertFalse(sms_provider.ready())
-        with override_settings(PHILSMS_SENDER_ID="Borja DC"):
-            self.assertTrue(sms_provider.ready())
-
-    def test_send_uses_json_bearer_and_namespaced_uid(self):
-        response = BytesIO(b'{"status":"success","data":{"uid":"606812e63f78b","status":"queued"}}')
-        with patch("communications.sms_provider.urlopen", return_value=response) as opener:
-            self.assertEqual(
-                sms_provider.send("09123456789", "Hello patient"),
-                ("philsms:606812e63f78b", "submitted"),
-            )
-        request = opener.call_args.args[0]
-        self.assertEqual(request.method, "POST")
-        self.assertEqual(request.full_url, "https://dashboard.philsms.com/api/v3/sms/send")
-        self.assertEqual(request.get_header("Authorization"), "Bearer private-token")
-        self.assertEqual(request.get_header("Content-type"), "application/json")
-        self.assertEqual(json.loads(request.data), {
-            "recipient": "639123456789", "sender_id": "BORJA",
-            "type": "plain", "message": "Hello patient",
-        })
-        self.assertNotIn("private-token", request.full_url)
-
-    def test_unicode_message_uses_unicode_type(self):
-        response = BytesIO(b'{"status":"success","data":{"uid":"abc_123"}}')
-        with patch("communications.sms_provider.urlopen", return_value=response) as opener:
-            self.assertEqual(sms_provider.send("+639123456789", "Kumusta po! ❤"), ("philsms:abc_123", "submitted"))
-        self.assertEqual(json.loads(opener.call_args.args[0].data)["type"], "unicode")
-
-    def test_explicit_rejection_and_ambiguous_success_without_uid(self):
-        with patch("communications.sms_provider.urlopen", return_value=BytesIO(b'{"status":"error","message":"private-token"}')):
-            with self.assertRaises(sms_provider.SmsProviderError) as rejected:
-                sms_provider.send("09123456789", "Hello patient")
-        self.assertFalse(rejected.exception.uncertain)
-        self.assertNotIn("private-token", str(rejected.exception))
-
-        with patch("communications.sms_provider.urlopen", return_value=BytesIO(b'{"status":"success","data":{}}')):
-            with self.assertRaises(sms_provider.SmsProviderError) as ambiguous:
-                sms_provider.send("09123456789", "Hello patient")
-        self.assertTrue(ambiguous.exception.uncertain)
-
-    def test_cloudflare_signature_block_has_safe_actionable_error(self):
-        blocked = HTTPError(
-            "https://dashboard.philsms.com/api/v3/sms/send", 403, "Forbidden", {},
-            BytesIO(b'{"cloudflare_error":true,"error_code":1010,"detail":"private-token"}'),
-        )
-        with patch("communications.sms_provider.urlopen", side_effect=blocked):
-            with self.assertRaises(sms_provider.SmsProviderError) as caught:
-                sms_provider.send("09123456789", "Hello patient")
-        self.assertIn("Cloudflare 1010", str(caught.exception))
-        self.assertNotIn("private-token", str(caught.exception))
-        self.assertFalse(caught.exception.uncertain)
-
-    def test_cloudflare_html_block_has_safe_actionable_error(self):
-        blocked = HTTPError(
-            "https://dashboard.philsms.com/api/v3/balance", 403, "Forbidden",
-            {"Content-Type": "text/html"},
-            BytesIO(b"<html><title>Access denied</title><h2>Error 1010</h2>private-token</html>"),
-        )
-        with patch("communications.sms_provider.urlopen", side_effect=blocked):
-            with self.assertRaises(sms_provider.SmsProviderError) as caught:
-                sms_provider.account()
-        self.assertIn("Cloudflare 1010", str(caught.exception))
-        self.assertNotIn("private-token", str(caught.exception))
-        self.assertFalse(caught.exception.uncertain)
-
-    def test_philsms_status_and_legacy_semaphore_status(self):
-        response = BytesIO(b'{"status":"success","data":{"uid":"abc_123","status":"delivered"}}')
-        with patch("communications.sms_provider.urlopen", return_value=response) as opener:
-            self.assertEqual(sms_provider.status("philsms:abc_123"), ("philsms:abc_123", "delivered"))
-        self.assertEqual(opener.call_args.args[0].full_url, "https://dashboard.philsms.com/api/v3/sms/abc_123")
-
-        response = BytesIO(b'{"message_id":123,"status":"Sent"}')
-        with patch("communications.sms_provider.urlopen", return_value=response) as opener:
-            self.assertEqual(sms_provider.status("123"), ("123", "sent"))
-        self.assertIn("api.semaphore.co/api/v4/messages/123?", opener.call_args.args[0].full_url)
-
-    def test_balance_is_only_reported_for_recognized_numeric_field(self):
-        response = BytesIO(b'{"status":"success","data":{"balance":"12.5"}}')
-        with patch("communications.sms_provider.urlopen", return_value=response) as opener:
-            self.assertEqual(sms_provider.account()["credit_balance"], Decimal("12.5"))
-        self.assertEqual(opener.call_args.args[0].full_url, "https://dashboard.philsms.com/api/v3/balance")
-        with patch("communications.sms_provider.urlopen", return_value=BytesIO(b'{"status":"success","data":{"used":30}}')):
-            with self.assertRaises(sms_provider.SmsProviderError):
-                sms_provider.account()

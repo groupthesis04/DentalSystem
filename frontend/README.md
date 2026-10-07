@@ -100,25 +100,25 @@ separately on port `8000` and Vite forwards `/api` requests to it automatically.
 ## Automated SMS
 
 The SMS section uses the Django backend, not browser storage. Real delivery needs
-a funded account, provider credentials, and an approved sender ID. The dashboard
-shows the configured provider and its connection status. The balance card uses
-the active provider's account API through Django. Successful lookups are cached
+a funded Semaphore account, API key, and approved sender name. The
+dashboard shows Semaphore and its connection status. The balance card uses
+Semaphore's account API through Django. Successful lookups are cached
 for 60 seconds. Missing credentials and provider errors display an unavailable
 state; no placeholder balance is used.
 
 1. Add these settings to `backend/.env`, never the frontend environment file:
 
 ```dotenv
-SMS_ENABLED=1
+SMS_ENABLED=0
 SMS_CLINIC_NAME=BORJA Dental Clinic
-SMS_PROVIDER=philsms
-PHILSMS_API_TOKEN=your-private-api-token
-PHILSMS_SENDER_ID=your-approved-sender-id
+SEMAPHORE_API_KEY=your-private-api-key
+SEMAPHORE_SENDER_NAME=your-approved-sender-name
 ```
 
 Set the same SMS variables on both the Django web service and the SMS worker in
-production. Semaphore remains available with `SMS_PROVIDER=semaphore`,
-`SEMAPHORE_API_KEY`, and optional `SEMAPHORE_SENDER_NAME`.
+production. Keep `SMS_ENABLED=0` until the sender name is approved. Then set it
+to `1` on both services and send a controlled test. You may omit
+`SEMAPHORE_SENDER_NAME` only if the account has an approved default sender name.
 
 2. From the project root, apply the migration and restart Django:
 
@@ -182,5 +182,4 @@ credits. The phone preview uses sample data and does not send anything.
 
 Keep patient mobile numbers current. Supported numbers are Philippine mobile
 numbers such as `09XXXXXXXXX` or `+639XXXXXXXXX`.
-See [PHILSMS API documentation](https://app.philsms.com/developers/documentation)
-or [Semaphore API documentation](https://www.semaphore.co/docs).
+See [Semaphore API documentation](https://www.semaphore.co/docs).

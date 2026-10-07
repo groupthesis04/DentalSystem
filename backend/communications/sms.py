@@ -54,7 +54,7 @@ def validate_template(value):
     if not isinstance(value, str) or not value.strip() or len(value) > 1000:
         raise ValueError("Message content must contain 1 to 1,000 characters.")
     value = value.strip()
-    if settings.SMS_PROVIDER == "semaphore" and value.upper().startswith("TEST"):
+    if value.upper().startswith("TEST"):
         raise ValueError("Semaphore ignores messages beginning with TEST. Start with your clinic name or a greeting.")
     try:
         for _, field, spec, conversion in string.Formatter().parse(value):
@@ -335,22 +335,25 @@ def process_queue():
                  .order_by("scheduled_for").values_list("pk", flat=True)[:5])
             if sms_provider.ready() else []
         )
-        if due_ids and settings.SMS_PROVIDER == "philsms":
-            try:
-                sms_provider.preflight_send()
-            except sms_provider.SmsProviderError:
-                # A failed read-only check attempted no POST; retry later.
-                due_ids = []
         for item_id in due_ids:
             dispatch(item_id, now)
             count += 1
-        waiting = SmsMessage.objects.filter(status__in=["submitted", "pending"], provider_id__isnull=False).filter(Q(checked_at__isnull=True) | Q(checked_at__lte=now - dt.timedelta(minutes=1))).order_by("checked_at")[:5]
+        # Only Semaphore's numeric IDs can be queried here. Preserve messages
+        # submitted through former providers without assuming they were unsent.
+        SmsMessage.objects.filter(
+            status__in=["submitted", "pending"], provider_id__isnull=False,
+        ).exclude(provider_id__regex=r"^[0-9]+$").update(
+            status="unknown",
+            error="Status cannot be refreshed with Semaphore. Check original provider logs; this message has not been resent.",
+            checked_at=now,
+            updated_at=now,
+        )
+        waiting = SmsMessage.objects.filter(status__in=["submitted", "pending"], provider_id__regex=r"^[0-9]+$").filter(Q(checked_at__isnull=True) | Q(checked_at__lte=now - dt.timedelta(minutes=1))).order_by("checked_at")[:5]
         for item in waiting:
             previous_status = item.status
             try:
                 _, item.status = sms_provider.status(item.provider_id)
-                provider_name = "PhilSMS" if item.provider_id.startswith("philsms:") else "Semaphore"
-                item.error = f"{provider_name} rejected the message. Check its message log." if item.status in {"failed", "refunded"} else ""
+                item.error = "Semaphore rejected the message. Check its message log." if item.status in {"failed", "refunded"} else ""
             except sms_provider.SmsProviderError:
                 item.error = "Status refresh unavailable; the message has not been resent."
             item.checked_at = now

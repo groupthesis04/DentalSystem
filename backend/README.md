@@ -96,13 +96,13 @@ advisory warnings.
 
 ## SMS worker
 
-Provider settings are listed in `.env.example`. For temporary PHILSMS delivery,
-set `SMS_PROVIDER=philsms`, `SMS_ENABLED=1`, `PHILSMS_API_TOKEN`, and the approved
-`PHILSMS_SENDER_ID` on **both** the Django web service and the SMS worker. Keep
-the token in server environments only. Semaphore remains the default when
-`SMS_PROVIDER` is omitted; use `SEMAPHORE_API_KEY` and optional
-`SEMAPHORE_SENDER_NAME` for that provider. Restart both services after changing
-the variables. Apply migrations first, then run from the project root:
+Provider settings are listed in `.env.example`. Set `SEMAPHORE_API_KEY` on
+**both** the Django web service and the SMS worker. Use the optional
+`SEMAPHORE_SENDER_NAME` only if approved for the account. Keep `SMS_ENABLED=0`
+until the sender is approved. Then set `SMS_ENABLED=1` on both services and send
+a controlled test SMS before clinic use. Keep the key in server environments only.
+Restart both services after changing the variables. Apply migrations first,
+then run from the project root:
 
 ```powershell
 .\.venv\Scripts\python.exe backend\manage.py process_sms --loop
@@ -112,12 +112,7 @@ Without `--loop`, the command performs one bounded queue pass. Run only one loop
 per deployment; a database lease also prevents overlapping passes. The worker
 handles event SMS, seven-day balance reminders, and provider status polling
 independently of the browser. Production needs an always-on supervised worker
-with outbound HTTPS access to the configured provider (`app.philsms.com` for
-PHILSMS or `api.semaphore.co` for Semaphore).
-If PHILSMS returns Cloudflare error 1010 from the Railway service, PHILSMS is
-blocking server API requests before token authentication. Contact PHILSMS support
-to allow the integration; keep `SMS_PROVIDER=semaphore` until access and an
-approved PHILSMS sender ID are available.
+with outbound HTTPS access to `api.semaphore.co`.
 The same worker checks approved appointments within the next 24 hours and
 creates doctor dashboard reminders. Those reminders do not send patient SMS and
 still run when SMS sending is disabled. It also creates a doctor dashboard
@@ -191,9 +186,9 @@ $env:DRMS_TEST_SQLITE="1"
 Remove-Item Env:DRMS_TEST_SQLITE
 ```
 
-On Railway, keep `SMS_ENABLED=1`, `SMS_CLINIC_NAME=BORJA Dental Clinic`,
-`SMS_PROVIDER=philsms`, `PHILSMS_API_TOKEN`, and `PHILSMS_SENDER_ID` on the Django
-web service and the SMS worker. Keep
+On Railway, keep `SMS_CLINIC_NAME=BORJA Dental Clinic` and
+`SEMAPHORE_API_KEY` on the Django web service and the SMS worker. Enable SMS
+on both services after sender approval, then send a controlled test. Keep
 the existing `DRMS_DB_*` and Django secret/host/cookie variables. In that service's
 Settings, set the **Pre-deploy Command** to `python backend/manage.py migrate` if
 its root directory is the repository root, or `python manage.py migrate` if its
@@ -219,12 +214,12 @@ replacing `pat_...` with the clinic record's ID:
 .\.venv\Scripts\python.exe backend\manage.py shell -c "from accounts.models import PatientProfile; from scheduling.models import Appointment; from records.models import TreatmentRecord; p=PatientProfile.objects.get(pk='pat_...'); print({'id': p.id, 'user_id': p.user_id, 'appointments': Appointment.objects.filter(patient=p).count(), 'treatments': TreatmentRecord.objects.filter(patient=p).count()})"
 ```
 
-The SMS Center reads the active provider's live balance: PHILSMS
-`GET /api/v3/balance` or Semaphore `GET /api/v4/account`. Successful lookups are
-cached for 60 seconds. When credentials are missing or the provider cannot be
-reached, the dashboard shows the balance as unavailable instead of inventing a
-credit total. Existing Semaphore message IDs remain associated with Semaphore
-for status polling after switching to PHILSMS.
+The SMS Center reads Semaphore's live balance through `GET /api/v4/account`.
+Successful lookups are cached for 60 seconds. When credentials are missing or
+Semaphore cannot be reached, the dashboard shows the balance as unavailable.
+Only numeric Semaphore message IDs are polled. Earlier messages with IDs from
+other providers remain in the log with unknown delivery status; the worker does
+not resend them.
 
 Migration `0003_sms_template_library` preserves existing rule messages in the
 template library. Each rule selects one template; creating or duplicating a
