@@ -25,8 +25,6 @@ async function refresh(showErrors = false) {
   }
 }
 
-defineExpose({ refresh });
-
 async function markRead(item = null) {
   try {
     await apiRequest("/api/notifications", {

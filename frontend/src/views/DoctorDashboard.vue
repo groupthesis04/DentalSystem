@@ -11,7 +11,7 @@ import {
   MessageSquareText,
   Users,
 } from "lucide-vue-next";
-import { nextTick, onBeforeUnmount, onMounted, ref } from "vue";
+import { nextTick, onMounted, ref } from "vue";
 
 import ContentManagement from "../components/doctor/ContentManagement.vue";
 import DoctorAccount from "../components/doctor/DoctorAccount.vue";
@@ -33,11 +33,6 @@ const { state, load } = useDoctorStore();
 const highlightedId = ref("");
 const mobileNavigationOpen = ref(false);
 const portalHeader = ref(null);
-let dashboardSocket = null;
-let reconnectTimer = null;
-let refreshTimer = null;
-let reconnectAttempt = 0;
-let dashboardActive = false;
 let requestedLoad = 0;
 let completedLoad = 0;
 let loadingPromise = null;
@@ -58,71 +53,6 @@ function loadDashboard() {
     })();
   }
   return loadingPromise;
-}
-
-function queueSocketRefresh() {
-  if (!dashboardActive || refreshTimer) return;
-  refreshTimer = window.setTimeout(() => {
-    refreshTimer = null;
-    loadDashboard().catch((error) => showToast(error.message, "error"));
-    portalHeader.value?.refreshNotifications();
-  }, 100);
-}
-
-function scheduleReconnect() {
-  if (!dashboardActive || reconnectTimer) return;
-  const delay = Math.min(1000 * 2 ** reconnectAttempt, 30000);
-  reconnectAttempt = Math.min(reconnectAttempt + 1, 5);
-  reconnectTimer = window.setTimeout(() => {
-    reconnectTimer = null;
-    connectDashboardSocket();
-  }, delay);
-}
-
-function connectDashboardSocket() {
-  if (!dashboardActive || dashboardSocket) return;
-  const url = new URL("/ws/admin-updates/", window.location.href);
-  url.protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-
-  let connection;
-  try {
-    connection = new WebSocket(url);
-  } catch {
-    scheduleReconnect();
-    return;
-  }
-  dashboardSocket = connection;
-  connection.onopen = () => {
-    reconnectAttempt = 0;
-    // A change may have happened while this socket was disconnected.
-    queueSocketRefresh();
-  };
-  connection.onmessage = (message) => {
-    try {
-      if (JSON.parse(message.data)?.type === "dashboard.changed") queueSocketRefresh();
-    } catch {
-      // Ignore messages that are not dashboard change events.
-    }
-  };
-  connection.onerror = () => connection.close();
-  connection.onclose = () => {
-    if (dashboardSocket === connection) dashboardSocket = null;
-    scheduleReconnect();
-  };
-}
-
-function stopDashboardSocket() {
-  dashboardActive = false;
-  window.clearTimeout(reconnectTimer);
-  window.clearTimeout(refreshTimer);
-  reconnectTimer = null;
-  refreshTimer = null;
-  if (dashboardSocket) {
-    const connection = dashboardSocket;
-    dashboardSocket = null;
-    connection.onclose = null;
-    connection.close();
-  }
 }
 
 function closeMobileNavigation(restoreFocus = false) {
@@ -177,7 +107,6 @@ async function refreshData() {
 async function logout() {
   try {
     await signOut();
-    stopDashboardSocket();
     queueToast("Logged out.");
     navigate("/");
   } catch (error) {
@@ -237,7 +166,6 @@ async function openReportEntity(panel, entityId) {
 }
 
 onMounted(async () => {
-  dashboardActive = true;
   document.title = "Doctor Dashboard - BORJA Dental Clinic";
   consumeQueuedToast();
   try {
@@ -256,13 +184,10 @@ onMounted(async () => {
     } catch (error) {
       showToast(error.message, "error");
     }
-    connectDashboardSocket();
   } catch (error) {
     showToast(error.message, "error");
   }
 });
-
-onBeforeUnmount(stopDashboardSocket);
 </script>
 
 <template>

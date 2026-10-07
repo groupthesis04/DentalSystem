@@ -65,7 +65,6 @@ if not DEBUG and "*" in ALLOWED_HOSTS:
 # ============================================================
 
 INSTALLED_APPS = [
-    "daphne",
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -116,22 +115,6 @@ TEMPLATES = [
 
 
 WSGI_APPLICATION = "dental_backend.wsgi.application"
-ASGI_APPLICATION = "dental_backend.asgi.application"
-
-# Redis shares dashboard events across Railway web processes. The in-memory layer
-# is sufficient for a single local development process and automated tests.
-redis_url = os.environ.get("REDIS_URL", "").strip()
-test_sqlite = os.environ.get("DRMS_TEST_SQLITE", "0") == "1"
-CHANNEL_LAYERS = {
-    "default": (
-        {
-            "BACKEND": "channels_redis.core.RedisChannelLayer",
-            "CONFIG": {"hosts": [redis_url]},
-        }
-        if redis_url and not test_sqlite
-        else {"BACKEND": "channels.layers.InMemoryChannelLayer"}
-    )
-}
 
 
 # ============================================================

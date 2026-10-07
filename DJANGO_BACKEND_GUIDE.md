@@ -77,7 +77,7 @@ DentalSystemNew/
 |-- backend/
 |   |-- manage.py
 |   |-- requirements.txt
-|   |-- dental_backend/       settings, root URLs, WSGI, ASGI, shared API helpers
+|   |-- dental_backend/       settings, root URLs, WSGI, shared API helpers
 |   |-- accounts/             users, patient profiles, login, registration, patients
 |   |-- scheduling/           appointments and dentist availability
 |   |-- records/              treatment and payment records
@@ -379,7 +379,7 @@ The current setup is suitable for local development. Before deployment:
 - set `DRMS_ALLOWED_HOSTS` to the real hostname;
 - use HTTPS and set `DRMS_COOKIE_SECURE=1`;
 - use a least-privilege MySQL account;
-- configure backups and a production WSGI/ASGI server;
+- configure backups and a production WSGI server;
 - run Django's deployment check.
 
 Example:

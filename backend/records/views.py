@@ -17,7 +17,6 @@ from dental_backend.api import (
     parse_money,
     read_json,
 )
-from dental_backend.realtime import schedule_dashboard_change
 from scheduling.models import Appointment
 
 from .models import TreatmentRecord
@@ -229,7 +228,6 @@ def save_record(request, payload, editing=False):
             target=item,
             request=request,
         )
-        schedule_dashboard_change()
     return JsonResponse({"record": record_payload(item)}, status=200 if editing else 201)
 
 
@@ -246,7 +244,6 @@ def delete_record(request, payload):
         record_audit_event("TREATMENT_DELETED", actor=request.user, target=item, request=request)
         item.delete()
         sync_balance(patient)
-        schedule_dashboard_change()
     if patient_user:
         create_notification(patient_user, "treatment_deleted", "Treatment record removed", f"The {procedure} record was removed by clinic staff.", "treatment", item_id)
     notify_doctors("treatment_deleted", "Treatment transaction removed", f"The {procedure} record for {patient_name} was removed.", "treatment", item_id)

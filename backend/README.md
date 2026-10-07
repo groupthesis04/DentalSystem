@@ -48,15 +48,13 @@ See `DJANGO_BACKEND_GUIDE.md` in the project root for the complete beginner guid
 
 ## Railway production security
 
-### Real-time staff dashboard
+### Web service
 
-The doctor dashboard uses an authenticated WebSocket at `/ws/admin-updates/` to
-reload its existing REST data after patient changes. Local `runserver` works with
-one process and the in-memory channel layer. On Railway, add a Redis service and
-set `REDIS_URL=${{Redis.REDIS_URL}}` on the Django web service. Set that service's
-start command to `daphne -b 0.0.0.0 -p $PORT dental_backend.asgi:application`.
-Keep the SMS worker's separate start command. Include every frontend origin in
-`DRMS_CSRF_TRUSTED_ORIGINS` so WebSocket origin validation accepts it.
+On Railway, run the Django web service with Gunicorn. If its root directory is
+`backend/`, use `gunicorn dental_backend.wsgi:application --bind 0.0.0.0:$PORT`.
+If its root is the repository root, use
+`cd backend && gunicorn dental_backend.wsgi:application --bind 0.0.0.0:$PORT`.
+Keep the SMS worker's separate start command.
 
 Before deploying the backend, set `DRMS_DEBUG=0`, a unique random
 `DRMS_DJANGO_SECRET_KEY` of at least 50 characters, and `DRMS_ALLOWED_HOSTS` to
