@@ -445,12 +445,15 @@ class RegistrationLinkingTests(TestCase):
         self.assertEqual(result.status_code, 409)
         self.assertFalse(User.objects.filter(email="juan@example.com").exists())
 
-    def test_middle_name_mismatch_does_not_start_verification(self):
-        self.clinic_profile()
+    def test_middle_name_mismatch_creates_separate_account_without_linking(self):
+        profile = self.clinic_profile()
 
         response = self.register(middle_name="Different")
 
-        self.assert_registration_refused_without_changes(response)
+        self.assertEqual(response.status_code, 201, response.content)
+        profile.refresh_from_db()
+        self.assertIsNone(profile.user_id)
+        self.assertNotEqual(User.objects.get(email="juan@example.com").patient_profile.pk, profile.pk)
         self.sms_send.assert_not_called()
 
     def test_generation_is_limited_per_patient_across_registration_requests(self):
@@ -518,17 +521,29 @@ class RegistrationLinkingTests(TestCase):
         profile.refresh_from_db()
         self.assertEqual(profile.user_id, user.id)
 
-    def test_matching_email_with_wrong_phone_or_birthdate_does_not_claim_record(self):
+    def test_matching_name_and_birthdate_with_wrong_phone_does_not_claim_record(self):
         profile = self.clinic_profile()
-        for changes in (
-            {"phone": "09998887777"},
-            {"birthdate": "2001-01-01"},
-        ):
-            with self.subTest(changes=changes):
-                response = self.register(**changes)
-                self.assert_registration_refused_without_changes(response)
-                profile.refresh_from_db()
-                self.assertIsNone(profile.user_id)
+        response = self.register(phone="09998887777")
+
+        self.assert_registration_refused_without_changes(response)
+        profile.refresh_from_db()
+        self.assertIsNone(profile.user_id)
+
+    def test_shared_contact_with_distinct_identity_creates_separate_account(self):
+        profile = self.clinic_profile()
+        response = self.register(
+            first_name="Maria", middle_name="", last_name="Santos",
+            birthdate="2001-01-01",
+        )
+
+        self.assertEqual(response.status_code, 201, response.content)
+        profile.refresh_from_db()
+        self.assertIsNone(profile.user_id)
+        self.assertEqual(profile.notes, "Existing clinic notes")
+        account = User.objects.get(email="juan@example.com")
+        self.assertNotEqual(account.patient_profile.pk, profile.pk)
+        self.assertEqual(account.patient_profile.name, "Maria Santos")
+        self.assertEqual(PatientProfile.objects.count(), 2)
 
     def test_same_name_alone_cannot_claim_a_walk_in_record(self):
         profile = self.clinic_profile(email="")
@@ -558,16 +573,18 @@ class RegistrationLinkingTests(TestCase):
         profile.refresh_from_db()
         self.assertIsNone(profile.user_id)
 
-    def test_phone_match_to_dob_missing_record_requires_clinic_verification(self):
+    def test_phone_match_to_dob_missing_record_can_create_distinct_account(self):
         profile = self.clinic_profile(
             first_name="Maria", middle_name="", last_name="Santos", email="", birthdate=None
         )
 
         response = self.register()
 
-        self.assert_registration_refused_without_changes(response)
+        self.assertEqual(response.status_code, 201, response.content)
         profile.refresh_from_db()
         self.assertIsNone(profile.user_id)
+        self.assertEqual(PatientProfile.objects.count(), 2)
+        self.assertNotEqual(User.objects.get(email="juan@example.com").patient_profile.pk, profile.pk)
 
     def test_ambiguous_matching_records_are_not_linked(self):
         first = self.clinic_profile()

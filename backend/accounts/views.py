@@ -181,7 +181,8 @@ def session(request):
 def registration_profile(email, mobile, birthdate, full_name):
     """Identify a clinic record; demographics never authorize linking on their own."""
     matches = []
-    possible_conflict = False
+    possible_link_conflict = False
+    same_identity_conflict = False
     for profile in identity_candidates(email, birthdate, full_name, for_update=True):
         same_email = bool(profile.email and profile.email.casefold() == email)
         same_phone = canonical_mobile(profile.mobile_number or profile.phone_number) == mobile
@@ -189,15 +190,16 @@ def registration_profile(email, mobile, birthdate, full_name):
         same_name = profile.normalized_name == full_name
         if (same_email or not profile.email) and same_phone and same_birthdate and same_name:
             matches.append(profile)
-        elif (
-            same_email
-            or (same_phone and same_birthdate)
-            or (same_name and same_birthdate)
-            or (same_name and same_phone)
-            or (same_phone and not profile.birthdate)
-        ):
-            possible_conflict = True
-    if possible_conflict or len(matches) > 1:
+        else:
+            # Families may share contact details. An overlap cannot claim this
+            # profile's history, but a distinct patient can create an account.
+            if same_name and (
+                same_birthdate or (not profile.birthdate and (same_email or same_phone))
+            ):
+                same_identity_conflict = True
+            if same_email or same_phone:
+                possible_link_conflict = True
+    if len(matches) > 1 or same_identity_conflict or (matches and possible_link_conflict):
         raise ValueError(MATCH_REVIEW_MESSAGE)
     if matches and matches[0].user_id:
         raise ValueError("This patient record is already linked to an account.")
