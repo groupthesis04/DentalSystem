@@ -232,6 +232,17 @@ class RegistrationLinkingTests(TestCase):
         self.assertEqual(profile.mobile_number, "+639123456789")
         self.assertEqual(profile.phone_number, "+639123456789")
 
+    def test_unrelated_database_error_is_not_reported_as_patient_match(self):
+        with mock.patch.object(
+            PatientProfile.objects, "create", side_effect=IntegrityError("Legacy column error")
+        ):
+            response = self.register()
+
+        self.assertEqual(response.status_code, 500)
+        self.assertIn("temporarily unavailable", response.json()["error"])
+        self.assertFalse(User.objects.filter(email="juan@example.com").exists())
+        self.assertFalse(PatientProfile.objects.exists())
+
     def test_new_registration_normalizes_ten_digit_local_mobile(self):
         response = self.register(phone="9123456789")
 

@@ -80,19 +80,41 @@ const activePanel = useDashboardPanel(dashboardPath("patient"), "patientOverview
   "patientProfile",
 ]);
 
-// Fetch dashboard information together so the page has one loading state.
+// Keep the booking options usable when another dashboard request fails.
 async function loadData() {
-  const [appointmentData, recordData, serviceData, availabilityData] = await Promise.all([
+  const results = await Promise.allSettled([
     apiRequest("/api/appointments"),
     apiRequest("/api/records"),
     apiRequest("/api/services"),
     apiRequest("/api/availability"),
   ]);
-  appointments.value = appointmentData.appointments || [];
-  records.value = recordData.records || [];
-  services.value = serviceData.services || [];
-  availability.value = availabilityData.availability || [];
-  clinicDoctor.value = availabilityData.clinic_doctor || availability.value[0]?.doctor || "";
+  const [appointmentResult, recordResult, serviceResult, availabilityResult] = results;
+  if (appointmentResult.status === "fulfilled") {
+    appointments.value = appointmentResult.value.appointments || [];
+  }
+  if (recordResult.status === "fulfilled") {
+    records.value = recordResult.value.records || [];
+  }
+  if (serviceResult.status === "fulfilled") {
+    services.value = serviceResult.value.services || [];
+  }
+  if (availabilityResult.status === "fulfilled") {
+    availability.value = availabilityResult.value.availability || [];
+    clinicDoctor.value =
+      availabilityResult.value.clinic_doctor || availability.value[0]?.doctor || "";
+  }
+  const failedSections = [
+    "appointments",
+    "records",
+    "dental services",
+    "dentist availability",
+  ].filter((_, index) => results[index].status === "rejected");
+  if (failedSections.length) {
+    showToast(
+      `Could not load ${failedSections.join(", ")}. Refresh the page to try again.`,
+      "error",
+    );
+  }
 }
 
 async function logout() {

@@ -117,10 +117,6 @@ const sessionsBusy = ref(false);
 const notificationsBusy = ref(false);
 const securityLoaded = ref(false);
 const notificationsLoaded = ref(false);
-const smsPreferenceLoaded = ref(false);
-const smsPreferenceBusy = ref(false);
-const smsChoice = ref(null);
-const smsPreferenceAt = ref(null);
 const editing = ref(false);
 const editingRecovery = ref(false);
 const fileInput = ref(null);
@@ -231,39 +227,8 @@ async function loadNotifications(showErrors = false) {
   }
 }
 
-async function loadSmsPreference(showErrors = false) {
-  if (!isPatient.value) return;
-  try {
-    const data = await apiRequest("/api/account/sms-preference");
-    smsChoice.value = data.sms_consent_at ? data.sms_consent : null;
-    smsPreferenceAt.value = data.sms_consent_at;
-    smsPreferenceLoaded.value = true;
-  } catch (error) {
-    if (showErrors) showToast(error.message, "error");
-  }
-}
-
-async function saveSmsPreference() {
-  if (typeof smsChoice.value !== "boolean") return;
-  smsPreferenceBusy.value = true;
-  try {
-    const data = await apiRequest("/api/account/sms-preference", {
-      method: "PATCH",
-      body: { sms_consent: smsChoice.value },
-    });
-    smsChoice.value = data.sms_consent;
-    smsPreferenceAt.value = data.sms_consent_at;
-    showToast("SMS preference saved.");
-  } catch (error) {
-    showToast(error.message, "error");
-  } finally {
-    smsPreferenceBusy.value = false;
-  }
-}
-
 onMounted(() => {
   loadSecurity();
-  if (isPatient.value) loadSmsPreference();
 });
 
 function syncForm() {
@@ -297,7 +262,6 @@ function selectTab(tab) {
   }
   if (tab === "security") loadSecurity(true);
   if (tab === "notifications") loadNotifications(true);
-  if (tab === "notifications") loadSmsPreference(true);
 }
 
 function beginEditing() {
@@ -752,11 +716,7 @@ async function saveNotifications() {
               </p>
             </div>
           </header>
-          <form
-            v-if="isPatient"
-            class="patient-notifications-form"
-            @submit.prevent="saveSmsPreference"
-          >
+          <div v-if="isPatient" class="patient-notifications-form">
             <div class="account-notification-list">
               <article class="account-notification-row">
                 <span class="account-notification-icon blue">
@@ -778,64 +738,20 @@ async function saveNotifications() {
                 </span>
                 <span class="account-readonly-badge">Enabled</span>
               </article>
-              <article class="account-notification-row patient-sms-notification-row">
+              <article class="account-notification-row">
                 <span class="account-notification-icon teal">
                   <MessageSquareText :size="19" aria-hidden="true" />
                 </span>
                 <span class="account-notification-copy">
-                  <strong>SMS reminders</strong>
-                  <small>Appointment, follow-up, payment, and clinic messages</small>
+                  <strong>Appointment SMS</strong>
+                  <small
+                    >Confirmations, reminders, and schedule updates after booking consent</small
+                  >
                 </span>
-                <span class="account-readonly-badge neutral">Your choice</span>
+                <span class="account-readonly-badge neutral">At booking</span>
               </article>
             </div>
-            <fieldset class="patient-sms-options">
-              <legend>SMS message preference</legend>
-              <label>
-                <input
-                  v-model="smsChoice"
-                  type="radio"
-                  name="sms-preference"
-                  :value="true"
-                  :disabled="!smsPreferenceLoaded || smsPreferenceBusy"
-                />
-                <span>Yes, send me SMS messages</span>
-              </label>
-              <label>
-                <input
-                  v-model="smsChoice"
-                  type="radio"
-                  name="sms-preference"
-                  :value="false"
-                  :disabled="!smsPreferenceLoaded || smsPreferenceBusy"
-                />
-                <span>No, stop SMS messages</span>
-              </label>
-            </fieldset>
-            <div class="account-notification-actions">
-              <div class="account-notification-note">
-                <Info :size="22" aria-hidden="true" />
-                <p>
-                  <strong>SMS Preference</strong>
-                  <span v-if="!smsPreferenceLoaded">Loading your SMS preference...</span>
-                  <span v-else-if="smsPreferenceAt">
-                    Choice saved {{ formatAccountDateTime(smsPreferenceAt) }}.
-                  </span>
-                  <span v-else> Automated SMS is off until you choose to receive it. </span>
-                </p>
-              </div>
-              <button
-                class="account-save-button"
-                type="submit"
-                :disabled="
-                  !smsPreferenceLoaded || smsPreferenceBusy || typeof smsChoice !== 'boolean'
-                "
-              >
-                <Save :size="16" aria-hidden="true" />
-                {{ smsPreferenceBusy ? "Saving..." : "Save Changes" }}
-              </button>
-            </div>
-          </form>
+          </div>
           <form v-else @submit.prevent="saveNotifications">
             <div class="account-notification-list">
               <article

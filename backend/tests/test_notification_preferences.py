@@ -73,6 +73,7 @@ class DoctorNotificationPreferenceTests(TestCase):
         response = self.request("/api/appointments", {
             "doctor": self.doctor.name, "service": self.service.name,
             "date": self.day.isoformat(), "time": "09:00",
+            "appointment_sms_consent": True,
         })
         self.assertEqual(response.status_code, 201, response.content)
         self.assertFalse(Notification.objects.filter(recipient=self.doctor, title="New appointment request").exists())
@@ -86,6 +87,7 @@ class DoctorNotificationPreferenceTests(TestCase):
         response = self.request("/api/appointments", {
             "doctor": self.doctor.name, "service": self.service.name,
             "date": next_day.isoformat(), "time": "09:00",
+            "appointment_sms_consent": True,
         })
         self.assertEqual(response.status_code, 201, response.content)
         self.assertEqual(Notification.objects.filter(recipient=self.doctor, title="New appointment request").count(), 1)
@@ -123,6 +125,7 @@ class DoctorNotificationPreferenceTests(TestCase):
         response = self.request("/api/appointments", {
             "doctor": self.doctor.name, "service": self.service.name,
             "date": self.day.isoformat(), "time": "09:00",
+            "appointment_sms_consent": True,
         })
         self.assertEqual(response.status_code, 201, response.content)
         appointment_id = response.json()["appointment"]["id"]
@@ -139,6 +142,7 @@ class DoctorNotificationPreferenceTests(TestCase):
         response = self.request("/api/appointments", {
             "doctor": self.doctor.name, "service": self.service.name,
             "date": next_day.isoformat(), "time": "09:00",
+            "appointment_sms_consent": True,
         })
         self.assertEqual(response.status_code, 201, response.content)
         self.client.force_login(self.doctor)

@@ -9,6 +9,12 @@ SMS_CONSENT_PURPOSE = (
     "Appointment reminders, follow-up notices, payment reminders, "
     "and clinic-related messages."
 )
+APPOINTMENT_SMS_CONSENT_PURPOSE = (
+    "Appointment confirmations, reminders, and appointment status and schedule "
+    "updates sent by BORJA Dental Clinic to the mobile number registered to "
+    "the patient's account."
+)
+APPOINTMENT_SMS_NOTICE_VERSION = "appointment-booking-v1"
 
 
 def sms_consent_status(patient):
@@ -54,3 +60,51 @@ def record_sms_choice(patient, consent, actor, *, method="", stop_reason="", sto
         SmsMessage.objects.filter(patient=patient, status="queued", is_test=False).update(
             status="suppressed", error="Patient SMS consent is not active."
         )
+
+
+def record_appointment_sms_choice(patient, actor, *, recorded_at):
+    """Record a booking choice without broadening its SMS purpose.
+
+    The caller locks the patient row and creates the appointment in the same
+    transaction. An existing broader grant remains broad; a prior patient
+    withdrawal is replaced by this fresh, narrower affirmative choice.
+    """
+    PatientConsentRecord.objects.create(
+        patient=patient,
+        patient_id_snapshot=patient.pk,
+        kind=PatientConsentRecord.Kind.SMS,
+        action=PatientConsentRecord.Action.RECORDED,
+        consent_given=True,
+        patient_choice_confirmed=True,
+        method="booking",
+        purpose=APPOINTMENT_SMS_CONSENT_PURPOSE,
+        notice_version=APPOINTMENT_SMS_NOTICE_VERSION,
+        actor=actor,
+        actor_id_snapshot=actor.pk,
+        actor_role=actor.role,
+        recorded_at=recorded_at,
+    )
+    # A separate operational stop (for example, a wrong number) must not be
+    # cleared by a booking checkbox. It does not prevent the appointment.
+    if patient.sms_stop_reason and patient.sms_stop_reason != "patient_withdrew":
+        return
+    broad_grant_active = (
+        patient.sms_consent is True
+        and patient.sms_consent_at is not None
+        and not patient.sms_stop_reason
+        and patient.sms_consent_method != "booking"
+    )
+    if broad_grant_active:
+        return
+
+    patient.sms_consent = True
+    patient.sms_consent_at = recorded_at
+    patient.sms_consent_method = "booking"
+    patient.sms_consent_recorded_by = actor
+    patient.sms_stop_reason = ""
+    patient.sms_stop_reason_detail = ""
+    patient.save(update_fields=[
+        "sms_consent", "sms_consent_at", "sms_consent_method",
+        "sms_consent_recorded_by", "sms_stop_reason",
+        "sms_stop_reason_detail", "updated_at",
+    ])

@@ -1,10 +1,11 @@
 <script setup>
-import { computed, reactive, ref, watch } from "vue";
+import { computed, nextTick, reactive, ref, watch } from "vue";
 import { CalendarDays, Clock3, FileText, Info, Stethoscope, UserRound } from "lucide-vue-next";
 
 import AvailabilityDatePicker from "./AvailabilityDatePicker.vue";
 import AvatarBadge from "./AvatarBadge.vue";
 import ServiceMultiSelect from "./ServiceMultiSelect.vue";
+import SmsConsentModal from "./SmsConsentModal.vue";
 import { availableSlotDates, futureOpenSlots } from "../services/availability";
 import { apiRequest, session } from "../services/api";
 import { pendingAppointmentForUser, savePendingAppointment } from "../services/pendingAppointment";
@@ -28,6 +29,8 @@ const busy = defineModel("busy", { type: Boolean, default: false });
 const currentAvailability = ref(props.availability);
 const currentClinicDoctor = ref(props.clinicDoctor);
 const refreshingAvailability = ref(false);
+const consentOpen = ref(false);
+const submitButton = ref(null);
 let restoringDraft = false;
 let initialServiceObserved = false;
 const bookableSlots = computed(() =>
@@ -68,8 +71,12 @@ function restorePendingDraft() {
   const draft = pendingAppointmentForUser(session.user?.id || "");
   if (!draft) return;
   restoringDraft = true;
-  Object.assign(form, draft.appointment, {
+  Object.assign(form, {
     services: [...draft.appointment.services],
+    doctor: draft.appointment.doctor,
+    date: draft.appointment.date,
+    time: draft.appointment.time,
+    notes: draft.appointment.notes,
     _website: "",
   });
   restoringDraft = false;
@@ -126,16 +133,42 @@ watch(
   { deep: true },
 );
 
-async function submit() {
-  busy.value = true;
+function submit() {
+  if (busy.value) return;
   try {
     const payload = validatedPayload({ ...form, service: form.services[0] || "" });
     if (!payload.services.length) throw new Error("Select at least one dental service.");
     if (!payload.date || !payload.time) throw new Error("Choose an available date and time.");
+    if (props.retainForAuthentication && session.user?.role === "doctor") {
+      throw new Error("Use a patient account to book an appointment.");
+    }
+    consentOpen.value = true;
+  } catch (error) {
+    showToast(error.message, "error");
+  }
+}
+
+async function cancelConsent() {
+  consentOpen.value = false;
+  await nextTick();
+  submitButton.value?.focus();
+}
+
+async function agreeAndContinue(consentGiven) {
+  if (!consentOpen.value || consentGiven !== true || busy.value) return;
+  consentOpen.value = false;
+  busy.value = true;
+  try {
+    const payload = validatedPayload({
+      ...form,
+      service: form.services[0] || "",
+      appointment_sms_consent: true,
+    });
+    if (!payload.services.length) throw new Error("Select at least one dental service.");
+    if (!payload.date || !payload.time) throw new Error("Choose an available date and time.");
     if (props.retainForAuthentication) {
-      if (session.user?.role === "doctor") {
+      if (session.user?.role === "doctor")
         throw new Error("Use a patient account to book an appointment.");
-      }
       const draft = savePendingAppointment(payload, {
         userId: session.user?.role === "patient" ? session.user.id : "",
       });
@@ -338,13 +371,13 @@ async function submit() {
     </template>
     <div v-if="compact" class="crud-dialog-actions">
       <button class="secondary-button" type="button" @click="emit('cancel')">Cancel</button>
-      <button class="primary-button" type="submit" :disabled="busy">
+      <button ref="submitButton" class="primary-button" type="submit" :disabled="busy">
         <CalendarDays :size="18" aria-hidden="true" />
         {{ busy ? (retainForAuthentication ? "Saving..." : "Submitting...") : submitLabel }}
       </button>
     </div>
     <template v-else>
-      <button class="primary-button full" type="submit" :disabled="busy">
+      <button ref="submitButton" class="primary-button full" type="submit" :disabled="busy">
         <CalendarDays :size="18" aria-hidden="true" />
         {{ busy ? (retainForAuthentication ? "Saving..." : "Submitting...") : submitLabel }}
       </button>
@@ -354,6 +387,7 @@ async function submit() {
       </div>
     </template>
   </form>
+  <SmsConsentModal v-if="consentOpen" @agree="agreeAndContinue" @cancel="cancelConsent" />
 </template>
 
 <style scoped>

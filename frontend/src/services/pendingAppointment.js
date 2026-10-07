@@ -41,6 +41,7 @@ function normalizeAppointment(value) {
     date: cleanText(value.date, 10),
     time: cleanText(value.time, 8),
     notes: cleanText(value.notes, 1000, true),
+    appointment_sms_consent: value.appointment_sms_consent === true,
   };
   if (
     !appointment.doctor ||

@@ -49,6 +49,8 @@ class Appointment(models.Model):
     source = models.CharField(max_length=24, choices=SOURCE_CHOICES, default="patient")
     notes = models.TextField(blank=True)
     booking_token = models.CharField(max_length=64, unique=True, null=True, blank=True)
+    appointment_sms_consent = models.BooleanField(default=False)
+    appointment_sms_consent_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     legacy_payload = models.JSONField(default=dict, blank=True)

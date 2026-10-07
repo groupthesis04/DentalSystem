@@ -247,6 +247,7 @@ class DentalApiTests(TestCase):
             "time": "09:00",
             "notes": "Sensitive tooth",
             "booking_token": "booking_test_token",
+            "appointment_sms_consent": True,
         }
         response = self.post_json(client, token, "/api/appointments", payload)
         self.assertEqual(response.status_code, 201)
@@ -269,6 +270,7 @@ class DentalApiTests(TestCase):
             "services": [self.service.name, second_service.name],
             "date": self.visit_date.isoformat(),
             "time": "09:00",
+            "appointment_sms_consent": True,
         })
         self.assertEqual(response.status_code, 201)
         appointment = response.json()["appointment"]
@@ -291,6 +293,7 @@ class DentalApiTests(TestCase):
             "doctor": self.doctor.name,
             "date": self.visit_date.isoformat(),
             "time": "09:00",
+            "appointment_sms_consent": True,
         }
         for selection in ([], [self.service.name, self.service.name.lower()], [self.service.name, "Unknown service"], "Oral Prophylaxis"):
             response = self.post_json(client, token, "/api/appointments", {**base, "services": selection})
@@ -327,6 +330,7 @@ class DentalApiTests(TestCase):
                 "service": "Not a clinic service",
                 "date": self.visit_date.isoformat(),
                 "time": "09:00",
+                "appointment_sms_consent": True,
             },
         )
         self.assertEqual(invalid_service.status_code, 400)
@@ -339,6 +343,7 @@ class DentalApiTests(TestCase):
                 "service": self.service.name,
                 "date": self.visit_date.isoformat(),
                 "time": "10:00",
+                "appointment_sms_consent": True,
             },
         )
         self.assertEqual(unavailable.status_code, 409)

@@ -403,7 +403,9 @@ def register(request):
     except IntegrityError:
         if User.objects.filter(email__iexact=email).exists():
             return api_error(ACCOUNT_EMAIL_EXISTS_MESSAGE, 409)
-        return api_error(MATCH_REVIEW_MESSAGE, 409)
+        if PatientProfile.objects.filter(normalized_name=full_name, birthdate=birthdate).exists():
+            return api_error(MATCH_REVIEW_MESSAGE, 409)
+        return api_error("Account creation is temporarily unavailable. Please try again later.", 500)
     except VerificationCooldown as error:
         return api_error("Please wait before requesting another verification code.", 429, retry_after=error.seconds)
     except ValueError as error:

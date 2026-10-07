@@ -35,7 +35,7 @@ class SmsTests(TestCase):
 
     def booking(self):
         self.client.force_login(self.patient)
-        result = self.write("/api/appointments", {"doctor": self.doctor.name, "service": self.service.name, "date": self.visit_date.isoformat(), "time": "09:00", "booking_token": "once"})
+        result = self.write("/api/appointments", {"doctor": self.doctor.name, "service": self.service.name, "date": self.visit_date.isoformat(), "time": "09:00", "booking_token": "once", "appointment_sms_consent": True})
         self.assertIn(result.status_code, (200, 201), result.content)
         return Appointment.objects.get(pk=result.json()["appointment"]["id"])
 

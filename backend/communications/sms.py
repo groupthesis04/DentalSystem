@@ -36,6 +36,21 @@ TEMPLATE_NAMES = {
     "balance": "Payment Reminder", "cancellation": "Appointment Cancelled",
 }
 MANUAL_RULE_KEY = "manual"
+APPOINTMENT_SMS_RULES = frozenset({
+    "booking", "approval", "appointment_reminder", "walk_in", "next_visit", "cancellation",
+})
+
+
+def consent_error(consent, consent_at, stop_reason, method, rule_key, appointment=None):
+    if consent is not True or consent_at is None or stop_reason:
+        return "Patient SMS consent is not active."
+    if method == "booking" and (
+        rule_key not in APPOINTMENT_SMS_RULES
+        or appointment is None
+        or not appointment.appointment_sms_consent
+    ):
+        return "Booking consent covers this appointment only."
+    return ""
 
 
 def ensure_rules():
@@ -87,10 +102,11 @@ def enqueue(key, patient, event_key, context, *, appointment=None, record=None, 
     state, error = ("queued", "") if rule.enabled or is_test else ("suppressed", "Automation was off when this event occurred.")
     if not is_test:
         choice = PatientProfile.objects.filter(pk=patient.pk).values_list(
-            "sms_consent", "sms_consent_at", "sms_stop_reason"
+            "sms_consent", "sms_consent_at", "sms_stop_reason", "sms_consent_method"
         ).first()
-        if not choice or choice[0] is not True or choice[1] is None or choice[2]:
-            state, error = "suppressed", "Patient SMS consent is not active."
+        reason = consent_error(*choice, key, appointment) if choice else "Patient SMS consent is not active."
+        if reason:
+            state, error = "suppressed", reason
     try:
         number = sms_provider.normalize_phone(number)
     except ValueError as exc:
@@ -127,8 +143,12 @@ def enqueue_manual(patient, event_key, template, *, body=None, rule=None, actor=
     if body is None:
         body = template.format_map(context)
     number = patient.phone or (patient.user.phone if patient.user_id else "")
-    if patient.sms_consent is not True or patient.sms_consent_at is None or patient.sms_stop_reason:
-        state, error = "suppressed", "Patient SMS consent is not active."
+    reason = consent_error(
+        patient.sms_consent, patient.sms_consent_at, patient.sms_stop_reason,
+        patient.sms_consent_method, MANUAL_RULE_KEY,
+    )
+    if reason:
+        state, error = "suppressed", reason
     else:
         state, error = "queued", ""
     try:
@@ -242,8 +262,13 @@ def suppression_reason(item, now):
         return "Automation is turned off."
     if not item.patient_id:
         return "Patient record is no longer available."
-    if item.patient.sms_consent is not True or item.patient.sms_consent_at is None or item.patient.sms_stop_reason:
-        return "Patient SMS consent is not active."
+    reason = consent_error(
+        item.patient.sms_consent, item.patient.sms_consent_at,
+        item.patient.sms_stop_reason, item.patient.sms_consent_method,
+        item.rule_id, item.appointment,
+    )
+    if reason:
+        return reason
     if item.rule_id == "balance" and patient_balance(item.patient) <= 0:
         return "Balance fully paid."
     if item.rule_id in {"booking", "approval", "appointment_reminder", "walk_in", "cancellation"} and not item.appointment_id:

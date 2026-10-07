@@ -16,6 +16,7 @@ import { computed, onMounted, reactive, ref, watch } from "vue";
 
 import AvailabilityDatePicker from "../components/AvailabilityDatePicker.vue";
 import ServiceMultiSelect from "../components/ServiceMultiSelect.vue";
+import SmsConsentModal from "../components/SmsConsentModal.vue";
 import { dashboardPath, navigate } from "../router";
 import { apiRequest, refreshSession, session } from "../services/api";
 import { availableSlotDates, futureOpenSlots } from "../services/availability";
@@ -33,6 +34,7 @@ const availability = ref([]);
 const loading = ref(true);
 const checking = ref(false);
 const confirming = ref(false);
+const consentOpen = ref(false);
 const validationError = ref("");
 const editing = ref(false);
 const editChecking = ref(false);
@@ -206,7 +208,10 @@ async function saveEditedAppointment() {
     if (!savedDraftIsCurrent()) {
       throw new Error("This saved appointment changed. Refresh the page to continue.");
     }
-    draft.value = savePendingAppointment(payload, { userId: session.user.id });
+    draft.value = savePendingAppointment(
+      { ...payload, appointment_sms_consent: details.value.appointment_sms_consent === true },
+      { userId: session.user.id },
+    );
     validationError.value = currentValidationError();
     editing.value = false;
     showToast("Appointment changes saved.");
@@ -233,6 +238,10 @@ function cancelAppointment() {
 
 async function confirmAppointment() {
   if (!draft.value || confirming.value) return;
+  if (details.value.appointment_sms_consent !== true) {
+    consentOpen.value = true;
+    return;
+  }
   confirming.value = true;
   try {
     await refreshValidation();
@@ -269,6 +278,24 @@ async function confirmAppointment() {
     showToast(error.message, "error");
   } finally {
     confirming.value = false;
+  }
+}
+
+function agreeToSms(consentGiven) {
+  if (!consentOpen.value || consentGiven !== true) return;
+  consentOpen.value = false;
+  if (!savedDraftIsCurrent()) {
+    showToast("This saved appointment changed. Refresh the page before confirming it.", "error");
+    return;
+  }
+  try {
+    draft.value = savePendingAppointment(
+      { ...details.value, appointment_sms_consent: true },
+      { userId: session.user.id },
+    );
+    confirmAppointment();
+  } catch (error) {
+    showToast(error.message, "error");
   }
 }
 
@@ -519,6 +546,7 @@ onMounted(async () => {
         </section>
       </template>
     </main>
+    <SmsConsentModal v-if="consentOpen" @agree="agreeToSms" @cancel="consentOpen = false" />
   </div>
 </template>
 

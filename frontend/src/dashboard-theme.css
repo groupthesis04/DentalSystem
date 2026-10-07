@@ -6629,72 +6629,6 @@ html[data-dashboard-theme="dark"]
   color: #8a6526;
 }
 
-.patient-sms-options {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-  min-width: 0;
-  margin: 0;
-  padding: 0;
-  border: 0;
-}
-
-.patient-sms-options legend {
-  margin-bottom: 7px;
-  color: var(--dashboard-text);
-  font-size: 0.72rem;
-  font-weight: 750;
-}
-
-.patient-sms-options label {
-  display: grid;
-  grid-template-columns: 18px minmax(0, 1fr);
-  align-items: center;
-  gap: 10px;
-  min-height: 42px;
-  padding: 9px 12px;
-  border: 1px solid var(--dashboard-border);
-  border-radius: 8px;
-  background: var(--dashboard-surface);
-  color: var(--dashboard-text);
-  cursor: pointer;
-  font-size: 0.72rem;
-  font-weight: 650;
-  line-height: 1.35;
-}
-
-.patient-sms-options label:focus-within {
-  border-color: var(--dashboard-blue);
-}
-
-.patient-sms-options input[type="radio"] {
-  display: block;
-  width: 18px;
-  min-width: 18px;
-  height: 18px;
-  margin: 0;
-  padding: 0;
-  border-radius: 50%;
-  accent-color: #171511;
-  box-shadow: none;
-}
-
-.patient-sms-options input[type="radio"]:focus-visible {
-  outline: 2px solid var(--dashboard-blue);
-  outline-offset: 2px;
-  box-shadow: none;
-}
-
-.patient-sms-options label:has(input:checked) {
-  border-color: #c49a46;
-  background: #f8f1e2;
-}
-
-.patient-sms-options label:has(input:disabled) {
-  opacity: 0.65;
-  cursor: not-allowed;
-}
-
 .account-theme-choice {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -7583,19 +7517,6 @@ html[data-dashboard-theme="dark"]
   color: #cfc5b3;
 }
 
-html[data-dashboard-theme="dark"] .patient-account-page .patient-sms-options label {
-  border-color: #514b42;
-  background: #241e17;
-}
-
-html[data-dashboard-theme="dark"]
-  .patient-account-page
-  .patient-sms-options
-  label:has(input:checked) {
-  border-color: #dbb86d;
-  background: #3f321e;
-}
-
 html[data-dashboard-theme="dark"] .patient-account-page .account-readonly-badge.neutral {
   background: #3f321e;
   color: #e3c985;
@@ -7645,10 +7566,6 @@ html[data-dashboard-theme="dark"] .patient-account-page .account-readonly-badge.
 }
 
 @media (max-width: 560px) {
-  .patient-account-page .patient-sms-options {
-    grid-template-columns: 1fr;
-  }
-
   .doctor-account-page .account-panel {
     padding: 16px;
   }

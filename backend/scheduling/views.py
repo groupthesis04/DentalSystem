@@ -2,9 +2,11 @@ import datetime as dt
 
 from django.db import IntegrityError, transaction
 from django.http import JsonResponse
+from django.utils import timezone
 from django.views.decorators.http import require_http_methods
 
 from accounts.audit import record_audit_event
+from accounts.consent import record_appointment_sms_choice
 from accounts.identity import PatientIdentityConflict, creation_conflict, normalized_full_name
 from accounts.models import PatientProfile, User
 from clinic.models import Service
@@ -74,6 +76,11 @@ def appointment_payload(item):
         "time": item.appointment_time.strftime("%H:%M"),
         "notes": item.notes,
         "booking_token": item.booking_token or "",
+        "appointment_sms_consent": item.appointment_sms_consent,
+        "appointment_sms_consent_at": (
+            item.appointment_sms_consent_at.isoformat()
+            if item.appointment_sms_consent_at else None
+        ),
         "status": item.status,
         "created_by": item.created_by_id or "",
         "manual_booking": item.source in {"manual", "follow_up"},
@@ -230,6 +237,9 @@ def create_appointment(request, payload):
                 return api_error("This booking confirmation belongs to another patient account.", 403)
             return JsonResponse({"appointment": appointment_payload(existing), "replayed": True})
 
+    if not is_manual and payload.get("appointment_sms_consent") is not True:
+        return api_error("Agree to receive appointment SMS notifications before continuing.")
+
     try:
         with transaction.atomic():
             slot = AvailabilitySlot.objects.select_for_update().filter(
@@ -256,7 +266,7 @@ def create_appointment(request, payload):
                 else:
                     patient = create_manual_patient(payload)
             else:
-                patient = PatientProfile.objects.filter(user=request.user).first()
+                patient = PatientProfile.objects.select_for_update().filter(user=request.user).first()
                 if not patient:
                     return api_error("Your patient profile could not be found.", 400)
 
@@ -272,6 +282,10 @@ def create_appointment(request, payload):
             source = "manual" if is_manual else "patient"
             if is_manual and (payload.get("source") == "follow_up" or notes.lower().startswith("follow-up")):
                 source = "follow_up"
+            sms_consented_at = None
+            if not is_manual:
+                sms_consented_at = timezone.now()
+                record_appointment_sms_choice(patient, request.user, recorded_at=sms_consented_at)
             item = Appointment.objects.create(
                 id=make_id("apt"),
                 patient=patient,
@@ -287,6 +301,8 @@ def create_appointment(request, payload):
                 appointment_time=appointment_time,
                 notes=notes,
                 booking_token=booking_token,
+                appointment_sms_consent=not is_manual,
+                appointment_sms_consent_at=sms_consented_at,
                 status="approved" if is_manual else "pending",
                 source=source,
             )

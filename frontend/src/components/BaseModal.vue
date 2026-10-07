@@ -11,13 +11,17 @@ const props = defineProps({
 const emit = defineEmits(["close"]);
 const generatedId = `dialog-title-${useId().replaceAll(":", "")}`;
 const titleId = computed(() => props.labelledBy || generatedId);
+let modalLevel = 0;
 
 function onKeydown(event) {
-  if (event.key === "Escape") emit("close");
+  if (event.key === "Escape" && Number(document.body.dataset.modalCount || 0) === modalLevel) {
+    emit("close");
+  }
 }
 
 onMounted(() => {
   const count = Number(document.body.dataset.modalCount || 0) + 1;
+  modalLevel = count;
   document.body.dataset.modalCount = String(count);
   document.body.classList.add("modal-open");
   window.addEventListener("keydown", onKeydown);
