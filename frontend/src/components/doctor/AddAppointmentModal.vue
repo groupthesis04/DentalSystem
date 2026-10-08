@@ -529,6 +529,7 @@ async function submitAppointment() {
 }
 
 .manual-sms-consent {
+  min-width: 0;
   margin: 0;
   padding: 18px 24px;
   border: 0;
@@ -557,7 +558,11 @@ async function submitAppointment() {
 }
 
 .manual-sms-consent input[type="checkbox"] {
-  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  margin: 0;
+  padding: 0;
   accent-color: #8a6526;
 }
 

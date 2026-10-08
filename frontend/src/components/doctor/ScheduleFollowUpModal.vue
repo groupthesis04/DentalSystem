@@ -363,6 +363,7 @@ async function scheduleFollowUp() {
 }
 
 .follow-up-sms-consent {
+  min-width: 0;
   margin: 0;
   padding: 16px 20px;
   border: 0;
@@ -392,7 +393,11 @@ async function scheduleFollowUp() {
 }
 
 .follow-up-sms-consent input[type="checkbox"] {
-  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  margin: 0;
+  padding: 0;
   accent-color: #8a6526;
 }
 
