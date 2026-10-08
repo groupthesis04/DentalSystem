@@ -6,7 +6,12 @@ from django.utils import timezone
 from django.views.decorators.http import require_http_methods
 
 from accounts.audit import record_audit_event
-from accounts.consent import STAFF_APPOINTMENT_SMS_METHODS, record_appointment_sms_choice
+from accounts.consent import (
+    CLINIC_SMS_BOOKING_NOTICE_VERSION,
+    CLINIC_SMS_STAFF_NOTICE_VERSION,
+    STAFF_APPOINTMENT_SMS_METHODS,
+    record_appointment_sms_choice,
+)
 from accounts.identity import PatientIdentityConflict, creation_conflict, normalized_full_name
 from accounts.models import PatientProfile, User
 from clinic.models import Service
@@ -238,8 +243,22 @@ def create_appointment(request, payload):
                 return api_error("This booking confirmation belongs to another patient account.", 403)
             return JsonResponse({"appointment": appointment_payload(existing), "replayed": True})
 
-    if not is_manual and payload.get("appointment_sms_consent") is not True:
-        return api_error("Agree to receive appointment SMS notifications before continuing.")
+    patient_sms_consent = False
+    if not is_manual:
+        patient_sms_consent = payload.get("appointment_sms_consent")
+        if type(patient_sms_consent) is not bool:
+            return api_error("Choose whether to receive appointment SMS notifications.")
+    clinic_sms_consent = payload.get("clinic_sms_consent", False)
+    if type(clinic_sms_consent) is not bool:
+        return api_error("Clinic SMS consent must be true or false.")
+    sms_notice_version = payload.get("sms_consent_notice_version", "")
+    valid_notice = CLINIC_SMS_STAFF_NOTICE_VERSION if is_manual else CLINIC_SMS_BOOKING_NOTICE_VERSION
+    if not isinstance(sms_notice_version, str) or sms_notice_version not in ("", valid_notice):
+        return api_error("Choose a valid SMS consent notice.")
+    if clinic_sms_consent and sms_notice_version != valid_notice:
+        return api_error("Confirm the clinic SMS notice before agreeing.")
+    if not clinic_sms_consent and sms_notice_version:
+        return api_error("An SMS consent notice requires the patient's agreement.")
     manual_sms_consent = False
     staff_consent_method = ""
     if is_manual:
@@ -254,6 +273,8 @@ def create_appointment(request, payload):
             return api_error("Choose how the patient agreed to appointment SMS.")
         if not manual_sms_consent and staff_consent_method:
             return api_error("A consent method requires the patient's agreement.")
+    if clinic_sms_consent and not (manual_sms_consent if is_manual else patient_sms_consent):
+        return api_error("Clinic SMS consent requires appointment SMS agreement.")
 
     try:
         with transaction.atomic():
@@ -300,11 +321,14 @@ def create_appointment(request, payload):
             sms_consented_at = None
             if is_manual and manual_sms_consent:
                 normalize_sms_phone(patient.phone)
-            if not is_manual or manual_sms_consent:
+            appointment_sms_consent = manual_sms_consent if is_manual else patient_sms_consent
+            if appointment_sms_consent:
                 sms_consented_at = timezone.now()
                 record_appointment_sms_choice(
                     patient, request.user, recorded_at=sms_consented_at,
                     method=staff_consent_method if is_manual else "booking",
+                    clinic_sms_consent=clinic_sms_consent,
+                    notice_version=sms_notice_version,
                 )
             item = Appointment.objects.create(
                 id=make_id("apt"),
@@ -321,12 +345,14 @@ def create_appointment(request, payload):
                 appointment_time=appointment_time,
                 notes=notes,
                 booking_token=booking_token,
-                appointment_sms_consent=not is_manual or manual_sms_consent,
+                appointment_sms_consent=appointment_sms_consent,
                 appointment_sms_consent_at=sms_consented_at,
+                appointment_sms_declined=not is_manual and not patient_sms_consent,
                 status="approved" if is_manual else "pending",
                 source=source,
             )
-            appointment_event(item)
+            if is_manual or appointment_sms_consent:
+                appointment_event(item)
             cancelled_ids = []
             if is_manual:
                 pending = Appointment.objects.filter(

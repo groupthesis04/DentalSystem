@@ -6627,6 +6627,88 @@ html[data-dashboard-theme="dark"]
 .patient-account-page .account-readonly-badge.neutral {
   background: #f8f1e2;
   color: #8a6526;
+  max-width: 180px;
+  text-align: center;
+  white-space: normal;
+}
+
+.patient-sms-withdrawal {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.patient-sms-withdrawal p {
+  margin: 0;
+  color: var(--dashboard-muted);
+  font-size: 0.72rem;
+  line-height: 1.4;
+}
+
+.patient-sms-withdrawal button {
+  flex: 0 0 auto;
+}
+
+.crud-dialog.patient-sms-stop-dialog {
+  width: min(520px, calc(100% - 32px));
+}
+
+.patient-sms-stop-content {
+  display: grid;
+  gap: 24px;
+  padding: 24px;
+}
+
+.patient-sms-stop-content p {
+  margin: 0;
+  color: #514b42;
+  font-size: 0.85rem;
+  line-height: 1.6;
+}
+
+.patient-sms-stop-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.patient-sms-stop-actions .patient-sms-confirm-stop {
+  min-width: 118px;
+  border-color: #b42338;
+  background: #b42338;
+  box-shadow: none;
+}
+
+.patient-sms-stop-actions .patient-sms-confirm-stop:hover:not(:disabled) {
+  border-color: #951d2f;
+  background: #951d2f;
+}
+
+html[data-dashboard-theme="dark"] .patient-sms-stop-content p {
+  color: #e3dccf;
+}
+
+@media (max-width: 600px) {
+  .patient-account-page .account-notification-row:has(.account-readonly-badge.neutral) {
+    grid-template-columns: 34px minmax(0, 1fr);
+  }
+
+  .patient-account-page .account-readonly-badge.neutral {
+    grid-column: 2;
+    justify-self: start;
+  }
+
+  .patient-sms-withdrawal {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .patient-sms-stop-actions > button {
+    flex: 1 1 0;
+    min-width: 0;
+  }
 }
 
 .account-theme-choice {

@@ -42,6 +42,8 @@ APPOINTMENT_SMS_RULES = frozenset({
 
 
 def consent_error(consent, consent_at, stop_reason, method, rule_key, appointment=None):
+    if appointment is not None and appointment.appointment_sms_declined:
+        return "Patient declined SMS for this appointment."
     if consent is not True or consent_at is None or stop_reason:
         return "Patient SMS consent is not active."
     if method == "booking" and (

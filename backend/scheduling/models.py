@@ -51,6 +51,9 @@ class Appointment(models.Model):
     booking_token = models.CharField(max_length=64, unique=True, null=True, blank=True)
     appointment_sms_consent = models.BooleanField(default=False)
     appointment_sms_consent_at = models.DateTimeField(null=True, blank=True)
+    # Distinguishes an explicit patient no-SMS booking from legacy rows whose
+    # consent field defaulted to False without a recorded patient choice.
+    appointment_sms_declined = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     legacy_payload = models.JSONField(default=dict, blank=True)

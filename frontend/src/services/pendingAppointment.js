@@ -1,5 +1,7 @@
 export const PENDING_APPOINTMENT_KEY = "borja.pendingAppointment.v1";
 
+import { CLINIC_SMS_BOOKING_NOTICE_VERSION } from "./smsConsent.js";
+
 const DRAFT_VERSION = 1;
 const MAX_DRAFT_AGE_MS = 12 * 60 * 60 * 1000;
 const BOOKING_TOKEN_PATTERN = /^booking_[A-Za-z0-9_-]{1,48}$/;
@@ -42,6 +44,19 @@ function normalizeAppointment(value) {
     time: cleanText(value.time, 8),
     notes: cleanText(value.notes, 1000, true),
     appointment_sms_consent: value.appointment_sms_consent === true,
+    // null means an older draft has not been offered the separate clinic SMS choice.
+    clinic_sms_consent:
+      value.clinic_sms_consent === true &&
+      value.sms_consent_notice_version === CLINIC_SMS_BOOKING_NOTICE_VERSION
+        ? true
+        : value.clinic_sms_consent === false
+          ? false
+          : null,
+    sms_consent_notice_version:
+      value.clinic_sms_consent === true &&
+      value.sms_consent_notice_version === CLINIC_SMS_BOOKING_NOTICE_VERSION
+        ? CLINIC_SMS_BOOKING_NOTICE_VERSION
+        : "",
   };
   if (
     !appointment.doctor ||

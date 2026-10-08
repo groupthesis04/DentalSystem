@@ -26,6 +26,7 @@ import {
   savePendingAppointment,
 } from "../services/pendingAppointment";
 import { consumeQueuedToast, queueToast, showToast } from "../services/toast";
+import { CLINIC_SMS_BOOKING_NOTICE_VERSION } from "../services/smsConsent";
 import { validatedPayload } from "../services/validation";
 
 const draft = ref(null);
@@ -209,7 +210,12 @@ async function saveEditedAppointment() {
       throw new Error("This saved appointment changed. Refresh the page to continue.");
     }
     draft.value = savePendingAppointment(
-      { ...payload, appointment_sms_consent: details.value.appointment_sms_consent === true },
+      {
+        ...payload,
+        appointment_sms_consent: details.value.appointment_sms_consent === true,
+        clinic_sms_consent: details.value.clinic_sms_consent,
+        sms_consent_notice_version: details.value.sms_consent_notice_version || "",
+      },
       { userId: session.user.id },
     );
     validationError.value = currentValidationError();
@@ -238,7 +244,7 @@ function cancelAppointment() {
 
 async function confirmAppointment() {
   if (!draft.value || confirming.value) return;
-  if (details.value.appointment_sms_consent !== true) {
+  if (details.value.clinic_sms_consent === null) {
     consentOpen.value = true;
     return;
   }
@@ -281,8 +287,8 @@ async function confirmAppointment() {
   }
 }
 
-function agreeToSms(consentGiven) {
-  if (!consentOpen.value || consentGiven !== true) return;
+function submitSmsChoice(consentChoice) {
+  if (!consentOpen.value || !consentChoice) return;
   consentOpen.value = false;
   if (!savedDraftIsCurrent()) {
     showToast("This saved appointment changed. Refresh the page before confirming it.", "error");
@@ -290,7 +296,16 @@ function agreeToSms(consentGiven) {
   }
   try {
     draft.value = savePendingAppointment(
-      { ...details.value, appointment_sms_consent: true },
+      {
+        ...details.value,
+        appointment_sms_consent: consentChoice.appointmentSmsConsent === true,
+        clinic_sms_consent:
+          consentChoice.appointmentSmsConsent === true && consentChoice.clinicSmsConsent === true,
+        sms_consent_notice_version:
+          consentChoice.appointmentSmsConsent === true && consentChoice.clinicSmsConsent === true
+            ? CLINIC_SMS_BOOKING_NOTICE_VERSION
+            : "",
+      },
       { userId: session.user.id },
     );
     confirmAppointment();
@@ -546,7 +561,14 @@ onMounted(async () => {
         </section>
       </template>
     </main>
-    <SmsConsentModal v-if="consentOpen" @agree="agreeToSms" @cancel="consentOpen = false" />
+    <SmsConsentModal
+      v-if="consentOpen"
+      @agree="submitSmsChoice"
+      @continue-without-sms="
+        submitSmsChoice({ appointmentSmsConsent: false, clinicSmsConsent: false })
+      "
+      @cancel="consentOpen = false"
+    />
   </div>
 </template>
 

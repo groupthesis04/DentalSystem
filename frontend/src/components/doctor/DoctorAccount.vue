@@ -34,6 +34,7 @@ import { apiRequest, session } from "../../services/api";
 import { showToast } from "../../services/toast";
 import { imageToDataUrl, validatedPayload } from "../../services/validation";
 import AvatarBadge from "../AvatarBadge.vue";
+import BaseModal from "../BaseModal.vue";
 import ActivityLog from "./ActivityLog.vue";
 
 const props = defineProps({
@@ -117,6 +118,10 @@ const sessionsBusy = ref(false);
 const notificationsBusy = ref(false);
 const securityLoaded = ref(false);
 const notificationsLoaded = ref(false);
+const patientSmsData = ref(null);
+const patientSmsLoading = ref(false);
+const patientSmsStopBusy = ref(false);
+const showPatientSmsStopConfirm = ref(false);
 const editing = ref(false);
 const editingRecovery = ref(false);
 const fileInput = ref(null);
@@ -142,6 +147,33 @@ const form = reactive({
 });
 
 const isPatient = computed(() => props.mode === "patient");
+const patientSmsAllowed = computed(
+  () => patientSmsData.value?.sms_consent_status === "allowed",
+);
+const patientSmsClinicWide = computed(
+  () => patientSmsAllowed.value && patientSmsData.value?.sms_consent_method !== "booking",
+);
+const patientSmsStatus = computed(() => {
+  if (patientSmsLoading.value && !patientSmsData.value) return "Loading...";
+  if (!patientSmsData.value) return "Unavailable";
+  if (patientSmsData.value.sms_consent_status === "stopped") return "Stopped";
+  if (patientSmsClinicWide.value) return "Clinic SMS allowed";
+  if (patientSmsAllowed.value) return "Appointment SMS allowed";
+  return "No SMS agreement";
+});
+const patientSmsDescription = computed(() => {
+  if (!patientSmsData.value) return "Checking your SMS agreement...";
+  if (patientSmsData.value.sms_consent_status === "stopped") {
+    return "You stopped clinic SMS. Dashboard notifications still work.";
+  }
+  if (patientSmsClinicWide.value) {
+    return "Appointment updates, follow-up and balance reminders, and other clinic-service messages. No promotional SMS.";
+  }
+  if (patientSmsAllowed.value) {
+    return "Only appointment messages covered by your booking agreement.";
+  }
+  return "No SMS agreement is active. You can choose during a future booking.";
+});
 const accountCopy = computed(() =>
   isPatient.value
     ? {
@@ -227,6 +259,36 @@ async function loadNotifications(showErrors = false) {
   }
 }
 
+async function loadPatientSms(showErrors = false) {
+  if (!isPatient.value) return;
+  patientSmsLoading.value = true;
+  try {
+    patientSmsData.value = await apiRequest("/api/account/sms-preference");
+  } catch (error) {
+    patientSmsData.value = null;
+    if (showErrors) showToast(error.message, "error");
+  } finally {
+    patientSmsLoading.value = false;
+  }
+}
+
+async function stopPatientSms() {
+  if (!patientSmsAllowed.value || patientSmsStopBusy.value) return;
+  patientSmsStopBusy.value = true;
+  try {
+    patientSmsData.value = await apiRequest("/api/account/sms-preference", {
+      method: "PATCH",
+      body: { sms_consent: false },
+    });
+    showPatientSmsStopConfirm.value = false;
+    showToast("Clinic SMS stopped. Your dashboard notifications remain available.");
+  } catch (error) {
+    showToast(error.message, "error");
+  } finally {
+    patientSmsStopBusy.value = false;
+  }
+}
+
 onMounted(() => {
   loadSecurity();
 });
@@ -261,7 +323,10 @@ function selectTab(tab) {
     });
   }
   if (tab === "security") loadSecurity(true);
-  if (tab === "notifications") loadNotifications(true);
+  if (tab === "notifications") {
+    if (isPatient.value) loadPatientSms(true);
+    else loadNotifications(true);
+  }
 }
 
 function beginEditing() {
@@ -743,13 +808,17 @@ async function saveNotifications() {
                   <MessageSquareText :size="19" aria-hidden="true" />
                 </span>
                 <span class="account-notification-copy">
-                  <strong>Appointment SMS</strong>
-                  <small
-                    >Confirmations, reminders, and schedule updates after booking consent</small
-                  >
+                  <strong>Clinic SMS</strong>
+                  <small>{{ patientSmsDescription }}</small>
                 </span>
-                <span class="account-readonly-badge neutral">At booking</span>
+                <span class="account-readonly-badge neutral">{{ patientSmsStatus }}</span>
               </article>
+            </div>
+            <div v-if="patientSmsAllowed" class="patient-sms-withdrawal">
+              <p>You can stop all clinic SMS at any time without affecting your appointments.</p>
+              <button type="button" class="account-cancel-button" @click="showPatientSmsStopConfirm = true">
+                Stop SMS
+              </button>
             </div>
           </div>
           <form v-else @submit.prevent="saveNotifications">
@@ -998,5 +1067,37 @@ async function saveNotifications() {
       </aside>
     </div>
     <ActivityLog v-if="!isPatient && activeTab === 'security'" />
+    <BaseModal
+      v-if="isPatient && showPatientSmsStopConfirm"
+      title="Stop clinic SMS?"
+      size-class="patient-sms-stop-dialog"
+      @close="!patientSmsStopBusy && (showPatientSmsStopConfirm = false)"
+    >
+      <div class="patient-sms-stop-content">
+        <p>
+          BORJA Dental Clinic will stop sending appointment, follow-up, balance, and other
+          clinic-service SMS to your mobile number. Your appointments and dashboard notifications
+          will still work. You can agree to SMS again when booking a future appointment.
+        </p>
+        <div class="patient-sms-stop-actions">
+          <button
+            type="button"
+            class="account-cancel-button"
+            :disabled="patientSmsStopBusy"
+            @click="showPatientSmsStopConfirm = false"
+          >
+            Keep SMS
+          </button>
+          <button
+            type="button"
+            class="account-save-button patient-sms-confirm-stop"
+            :disabled="patientSmsStopBusy"
+            @click="stopPatientSms"
+          >
+            {{ patientSmsStopBusy ? "Stopping..." : "Stop SMS" }}
+          </button>
+        </div>
+      </div>
+    </BaseModal>
   </section>
 </template>

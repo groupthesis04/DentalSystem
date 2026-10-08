@@ -9,6 +9,7 @@ import { availableSlotDates, futureOpenSlots } from "../../services/availability
 import { apiRequest } from "../../services/api";
 import { formatDate, localDateIso } from "../../services/format";
 import { showToast } from "../../services/toast";
+import { CLINIC_SMS_STAFF_NOTICE_VERSION } from "../../services/smsConsent";
 import { validatedPayload } from "../../services/validation";
 
 const props = defineProps({
@@ -25,6 +26,7 @@ const patientSearchInput = ref(null);
 const busy = ref(false);
 const errorMessage = ref("");
 const smsConsent = ref(false);
+const clinicSmsConsent = ref(false);
 const smsConsentMethod = ref("");
 const today = localDateIso();
 let pickerCloseTimer = 0;
@@ -98,9 +100,13 @@ watch(
   () => {
     // A choice for one patient or mobile number must not carry to another.
     smsConsent.value = false;
+    clinicSmsConsent.value = false;
     smsConsentMethod.value = "";
   },
 );
+watch(smsConsent, (agreed) => {
+  if (!agreed) clinicSmsConsent.value = false;
+});
 
 onMounted(() => {
   nextTick(() => patientSearchInput.value?.focus());
@@ -187,7 +193,10 @@ async function submitAppointment() {
       time: appointment.time,
       notes: appointment.notes,
       appointment_sms_consent: smsConsent.value,
+      clinic_sms_consent: smsConsent.value && clinicSmsConsent.value,
       sms_consent_method: smsConsent.value ? smsConsentMethod.value : "",
+      sms_consent_notice_version:
+        smsConsent.value && clinicSmsConsent.value ? CLINIC_SMS_STAFF_NOTICE_VERSION : "",
       _website: appointment._website,
     });
     const data = await apiRequest("/api/appointments", { method: "POST", body: payload });
@@ -484,13 +493,33 @@ async function submitAppointment() {
       <fieldset class="manual-sms-consent">
         <legend>Appointment SMS consent</legend>
         <p>
-          BORJA Dental Clinic can send appointment confirmations, reminders, and appointment
-          status or schedule updates to the mobile number above when the patient agrees.
+          BORJA Dental Clinic can send appointment confirmations, reminders, and appointment status
+          or schedule updates to the mobile number above when the patient agrees. This agreement
+          covers this appointment only.
         </p>
         <label>
           <input v-model="smsConsent" type="checkbox" :disabled="!consentPhone" />
           I confirm the patient agreed to receive these appointment SMS notifications.
         </label>
+        <p>
+          Other clinic SMS (optional): follow-up and next-visit reminders, balance and payment
+          reminders, and messages written by clinic staff about dental care. This applies to future
+          clinic visits until withdrawn and does not include promotions.
+        </p>
+        <label>
+          <input
+            v-model="clinicSmsConsent"
+            type="checkbox"
+            :disabled="!smsConsent || !consentPhone"
+          />
+          I confirm the patient separately agreed to receive these other clinic SMS messages.
+        </label>
+        <small>Tell the patient they can stop all clinic SMS in Account → Notifications.</small>
+        <small
+          >Privacy questions:
+          <a href="mailto:carllesteraurelia0811@gmail.com">carllesteraurelia0811@gmail.com</a
+          >.</small
+        >
         <label v-if="smsConsent" class="manual-sms-method">
           How did the patient agree?
           <select v-model="smsConsentMethod" required>
@@ -499,7 +528,9 @@ async function submitAppointment() {
             <option value="staff_phone">By phone</option>
           </select>
         </label>
-        <small v-if="!consentPhone">Enter or select a patient mobile number before recording SMS agreement.</small>
+        <small v-if="!consentPhone"
+          >Enter or select a patient mobile number before recording SMS agreement.</small
+        >
         <small v-else>The appointment can still be saved without SMS agreement.</small>
       </fieldset>
 
@@ -547,6 +578,11 @@ async function submitAppointment() {
   margin: 6px 0 10px;
   color: #706b61;
   font-size: 0.76rem;
+}
+
+.manual-sms-consent a {
+  color: #8a6526;
+  overflow-wrap: anywhere;
 }
 
 .manual-sms-consent label {

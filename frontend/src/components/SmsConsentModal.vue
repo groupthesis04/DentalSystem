@@ -1,12 +1,17 @@
 <script setup>
-import { nextTick, onMounted, ref } from "vue";
+import { nextTick, onMounted, ref, watch } from "vue";
 import { Check, LockKeyhole, MessageSquareMore, Smartphone } from "lucide-vue-next";
 
 import BaseModal from "./BaseModal.vue";
 
-const emit = defineEmits(["agree", "cancel"]);
+const emit = defineEmits(["agree", "continue-without-sms", "cancel"]);
 const agreed = ref(false);
+const clinicAgreed = ref(false);
 const checkbox = ref(null);
+
+watch(agreed, (hasAppointmentConsent) => {
+  if (!hasAppointmentConsent) clinicAgreed.value = false;
+});
 
 onMounted(async () => {
   await nextTick();
@@ -14,7 +19,8 @@ onMounted(async () => {
 });
 
 function agreeAndContinue() {
-  if (agreed.value) emit("agree", true);
+  if (agreed.value)
+    emit("agree", { appointmentSmsConsent: true, clinicSmsConsent: clinicAgreed.value });
 }
 </script>
 
@@ -34,8 +40,8 @@ function agreeAndContinue() {
         </span>
         <h2 aria-hidden="true">SMS Notification Consent</h2>
         <p>
-          To continue with your appointment booking, please agree to receive SMS messages from BORJA
-          Dental Clinic at the mobile number registered to your account.
+          Choose whether BORJA Dental Clinic may send SMS to the mobile number registered to your
+          account. You can still book and view appointment updates in your dashboard without SMS.
         </p>
       </div>
 
@@ -56,15 +62,40 @@ function agreeAndContinue() {
       </div>
 
       <p class="sms-consent-privacy">
-        <span aria-hidden="true"><LockKeyhole :size="19" /></span>
-        Your mobile number is used for appointment-related notifications through the clinic's SMS
-        provider.
+        <span class="sms-consent-privacy-icon" aria-hidden="true"><LockKeyhole :size="19" /></span>
+        <span class="sms-consent-privacy-copy">
+          The clinic records your choices and uses your mobile number with its SMS provider to send
+          the messages you agree to receive. Privacy questions:
+          <a href="mailto:carllesteraurelia0811@gmail.com">carllesteraurelia0811@gmail.com</a>.
+        </span>
       </p>
 
       <label class="sms-consent-choice">
         <input ref="checkbox" v-model="agreed" type="checkbox" />
         <span>I agree to receive SMS notifications regarding my appointment.</span>
       </label>
+      <small class="sms-consent-scope"
+        >This choice covers only the appointment you are booking now.</small
+      >
+
+      <div class="sms-consent-extra">
+        <strong>Other clinic SMS (optional)</strong>
+        <p>
+          You can also receive follow-up and next-visit reminders, balance and payment reminders,
+          and messages written by clinic staff about your dental care. This choice applies to future
+          clinic visits until you withdraw it. It does not include promotions.
+        </p>
+        <label class="sms-consent-choice">
+          <input v-model="clinicAgreed" type="checkbox" :disabled="!agreed" />
+          <span>I also agree to receive these other clinic SMS messages.</span>
+        </label>
+        <small>You can continue booking without choosing this option.</small>
+      </div>
+
+      <p class="sms-consent-withdrawal">
+        You can stop all clinic SMS later in Account → Notifications. Your appointments and
+        dashboard updates will remain available.
+      </p>
 
       <div class="sms-consent-actions">
         <button class="secondary-button" type="button" @click="emit('cancel')">Cancel</button>
@@ -72,6 +103,9 @@ function agreeAndContinue() {
           Agree &amp; Continue
         </button>
       </div>
+      <button class="sms-consent-no-sms" type="button" @click="emit('continue-without-sms')">
+        Continue without SMS
+      </button>
     </div>
   </BaseModal>
 </template>
@@ -229,7 +263,7 @@ function agreeAndContinue() {
   line-height: 1.5;
 }
 
-.sms-consent-privacy > span {
+.sms-consent-privacy-icon {
   display: grid;
   width: 29px;
   height: 29px;
@@ -238,6 +272,20 @@ function agreeAndContinue() {
   border-radius: 50%;
   background: #f7edd9;
   color: #946819;
+}
+
+.sms-consent-privacy-copy a {
+  color: #946819;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.sms-consent-scope {
+  display: block;
+  margin-top: -12px;
+  color: #58524c;
+  font-size: 0.84rem;
+  line-height: 1.5;
 }
 
 .sms-consent-choice {
@@ -261,6 +309,34 @@ function agreeAndContinue() {
   border-radius: 4px;
   accent-color: #a77b29;
   cursor: pointer;
+}
+
+.sms-consent-extra {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid #eadcc3;
+  border-radius: 10px;
+  background: #fbf6ed;
+}
+
+.sms-consent-extra p,
+.sms-consent-extra small {
+  margin: 0;
+  color: #58524c;
+  font-size: 0.84rem;
+  line-height: 1.5;
+}
+
+.sms-consent-extra .sms-consent-choice {
+  font-size: 0.9rem;
+}
+
+.sms-consent-withdrawal {
+  margin: 0;
+  color: #58524c;
+  font-size: 0.84rem;
+  line-height: 1.5;
 }
 
 .sms-consent-actions {
@@ -293,6 +369,17 @@ function agreeAndContinue() {
   background: linear-gradient(110deg, #e4cb96, #d8b973);
   color: #fff;
   opacity: 1;
+}
+
+.sms-consent-no-sms {
+  justify-self: center;
+  border: 0;
+  background: transparent;
+  color: #6a552f;
+  font: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  cursor: pointer;
 }
 
 @media (max-width: 480px) {

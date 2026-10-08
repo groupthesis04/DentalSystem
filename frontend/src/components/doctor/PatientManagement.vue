@@ -1084,6 +1084,10 @@ function viewTreatment(record) {
               Only patients with active SMS agreement and a valid Philippine mobile number will be
               queued. The server checks each patient again when you send.
             </p>
+            <p>
+              Write only clinic care or administrative messages, such as appointment, follow-up, or
+              payment information. Patient SMS agreement does not cover promotions.
+            </p>
             <p v-if="selectedMissingMobileCount" class="patient-bulk-sms-warning">
               {{ selectedMissingMobileCount }} selected patient{{
                 selectedMissingMobileCount === 1 ? "" : "s"

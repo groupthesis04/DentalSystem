@@ -705,16 +705,14 @@ def sms_preference(request):
         payload = read_json(request)
     except ValueError as error:
         return api_error(str(error))
-    if not isinstance(payload.get("sms_consent"), bool):
-        return api_error("Choose whether to receive SMS messages.")
+    if payload.get("sms_consent") is not False:
+        return api_error("Clinic SMS can be enabled only after reviewing the optional consent notice when booking.")
     with transaction.atomic():
         patient = PatientProfile.objects.select_for_update().get(pk=patient.pk)
-        if patient.sms_consent is True and payload["sms_consent"] is False:
-            record_sms_choice(
-                patient, False, request.user, stop_reason="patient_withdrew",
-            )
-        else:
-            record_sms_choice(patient, payload["sms_consent"], request.user, method="electronic")
+        record_sms_choice(
+            patient, False, request.user,
+            method="electronic", stop_reason="patient_withdrew",
+        )
         record_audit_event(
             "SMS_STOPPED" if patient.sms_stop_reason else "SMS_CONSENT_RECORDED",
             actor=request.user, target=patient, request=request,

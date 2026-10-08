@@ -9,6 +9,7 @@ import SmsConsentModal from "./SmsConsentModal.vue";
 import { availableSlotDates, futureOpenSlots } from "../services/availability";
 import { apiRequest, session } from "../services/api";
 import { pendingAppointmentForUser, savePendingAppointment } from "../services/pendingAppointment";
+import { CLINIC_SMS_BOOKING_NOTICE_VERSION } from "../services/smsConsent";
 import { validatedPayload } from "../services/validation";
 import { showToast } from "../services/toast";
 
@@ -154,15 +155,21 @@ async function cancelConsent() {
   submitButton.value?.focus();
 }
 
-async function agreeAndContinue(consentGiven) {
-  if (!consentOpen.value || consentGiven !== true || busy.value) return;
+async function continueBooking(consentChoice) {
+  if (!consentOpen.value || !consentChoice || busy.value) return;
   consentOpen.value = false;
   busy.value = true;
   try {
     const payload = validatedPayload({
       ...form,
       service: form.services[0] || "",
-      appointment_sms_consent: true,
+      appointment_sms_consent: consentChoice.appointmentSmsConsent === true,
+      clinic_sms_consent:
+        consentChoice.appointmentSmsConsent === true && consentChoice.clinicSmsConsent === true,
+      sms_consent_notice_version:
+        consentChoice.appointmentSmsConsent === true && consentChoice.clinicSmsConsent === true
+          ? CLINIC_SMS_BOOKING_NOTICE_VERSION
+          : "",
     });
     if (!payload.services.length) throw new Error("Select at least one dental service.");
     if (!payload.date || !payload.time) throw new Error("Choose an available date and time.");
@@ -387,7 +394,14 @@ async function agreeAndContinue(consentGiven) {
       </div>
     </template>
   </form>
-  <SmsConsentModal v-if="consentOpen" @agree="agreeAndContinue" @cancel="cancelConsent" />
+  <SmsConsentModal
+    v-if="consentOpen"
+    @agree="continueBooking"
+    @continue-without-sms="
+      continueBooking({ appointmentSmsConsent: false, clinicSmsConsent: false })
+    "
+    @cancel="cancelConsent"
+  />
 </template>
 
 <style scoped>
