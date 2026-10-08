@@ -6,12 +6,13 @@ from django.utils import timezone
 from django.views.decorators.http import require_http_methods
 
 from accounts.audit import record_audit_event
-from accounts.consent import record_appointment_sms_choice
+from accounts.consent import STAFF_APPOINTMENT_SMS_METHODS, record_appointment_sms_choice
 from accounts.identity import PatientIdentityConflict, creation_conflict, normalized_full_name
 from accounts.models import PatientProfile, User
 from clinic.models import Service
 from communications.services import create_notification, notify_doctors
 from communications.sms import appointment_event
+from communications.sms_provider import normalize_phone as normalize_sms_phone
 from dental_backend.api import (
     api_error,
     calculate_age,
@@ -239,6 +240,20 @@ def create_appointment(request, payload):
 
     if not is_manual and payload.get("appointment_sms_consent") is not True:
         return api_error("Agree to receive appointment SMS notifications before continuing.")
+    manual_sms_consent = False
+    staff_consent_method = ""
+    if is_manual:
+        manual_sms_consent = payload.get("appointment_sms_consent", False)
+        staff_consent_method = payload.get("sms_consent_method", "")
+        if type(manual_sms_consent) is not bool:
+            return api_error("Appointment SMS consent must be true or false.")
+        if manual_sms_consent and (
+            not isinstance(staff_consent_method, str)
+            or staff_consent_method not in STAFF_APPOINTMENT_SMS_METHODS
+        ):
+            return api_error("Choose how the patient agreed to appointment SMS.")
+        if not manual_sms_consent and staff_consent_method:
+            return api_error("A consent method requires the patient's agreement.")
 
     try:
         with transaction.atomic():
@@ -260,7 +275,7 @@ def create_appointment(request, payload):
             if is_manual:
                 patient_id = str(payload.get("patient_id", "")).strip()
                 if patient_id:
-                    patient = PatientProfile.objects.filter(id=patient_id).first()
+                    patient = PatientProfile.objects.select_for_update().filter(id=patient_id).first()
                     if not patient:
                         return api_error("Choose an existing patient.", 404)
                 else:
@@ -283,9 +298,14 @@ def create_appointment(request, payload):
             if is_manual and (payload.get("source") == "follow_up" or notes.lower().startswith("follow-up")):
                 source = "follow_up"
             sms_consented_at = None
-            if not is_manual:
+            if is_manual and manual_sms_consent:
+                normalize_sms_phone(patient.phone)
+            if not is_manual or manual_sms_consent:
                 sms_consented_at = timezone.now()
-                record_appointment_sms_choice(patient, request.user, recorded_at=sms_consented_at)
+                record_appointment_sms_choice(
+                    patient, request.user, recorded_at=sms_consented_at,
+                    method=staff_consent_method if is_manual else "booking",
+                )
             item = Appointment.objects.create(
                 id=make_id("apt"),
                 patient=patient,
@@ -301,7 +321,7 @@ def create_appointment(request, payload):
                 appointment_time=appointment_time,
                 notes=notes,
                 booking_token=booking_token,
-                appointment_sms_consent=not is_manual,
+                appointment_sms_consent=not is_manual or manual_sms_consent,
                 appointment_sms_consent_at=sms_consented_at,
                 status="approved" if is_manual else "pending",
                 source=source,

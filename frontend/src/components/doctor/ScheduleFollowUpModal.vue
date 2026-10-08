@@ -38,6 +38,16 @@ const currentTime = `${String(now.getHours()).padStart(2, "0")}:${String(now.get
 const busy = ref(false);
 const errorMessage = ref("");
 const scheduledAppointment = ref(null);
+const smsConsent = ref(false);
+const smsConsentMethod = ref("");
+const patientPhone = computed(() =>
+  props.state.patients?.find((patient) => patient.id === props.appointment.patient_id)?.phone || "",
+);
+watch([() => props.appointment.patient_id, patientPhone], () => {
+  // A new patient or mobile number needs a fresh, explicit attestation.
+  smsConsent.value = false;
+  smsConsentMethod.value = "";
+});
 const form = reactive({
   services: [],
   time: "",
@@ -127,6 +137,10 @@ async function scheduleFollowUp() {
     errorMessage.value = "Choose an available time slot for the next visit.";
     return;
   }
+  if (smsConsent.value && !smsConsentMethod.value) {
+    errorMessage.value = "Choose how the patient agreed to appointment SMS.";
+    return;
+  }
 
   busy.value = true;
   try {
@@ -139,6 +153,8 @@ async function scheduleFollowUp() {
       time: form.time,
       notes: `Follow-up visit after ${appointmentService(props.appointment)}.`,
       source: "follow_up",
+      appointment_sms_consent: smsConsent.value,
+      sms_consent_method: smsConsent.value ? smsConsentMethod.value : "",
       _website: form._website,
     });
     const data = await apiRequest("/api/appointments", { method: "POST", body: payload });
@@ -299,6 +315,29 @@ async function scheduleFollowUp() {
         </p>
       </section>
 
+      <fieldset class="follow-up-sms-consent">
+        <legend>Appointment SMS consent</legend>
+        <p>
+          BORJA Dental Clinic can send appointment confirmations, reminders, and appointment
+          status or schedule updates to {{ patientPhone || "the patient's mobile number" }} when
+          the patient agrees.
+        </p>
+        <label>
+          <input v-model="smsConsent" type="checkbox" :disabled="!patientPhone" />
+          I confirm the patient agreed to receive these appointment SMS notifications.
+        </label>
+        <label v-if="smsConsent" class="follow-up-sms-method">
+          How did the patient agree?
+          <select v-model="smsConsentMethod" required>
+            <option value="">Choose a method</option>
+            <option value="staff_in_person">In person</option>
+            <option value="staff_phone">By phone</option>
+          </select>
+        </label>
+        <small v-if="!patientPhone">Add a mobile number to the patient record before recording SMS agreement.</small>
+        <small v-else>The follow-up can still be scheduled without SMS agreement.</small>
+      </fieldset>
+
       <p v-if="errorMessage" class="follow-up-error" role="alert">{{ errorMessage }}</p>
 
       <footer class="follow-up-actions">
@@ -321,6 +360,53 @@ async function scheduleFollowUp() {
 
 .follow-up-form {
   display: grid;
+}
+
+.follow-up-sms-consent {
+  margin: 0;
+  padding: 16px 20px;
+  border: 0;
+  border-bottom: 1px solid #e8dfd0;
+}
+
+.follow-up-sms-consent legend {
+  padding: 0;
+  font-size: 0.85rem;
+  font-weight: 800;
+}
+
+.follow-up-sms-consent p,
+.follow-up-sms-consent small {
+  display: block;
+  margin: 6px 0 10px;
+  color: #706b61;
+  font-size: 0.76rem;
+}
+
+.follow-up-sms-consent label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.follow-up-sms-consent input[type="checkbox"] {
+  flex: 0 0 auto;
+  accent-color: #8a6526;
+}
+
+.follow-up-sms-method {
+  margin-top: 10px;
+}
+
+.follow-up-sms-method select {
+  min-height: 42px;
+  padding: 0 10px;
+  border: 1px solid #f4e7cd;
+  border-radius: 6px;
+  background: #fff;
+  font: inherit;
 }
 
 .follow-up-intro {

@@ -11,6 +11,8 @@ from django.utils import timezone
 from accounts.consent import (
     APPOINTMENT_SMS_CONSENT_PURPOSE,
     APPOINTMENT_SMS_NOTICE_VERSION,
+    STAFF_APPOINTMENT_SMS_CONSENT_PURPOSE,
+    STAFF_APPOINTMENT_SMS_NOTICE_VERSION,
 )
 from accounts.models import PatientConsentRecord, PatientProfile, User
 from clinic.models import Service
@@ -202,3 +204,112 @@ class BookingSmsConsentTests(TestCase):
         self.assertFalse(item.appointment_sms_consent)
         self.assertIsNone(item.appointment_sms_consent_at)
         self.assertFalse(PatientConsentRecord.objects.exists())
+
+    def test_staff_attested_walk_in_consent_is_recorded_and_appointment_scoped(self):
+        self.client.force_login(self.doctor)
+        response = self.book(
+            patient_id=self.patient.pk,
+            appointment_sms_consent=True,
+            sms_consent_method="staff_in_person",
+        )
+        self.assertEqual(response.status_code, 201, response.content)
+        item = Appointment.objects.get(pk=response.json()["appointment"]["id"])
+        self.assertTrue(item.appointment_sms_consent)
+        self.assertIsNotNone(item.appointment_sms_consent_at)
+        self.patient.refresh_from_db()
+        self.assertTrue(self.patient.sms_consent)
+        # A staff-recorded appointment choice must not enable general clinic SMS.
+        self.assertEqual(self.patient.sms_consent_method, "booking")
+        choice = PatientConsentRecord.objects.get(patient=self.patient)
+        self.assertTrue(choice.patient_choice_confirmed)
+        self.assertEqual(choice.method, "staff_in_person")
+        self.assertEqual(choice.actor, self.doctor)
+        self.assertEqual(choice.actor_role, "doctor")
+        self.assertEqual(choice.purpose, STAFF_APPOINTMENT_SMS_CONSENT_PURPOSE)
+        self.assertEqual(choice.notice_version, STAFF_APPOINTMENT_SMS_NOTICE_VERSION)
+        self.assertEqual(choice.recorded_at, item.appointment_sms_consent_at)
+        self.assertEqual(SmsMessage.objects.get(appointment=item, rule_id="walk_in").status, "queued")
+        self.assertEqual(
+            sms.enqueue_manual(self.patient, "manual:staff-scope", "Hello {PatientName}").status,
+            "suppressed",
+        )
+
+    def test_staff_sms_attestation_requires_explicit_boolean_and_method(self):
+        self.client.force_login(self.doctor)
+        for consent, method in ((True, None), (True, ""), (True, "booking"),
+                                (True, "electronic"), ("true", "staff_phone"),
+                                (False, "staff_phone"), (True, [])):
+            with self.subTest(consent=consent, method=method):
+                changes = {"patient_id": self.patient.pk, "appointment_sms_consent": consent}
+                if method is not None:
+                    changes["sms_consent_method"] = method
+                response = self.book(**changes)
+                self.assertEqual(response.status_code, 400, response.content)
+        self.assertFalse(Appointment.objects.exists())
+        self.assertFalse(PatientConsentRecord.objects.exists())
+
+    def test_staff_consented_walk_in_reaches_provider_without_real_sms(self):
+        self.client.force_login(self.doctor)
+        response = self.book(
+            patient_id=self.patient.pk,
+            appointment_sms_consent=True,
+            sms_consent_method="staff_in_person",
+        )
+        self.assertEqual(response.status_code, 201, response.content)
+        item = Appointment.objects.get(pk=response.json()["appointment"]["id"])
+        message = SmsMessage.objects.get(appointment=item, rule_id="walk_in")
+        self.assertEqual(message.status, "queued")
+        with patch(
+            "communications.sms.sms_provider.send",
+            return_value=("philsms:walkin123", "submitted"),
+        ) as send:
+            sms.dispatch(message.pk, timezone.now())
+        send.assert_called_once()
+        self.assertEqual(send.call_args.args[0], "639123456789")
+        message.refresh_from_db()
+        self.assertEqual(message.provider_id, "philsms:walkin123")
+        self.assertEqual(message.status, "submitted")
+        self.assertEqual(message.attempts, 1)
+
+    def test_staff_phone_attestation_does_not_clear_operational_stop(self):
+        self.patient.sms_stop_reason = "wrong_number"
+        self.patient.save(update_fields=["sms_stop_reason"])
+        self.client.force_login(self.doctor)
+        response = self.book(
+            patient_id=self.patient.pk,
+            appointment_sms_consent=True,
+            sms_consent_method="staff_phone",
+        )
+        self.assertEqual(response.status_code, 201, response.content)
+        item = Appointment.objects.get(pk=response.json()["appointment"]["id"])
+        self.assertTrue(item.appointment_sms_consent)
+        self.assertEqual(PatientConsentRecord.objects.get().method, "staff_phone")
+        self.patient.refresh_from_db()
+        self.assertEqual(self.patient.sms_stop_reason, "wrong_number")
+        self.assertEqual(SmsMessage.objects.get(appointment=item, rule_id="walk_in").status, "suppressed")
+
+    def test_staff_attestation_rejects_an_invalid_patient_mobile(self):
+        self.patient.mobile_number = ""
+        self.patient.phone_number = ""
+        self.patient.save(update_fields=["mobile_number", "phone_number"])
+        self.client.force_login(self.doctor)
+        response = self.book(
+            patient_id=self.patient.pk,
+            appointment_sms_consent=True,
+            sms_consent_method="staff_phone",
+        )
+        self.assertEqual(response.status_code, 400, response.content)
+        self.assertFalse(Appointment.objects.exists())
+        self.assertFalse(PatientConsentRecord.objects.exists())
+
+    def test_staff_can_record_agreement_for_new_walk_in_patient(self):
+        self.client.force_login(self.doctor)
+        response = self.book(
+            patient_id="", name="Walk In Patient", phone="09171234567",
+            appointment_sms_consent=True, sms_consent_method="staff_in_person",
+        )
+        self.assertEqual(response.status_code, 201, response.content)
+        item = Appointment.objects.get(pk=response.json()["appointment"]["id"])
+        self.assertTrue(item.appointment_sms_consent)
+        self.assertEqual(PatientConsentRecord.objects.get(patient=item.patient).actor, self.doctor)
+        self.assertEqual(SmsMessage.objects.get(appointment=item, rule_id="walk_in").status, "queued")

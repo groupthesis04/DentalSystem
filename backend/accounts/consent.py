@@ -14,7 +14,14 @@ APPOINTMENT_SMS_CONSENT_PURPOSE = (
     "updates sent by BORJA Dental Clinic to the mobile number registered to "
     "the patient's account."
 )
+STAFF_APPOINTMENT_SMS_CONSENT_PURPOSE = (
+    "Appointment confirmations, reminders, and appointment status and schedule "
+    "updates sent by BORJA Dental Clinic to the mobile number the patient "
+    "provided to the clinic."
+)
 APPOINTMENT_SMS_NOTICE_VERSION = "appointment-booking-v1"
+STAFF_APPOINTMENT_SMS_NOTICE_VERSION = "appointment-staff-v1"
+STAFF_APPOINTMENT_SMS_METHODS = frozenset({"staff_in_person", "staff_phone"})
 
 
 def sms_consent_status(patient):
@@ -62,13 +69,15 @@ def record_sms_choice(patient, consent, actor, *, method="", stop_reason="", sto
         )
 
 
-def record_appointment_sms_choice(patient, actor, *, recorded_at):
-    """Record a booking choice without broadening its SMS purpose.
+def record_appointment_sms_choice(patient, actor, *, recorded_at, method="booking"):
+    """Record an appointment choice without broadening its SMS purpose.
 
     The caller locks the patient row and creates the appointment in the same
     transaction. An existing broader grant remains broad; a prior patient
     withdrawal is replaced by this fresh, narrower affirmative choice.
     """
+    if method != "booking" and method not in STAFF_APPOINTMENT_SMS_METHODS:
+        raise ValueError("Choose how the patient agreed to appointment SMS.")
     PatientConsentRecord.objects.create(
         patient=patient,
         patient_id_snapshot=patient.pk,
@@ -76,9 +85,15 @@ def record_appointment_sms_choice(patient, actor, *, recorded_at):
         action=PatientConsentRecord.Action.RECORDED,
         consent_given=True,
         patient_choice_confirmed=True,
-        method="booking",
-        purpose=APPOINTMENT_SMS_CONSENT_PURPOSE,
-        notice_version=APPOINTMENT_SMS_NOTICE_VERSION,
+        method=method,
+        purpose=(
+            APPOINTMENT_SMS_CONSENT_PURPOSE if method == "booking"
+            else STAFF_APPOINTMENT_SMS_CONSENT_PURPOSE
+        ),
+        notice_version=(
+            APPOINTMENT_SMS_NOTICE_VERSION if method == "booking"
+            else STAFF_APPOINTMENT_SMS_NOTICE_VERSION
+        ),
         actor=actor,
         actor_id_snapshot=actor.pk,
         actor_role=actor.role,
@@ -99,6 +114,8 @@ def record_appointment_sms_choice(patient, actor, *, recorded_at):
 
     patient.sms_consent = True
     patient.sms_consent_at = recorded_at
+    # All appointment-only grants keep the same scope in consent_error(), even
+    # when the evidence records that a staff member heard the patient's choice.
     patient.sms_consent_method = "booking"
     patient.sms_consent_recorded_by = actor
     patient.sms_stop_reason = ""

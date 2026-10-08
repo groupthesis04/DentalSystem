@@ -24,6 +24,8 @@ const patientPickerOpen = ref(false);
 const patientSearchInput = ref(null);
 const busy = ref(false);
 const errorMessage = ref("");
+const smsConsent = ref(false);
+const smsConsentMethod = ref("");
 const today = localDateIso();
 let pickerCloseTimer = 0;
 
@@ -61,6 +63,9 @@ const patientResults = computed(() => {
 const selectedPatient = computed(
   () => patients.value.find((patient) => patient.id === selectedPatientId.value) || null,
 );
+const consentPhone = computed(() =>
+  patientType.value === "existing" ? selectedPatient.value?.phone || "" : newPatient.phone.trim(),
+);
 const clinicSlots = computed(() => futureOpenSlots(props.state.availability, props.doctor));
 const availableDates = computed(() => availableSlotDates(clinicSlots.value));
 const availableTimes = computed(() =>
@@ -88,6 +93,14 @@ watch(clinicSlots, (slots) => {
     appointment.time = "";
   }
 });
+watch(
+  [patientType, selectedPatientId, () => selectedPatient.value?.phone, () => newPatient.phone],
+  () => {
+    // A choice for one patient or mobile number must not carry to another.
+    smsConsent.value = false;
+    smsConsentMethod.value = "";
+  },
+);
 
 onMounted(() => {
   nextTick(() => patientSearchInput.value?.focus());
@@ -153,6 +166,10 @@ async function submitAppointment() {
     errorMessage.value = "Choose at least one service, an available date, and time.";
     return;
   }
+  if (smsConsent.value && !smsConsentMethod.value) {
+    errorMessage.value = "Choose how the patient agreed to appointment SMS.";
+    return;
+  }
 
   busy.value = true;
   try {
@@ -169,6 +186,8 @@ async function submitAppointment() {
       date: appointment.date,
       time: appointment.time,
       notes: appointment.notes,
+      appointment_sms_consent: smsConsent.value,
+      sms_consent_method: smsConsent.value ? smsConsentMethod.value : "",
       _website: appointment._website,
     });
     const data = await apiRequest("/api/appointments", { method: "POST", body: payload });
@@ -462,6 +481,28 @@ async function submitAppointment() {
         </div>
       </section>
 
+      <fieldset class="manual-sms-consent">
+        <legend>Appointment SMS consent</legend>
+        <p>
+          BORJA Dental Clinic can send appointment confirmations, reminders, and appointment
+          status or schedule updates to the mobile number above when the patient agrees.
+        </p>
+        <label>
+          <input v-model="smsConsent" type="checkbox" :disabled="!consentPhone" />
+          I confirm the patient agreed to receive these appointment SMS notifications.
+        </label>
+        <label v-if="smsConsent" class="manual-sms-method">
+          How did the patient agree?
+          <select v-model="smsConsentMethod" required>
+            <option value="">Choose a method</option>
+            <option value="staff_in_person">In person</option>
+            <option value="staff_phone">By phone</option>
+          </select>
+        </label>
+        <small v-if="!consentPhone">Enter or select a patient mobile number before recording SMS agreement.</small>
+        <small v-else>The appointment can still be saved without SMS agreement.</small>
+      </fieldset>
+
       <p v-if="errorMessage" class="manual-form-error" role="alert">{{ errorMessage }}</p>
 
       <footer class="manual-form-actions">
@@ -485,6 +526,52 @@ async function submitAppointment() {
 
 .manual-appointment-form {
   color: #171511;
+}
+
+.manual-sms-consent {
+  margin: 0;
+  padding: 18px 24px;
+  border: 0;
+  border-bottom: 1px solid #f5f2eb;
+}
+
+.manual-sms-consent legend {
+  padding: 0;
+  font-weight: 800;
+}
+
+.manual-sms-consent p,
+.manual-sms-consent small {
+  display: block;
+  margin: 6px 0 10px;
+  color: #706b61;
+  font-size: 0.76rem;
+}
+
+.manual-sms-consent label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.manual-sms-consent input[type="checkbox"] {
+  flex: 0 0 auto;
+  accent-color: #8a6526;
+}
+
+.manual-sms-method {
+  margin-top: 10px;
+}
+
+.manual-sms-method select {
+  min-height: 42px;
+  padding: 0 10px;
+  border: 1px solid #f4e7cd;
+  border-radius: 6px;
+  background: #fff;
+  font: inherit;
 }
 
 .manual-form-section {
