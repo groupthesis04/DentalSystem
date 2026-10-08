@@ -65,8 +65,7 @@ function agreeAndContinue() {
         <span class="sms-consent-privacy-icon" aria-hidden="true"><LockKeyhole :size="19" /></span>
         <span class="sms-consent-privacy-copy">
           The clinic records your choices and uses your mobile number with its SMS provider to send
-          the messages you agree to receive. Privacy questions:
-          <a href="mailto:carllesteraurelia0811@gmail.com">carllesteraurelia0811@gmail.com</a>.
+          the messages you agree to receive.
         </span>
       </p>
 

@@ -351,11 +351,6 @@ async function scheduleFollowUp() {
           I confirm the patient separately agreed to receive these other clinic SMS messages.
         </label>
         <small>Tell the patient they can stop all clinic SMS in Account → Notifications.</small>
-        <small
-          >Privacy questions:
-          <a href="mailto:carllesteraurelia0811@gmail.com">carllesteraurelia0811@gmail.com</a
-          >.</small
-        >
         <label v-if="smsConsent" class="follow-up-sms-method">
           How did the patient agree?
           <select v-model="smsConsentMethod" required>
