@@ -4,7 +4,7 @@ import { Check, LockKeyhole, MessageSquareMore, Smartphone } from "lucide-vue-ne
 
 import BaseModal from "./BaseModal.vue";
 
-const emit = defineEmits(["agree", "continue-without-sms", "cancel"]);
+const emit = defineEmits(["agree", "cancel"]);
 const agreed = ref(false);
 const clinicAgreed = ref(false);
 const checkbox = ref(null);
@@ -40,8 +40,8 @@ function agreeAndContinue() {
         </span>
         <h2 aria-hidden="true">SMS Notification Consent</h2>
         <p>
-          Choose whether BORJA Dental Clinic may send SMS to the mobile number registered to your
-          account. You can still book and view appointment updates in your dashboard without SMS.
+          To continue booking, please agree to receive appointment SMS from BORJA Dental Clinic at
+          the mobile number registered to your account.
         </p>
       </div>
 
@@ -102,9 +102,6 @@ function agreeAndContinue() {
           Agree &amp; Continue
         </button>
       </div>
-      <button class="sms-consent-no-sms" type="button" @click="emit('continue-without-sms')">
-        Continue without SMS
-      </button>
     </div>
   </BaseModal>
 </template>
@@ -368,17 +365,6 @@ function agreeAndContinue() {
   background: linear-gradient(110deg, #e4cb96, #d8b973);
   color: #fff;
   opacity: 1;
-}
-
-.sms-consent-no-sms {
-  justify-self: center;
-  border: 0;
-  background: transparent;
-  color: #6a552f;
-  font: inherit;
-  font-weight: 700;
-  text-decoration: underline;
-  cursor: pointer;
 }
 
 @media (max-width: 480px) {

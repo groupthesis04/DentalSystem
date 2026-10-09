@@ -67,8 +67,8 @@ class BookingSmsConsentTests(TestCase):
             content_type="application/json",
         )
 
-    def test_patient_booking_requires_an_explicit_boolean_sms_choice(self):
-        for value in (None, "true", 1):
+    def test_patient_booking_requires_appointment_sms_agreement(self):
+        for value in (None, False, "true", 1):
             with self.subTest(value=value):
                 changes = {} if value is None else {"appointment_sms_consent": value}
                 response = self.book(**changes)
@@ -78,42 +78,26 @@ class BookingSmsConsentTests(TestCase):
         self.patient.refresh_from_db()
         self.assertFalse(self.patient.sms_consent)
 
-    def test_patient_can_book_without_sms_and_decline_is_appointment_specific(self):
+    def test_declining_appointment_sms_does_not_create_a_booking(self):
         response = self.book(
             appointment_sms_consent=False, clinic_sms_consent=False,
             sms_consent_notice_version="",
         )
-        self.assertEqual(response.status_code, 201, response.content)
-        item = Appointment.objects.get(pk=response.json()["appointment"]["id"])
-        self.assertTrue(item.appointment_sms_declined)
-        self.assertFalse(item.appointment_sms_consent)
-        self.assertIsNone(item.appointment_sms_consent_at)
+        self.assertEqual(response.status_code, 400, response.content)
+        self.assertFalse(Appointment.objects.exists())
         self.assertFalse(PatientConsentRecord.objects.exists())
-        self.assertFalse(SmsMessage.objects.filter(appointment=item).exists())
-        self.client.force_login(self.doctor)
-        update = self.client.patch(
-            "/api/appointments",
-            data=json.dumps({"id": item.pk, "status": "approved"}),
-            content_type="application/json",
-        )
-        self.assertEqual(update.status_code, 200, update.content)
-        approval = SmsMessage.objects.get(appointment=item, rule_id="approval")
-        self.assertEqual(approval.status, "suppressed")
-        self.assertIn("declined SMS", approval.error)
+        self.assertFalse(SmsMessage.objects.exists())
 
-    def test_declining_appointment_sms_preserves_prior_broad_grant(self):
+    def test_rejected_booking_preserves_prior_broad_grant(self):
         self.patient.sms_consent = True
         self.patient.sms_consent_at = timezone.now() - dt.timedelta(days=1)
         self.patient.sms_consent_method = "electronic"
         self.patient.save(update_fields=["sms_consent", "sms_consent_at", "sms_consent_method"])
         response = self.book(appointment_sms_consent=False, clinic_sms_consent=False)
-        self.assertEqual(response.status_code, 201, response.content)
-        item = Appointment.objects.get(pk=response.json()["appointment"]["id"])
-        self.assertTrue(item.appointment_sms_declined)
+        self.assertEqual(response.status_code, 400, response.content)
+        self.assertFalse(Appointment.objects.exists())
         self.patient.refresh_from_db()
         self.assertEqual(self.patient.sms_consent_method, "electronic")
-        self.assertFalse(SmsMessage.objects.filter(appointment=item).exists())
-        self.assertEqual(sms.appointment_event(item, "approval").status, "suppressed")
         self.assertEqual(
             sms.enqueue_manual(self.patient, "manual:prior-broad", "Hello {PatientName}").status,
             "queued",

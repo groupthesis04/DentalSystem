@@ -156,20 +156,17 @@ async function cancelConsent() {
 }
 
 async function continueBooking(consentChoice) {
-  if (!consentOpen.value || !consentChoice || busy.value) return;
+  if (!consentOpen.value || consentChoice?.appointmentSmsConsent !== true || busy.value) return;
   consentOpen.value = false;
   busy.value = true;
   try {
     const payload = validatedPayload({
       ...form,
       service: form.services[0] || "",
-      appointment_sms_consent: consentChoice.appointmentSmsConsent === true,
-      clinic_sms_consent:
-        consentChoice.appointmentSmsConsent === true && consentChoice.clinicSmsConsent === true,
+      appointment_sms_consent: true,
+      clinic_sms_consent: consentChoice.clinicSmsConsent === true,
       sms_consent_notice_version:
-        consentChoice.appointmentSmsConsent === true && consentChoice.clinicSmsConsent === true
-          ? CLINIC_SMS_BOOKING_NOTICE_VERSION
-          : "",
+        consentChoice.clinicSmsConsent === true ? CLINIC_SMS_BOOKING_NOTICE_VERSION : "",
     });
     if (!payload.services.length) throw new Error("Select at least one dental service.");
     if (!payload.date || !payload.time) throw new Error("Choose an available date and time.");
@@ -397,9 +394,6 @@ async function continueBooking(consentChoice) {
   <SmsConsentModal
     v-if="consentOpen"
     @agree="continueBooking"
-    @continue-without-sms="
-      continueBooking({ appointmentSmsConsent: false, clinicSmsConsent: false })
-    "
     @cancel="cancelConsent"
   />
 </template>

@@ -4616,7 +4616,7 @@ body[data-page="home"] .hero {
 }
 
 body[data-page="home"] .hero::before {
-  background: url("/assets/dental-clinic-hero-luxury-v1.png") center / cover no-repeat;
+  background: url("/assets/background.png") center bottom / cover no-repeat;
   filter: none;
   opacity: 1;
 }
@@ -5006,7 +5006,7 @@ body[data-page="home"] .about-visual > img {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  object-position: 72% center;
+  object-position: 72% 35%;
 }
 
 body[data-page="home"] .about-visual blockquote {
@@ -5228,12 +5228,13 @@ body[data-page="home"] .services-banner {
     linear-gradient(
       90deg,
       #fffdf9 0%,
-      rgba(255, 253, 249, 0.98) 30%,
-      rgba(255, 253, 249, 0.8) 43%,
-      rgba(255, 253, 249, 0.04) 66%,
+      rgba(255, 253, 249, 0.99) 45%,
+      rgba(255, 253, 249, 0.9) 58%,
+      rgba(255, 253, 249, 0.5) 71%,
+      rgba(255, 253, 249, 0.04) 86%,
       transparent 100%
     ),
-    url("/assets/dental-services-patient-luxury-v1.png") center 35% / cover no-repeat;
+    url("/assets/service_bg.png") right 35% / auto 1080px no-repeat;
 }
 
 body[data-page="home"] .services-banner-copy {
@@ -6766,12 +6767,13 @@ body[data-page="home"] .footer-contact span {
       linear-gradient(
         90deg,
         #fffdf9 0%,
-        rgba(255, 253, 249, 0.99) 34%,
-        rgba(255, 253, 249, 0.9) 52%,
-        rgba(255, 253, 249, 0.12) 78%,
+        rgba(255, 253, 249, 0.99) 42%,
+        rgba(255, 253, 249, 0.92) 58%,
+        rgba(255, 253, 249, 0.48) 74%,
+        rgba(255, 253, 249, 0.08) 90%,
         transparent 100%
       ),
-      url("/assets/dental-services-patient-luxury-v1.png") 65% 35% / cover no-repeat;
+      url("/assets/service_bg.png") right 35% / auto 740px no-repeat;
   }
 
   body[data-page="home"] .services-banner-copy {
@@ -7536,7 +7538,7 @@ body[data-page="home"] .footer-contact span {
   body[data-page="home"] .services-banner {
     min-height: 620px;
     background:
-      url("/assets/dental-services-patient-luxury-v1.png") right bottom / auto 330px no-repeat,
+      url("/assets/service_bg.png") right bottom / auto 330px no-repeat,
       #fffdf9;
   }
 

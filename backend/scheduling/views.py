@@ -246,8 +246,8 @@ def create_appointment(request, payload):
     patient_sms_consent = False
     if not is_manual:
         patient_sms_consent = payload.get("appointment_sms_consent")
-        if type(patient_sms_consent) is not bool:
-            return api_error("Choose whether to receive appointment SMS notifications.")
+        if patient_sms_consent is not True:
+            return api_error("Agree to appointment SMS notifications to continue booking.")
     clinic_sms_consent = payload.get("clinic_sms_consent", False)
     if type(clinic_sms_consent) is not bool:
         return api_error("Clinic SMS consent must be true or false.")

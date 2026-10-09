@@ -820,8 +820,8 @@ onBeforeUnmount(() => {
         </div>
         <div class="about-visual">
           <img
-            src="/assets/dental-clinic-hero-luxury-v1.png"
-            alt="Warm, modern BORJA dental treatment room"
+            src="/assets/about_bg.png"
+            alt="BORJA Dental Clinic sign above the reception seating"
           />
           <blockquote>
             <span aria-hidden="true">&ldquo;</span>
