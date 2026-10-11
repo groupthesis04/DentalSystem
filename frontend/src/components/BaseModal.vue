@@ -7,6 +7,7 @@ const props = defineProps({
   eyebrow: { type: String, default: "" },
   sizeClass: { type: String, default: "" },
   labelledBy: { type: String, default: "" },
+  describedBy: { type: String, default: "" },
 });
 const emit = defineEmits(["close"]);
 const generatedId = `dialog-title-${useId().replaceAll(":", "")}`;
@@ -47,6 +48,7 @@ onBeforeUnmount(() => {
         role="dialog"
         aria-modal="true"
         :aria-labelledby="titleId"
+        :aria-describedby="describedBy || undefined"
       >
         <div class="crud-dialog-shell">
           <header class="crud-dialog-header">

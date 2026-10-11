@@ -265,10 +265,36 @@ class VerificationCooldown(Exception):
         self.seconds = seconds
 
 
+def verification_sms_failure(reason="unknown", http_status=None):
+    """Return a useful, fixed message without exposing PhilSMS response data."""
+    if reason == "recipient":
+        message = (
+            "The mobile number on the clinic's patient record was rejected for SMS. "
+            "Please contact the clinic to check that number."
+        )
+        code = "SMS_RECIPIENT"
+    elif reason == "rate_limit":
+        message = "Verification SMS is temporarily rate limited. Please try again shortly."
+        code = "SMS_RATE_LIMIT"
+    else:
+        message = "Verification SMS is temporarily unavailable. Please contact the clinic."
+        code = {
+            "credentials": "SMS_ACCOUNT",
+            "account_restricted": "SMS_ACCOUNT",
+            "sender": "SMS_SENDER",
+            "balance": "SMS_CREDITS",
+            "configuration": "SMS_CONFIG",
+            "request_rejected": "SMS_REQUEST",
+        }.get(reason, "SMS_UNAVAILABLE")
+        if reason == "unknown" and http_status == 404:
+            code = "SMS_HTTP_404"
+    return api_error(f"{message} (Reference: {code})", 503, sms_error_code=code)
+
+
 def send_verification_code(phone, token, code):
     body = (
         f"{settings.SMS_CLINIC_NAME}\n"
-        f"Your account verification code is {code}. It expires in 5 minutes. "
+        f"Your one-time code is {code}. It expires in 5 minutes. "
         "Do not share this code with anyone."
     )
     try:
@@ -281,12 +307,12 @@ def send_verification_code(phone, token, code):
         PatientAccountVerification.objects.filter(token_hash=verification_token_hash(token)).update(
             is_used=True, code_hash="", password_hash="", profile_image=""
         )
-        return api_error("Verification SMS could not be sent. Please try again after a minute.", 503)
+        return verification_sms_failure(error.reason, error.http_status)
     if state in {"failed", "refunded"}:
         PatientAccountVerification.objects.filter(token_hash=verification_token_hash(token)).update(
             is_used=True, code_hash="", password_hash="", profile_image=""
         )
-        return api_error("Verification SMS could not be sent. Please try again after a minute.", 503)
+        return verification_sms_failure()
     verification = PatientAccountVerification.objects.select_related("patient").filter(
         token_hash=verification_token_hash(token)
     ).first()

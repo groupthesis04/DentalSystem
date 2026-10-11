@@ -3,12 +3,14 @@ import { CalendarDays, FileText, House } from "lucide-vue-next";
 import { computed, nextTick, onMounted, ref } from "vue";
 
 import "../patient-dark.css";
+import ActionConfirmModal from "../components/ActionConfirmModal.vue";
 import AppointmentForm from "../components/AppointmentForm.vue";
 import BaseModal from "../components/BaseModal.vue";
 import DoctorAccount from "../components/doctor/DoctorAccount.vue";
 import PortalHeader from "../components/PortalHeader.vue";
 import PortalSidebar from "../components/PortalSidebar.vue";
 import { useDashboardPanel } from "../composables/useDashboardPanel";
+import { useActionConfirmation } from "../composables/useActionConfirmation";
 import PatientOverview from "../components/patient/PatientOverview.vue";
 import PatientRecords from "../components/patient/PatientRecords.vue";
 import PatientVisits from "../components/patient/PatientVisits.vue";
@@ -28,6 +30,8 @@ const bookingBusy = ref(false);
 const highlightedId = ref("");
 const mobileNavigationOpen = ref(false);
 const portalHeader = ref(null);
+const cancellingAppointment = ref(false);
+const { confirmation, requestConfirmation, answerConfirmation } = useActionConfirmation();
 
 function closeMobileNavigation(restoreFocus = false) {
   mobileNavigationOpen.value = false;
@@ -129,7 +133,15 @@ async function logout() {
 }
 
 async function cancelAppointment(item) {
-  if (!window.confirm(`Cancel the ${appointmentService(item)} appointment?`)) return;
+  if (cancellingAppointment.value) return;
+  const accepted = await requestConfirmation({
+    title: "Cancel appointment?",
+    message: `Are you sure you want to cancel the ${appointmentService(item)} appointment?`,
+    confirmLabel: "Cancel Appointment",
+    tone: "danger",
+  });
+  if (!accepted || cancellingAppointment.value) return;
+  cancellingAppointment.value = true;
   try {
     const data = await apiRequest("/api/appointments", {
       method: "PATCH",
@@ -140,6 +152,8 @@ async function cancelAppointment(item) {
     showToast("Appointment cancelled.");
   } catch (error) {
     showToast(error.message, "error");
+  } finally {
+    cancellingAppointment.value = false;
   }
 }
 
@@ -292,6 +306,12 @@ onMounted(async () => {
         @cancel="bookingOpen = false"
       />
     </BaseModal>
+    <ActionConfirmModal
+      v-if="confirmation"
+      v-bind="confirmation"
+      @confirm="answerConfirmation(true)"
+      @cancel="answerConfirmation(false)"
+    />
   </template>
   <div v-else class="loading-state">Opening your dashboard...</div>
 </template>

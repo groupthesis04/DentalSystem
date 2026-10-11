@@ -26,6 +26,8 @@ import {
   XCircle,
 } from "lucide-vue-next";
 import BaseModal from "../BaseModal.vue";
+import ActionConfirmModal from "../ActionConfirmModal.vue";
+import { useActionConfirmation } from "../../composables/useActionConfirmation";
 import { apiRequest } from "../../services/api";
 import { showToast } from "../../services/toast";
 
@@ -50,6 +52,7 @@ const deleteError = ref("");
 const editorInput = ref(null);
 const previewSection = ref(null);
 const pageRoot = ref(null);
+const { confirmation, requestConfirmation, answerConfirmation } = useActionConfirmation();
 const icons = {
   booking: CalendarDays,
   approval: CheckCircle2,
@@ -124,9 +127,10 @@ function selectTemplate(id, scroll = false) {
 async function load(preferredId = selectedId.value) {
   const result = await apiRequest("/api/sms/templates");
   const order = Object.keys(icons);
-  templates.value = result.templates.sort((a, b) =>
-    (order.indexOf(a.rule) < 0 ? order.length : order.indexOf(a.rule)) -
-    (order.indexOf(b.rule) < 0 ? order.length : order.indexOf(b.rule)),
+  templates.value = result.templates.sort(
+    (a, b) =>
+      (order.indexOf(a.rule) < 0 ? order.length : order.indexOf(a.rule)) -
+      (order.indexOf(b.rule) < 0 ? order.length : order.indexOf(b.rule)),
   );
   placeholders.value = result.placeholders;
   clinicName.value = result.clinic_name;
@@ -151,7 +155,34 @@ function reset() {
   drafts.value[selectedId.value] = { ...selected.value };
   error.value = "";
 }
-async function persist(payload, create = false) {
+async function persist(payload, create = false, prompt = null) {
+  if (busy.value) return false;
+  const templateName = String(
+    payload.name ?? templates.value.find((item) => item.id === payload.id)?.name ?? "this template",
+  ).trim();
+  if (payload.name !== undefined && !templateName) {
+    if (editor.value) editorError.value = "Enter a template name.";
+    else error.value = "Enter a template name.";
+    return false;
+  }
+  if (payload.body !== undefined && !String(payload.body).trim()) {
+    if (editor.value) editorError.value = "Enter message content.";
+    else error.value = "Enter message content.";
+    return false;
+  }
+  if (
+    !(await requestConfirmation(
+      prompt || {
+        title: create ? "Create SMS Template?" : "Save SMS Template?",
+        message: create
+          ? `Are you sure you want to create ${templateName}?`
+          : `Are you sure you want to save changes to ${templateName}?`,
+        confirmLabel: create ? "Create Template" : "Save Template",
+        tone: "save",
+      },
+    ))
+  )
+    return false;
   busy.value = true;
   error.value = "";
   editorError.value = "";
@@ -177,6 +208,16 @@ async function persist(payload, create = false) {
   } finally {
     busy.value = false;
   }
+}
+async function toggleTemplate(item, event) {
+  const enabled = event.target.checked;
+  event.target.checked = item.enabled;
+  await persist({ id: item.id, enabled }, false, {
+    title: enabled ? "Enable SMS Template?" : "Disable SMS Template?",
+    message: `Are you sure you want to ${enabled ? "enable" : "disable"} ${item.name}?`,
+    confirmLabel: enabled ? "Enable Template" : "Disable Template",
+    tone: "save",
+  });
 }
 function saveSettings() {
   const item = working.value;
@@ -354,7 +395,7 @@ onMounted(async () => {
                     :aria-label="item.name + ' status'"
                     :checked="item.enabled"
                     :disabled="busy"
-                    @change="persist({ id: item.id, enabled: $event.target.checked })"
+                    @change="toggleTemplate(item, $event)"
                   /><span class="toggle-track"></span
                   ><small>{{ item.enabled ? "ON" : "OFF" }}</small></label
                 >
@@ -585,6 +626,12 @@ onMounted(async () => {
         </footer>
       </div>
     </BaseModal>
+    <ActionConfirmModal
+      v-if="confirmation"
+      v-bind="confirmation"
+      @confirm="answerConfirmation(true)"
+      @cancel="answerConfirmation(false)"
+    />
   </section>
 </template>
 
@@ -1376,14 +1423,79 @@ onMounted(async () => {
     font-size: 21px;
   }
 }
-:global(html[data-dashboard-theme="dark"]) .template-body {
+:global(
+  html[data-dashboard-theme="dark"] body[data-page="doctor"] .sms-templates-page .template-body
+) {
   background: #28241e;
+  color: #fcfbf8;
 }
-:global(html[data-dashboard-theme="dark"]) .variable-tags span {
+:global(
+  html[data-dashboard-theme="dark"]
+    body[data-page="doctor"]
+    .sms-templates-page
+    .phone-frame
+    .phone-status
+),
+:global(
+  html[data-dashboard-theme="dark"]
+    body[data-page="doctor"]
+    .sms-templates-page
+    .phone-frame
+    .phone-contact
+    strong
+),
+:global(
+  html[data-dashboard-theme="dark"]
+    body[data-page="doctor"]
+    .sms-templates-page
+    .phone-frame
+    .phone-conversation
+    p
+) {
+  color: #171511;
+}
+:global(
+  html[data-dashboard-theme="dark"]
+    body[data-page="doctor"]
+    .sms-templates-page
+    .phone-frame
+    .sample-label
+),
+:global(
+  html[data-dashboard-theme="dark"]
+    body[data-page="doctor"]
+    .sms-templates-page
+    .phone-frame
+    .phone-conversation
+    small
+) {
+  color: #706b61;
+}
+:global(
+  html[data-dashboard-theme="dark"] body[data-page="doctor"] .sms-templates-page .variable-tags span
+) {
   background: #3f321e;
   color: #e3c985;
 }
-:global(html[data-dashboard-theme="dark"]) .sms-templates-page button:not(.primary):hover {
+:global(
+  html[data-dashboard-theme="dark"]
+    body[data-page="doctor"]
+    .sms-templates-page
+    .template-card
+    footer
+    .delete-template-action:disabled
+) {
+  opacity: 1;
+  border-color: #604548;
+  background: #2a2222;
+  color: #d8b0b7;
+}
+:global(
+  html[data-dashboard-theme="dark"]
+    body[data-page="doctor"]
+    .sms-templates-page
+    button:not(.primary):not(.delete-template-action):hover:not(:disabled)
+) {
   background: #28241e;
 }
 </style>

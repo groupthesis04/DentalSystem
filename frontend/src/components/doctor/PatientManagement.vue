@@ -16,6 +16,7 @@ import {
   Search,
   Send,
   Smartphone,
+  TriangleAlert,
   UserRound,
   UsersRound,
 } from "lucide-vue-next";
@@ -70,6 +71,11 @@ const followUpWasScheduled = ref(false);
 const selectedPatientId = ref("");
 const detailRecord = ref(null);
 const busy = ref(false);
+const confirmation = ref(null);
+const confirmationBusy = ref(false);
+const confirmationError = ref("");
+const confirmationCancelButton = ref(null);
+let confirmationTrigger = null;
 const clinicDoctor = computed(() => session.user?.name || props.state.clinicDoctor || "");
 const openFollowUpDates = computed(() =>
   availableSlotDates(futureOpenSlots(props.state.availability, clinicDoctor.value)),
@@ -385,7 +391,29 @@ function resetPatientForm(patient = null) {
 }
 
 // Patient CRUD actions.
+function requestSavePatient() {
+  if (busy.value) return;
+  try {
+    validatedPayload({ ...patientForm }, { mobileRequired: true });
+  } catch (error) {
+    showToast(error.message, "error");
+    return;
+  }
+  const editing = Boolean(patientForm.id);
+  const patientName = [patientForm.first_name, patientForm.middle_name, patientForm.last_name]
+    .map((part) => String(part || "").trim())
+    .filter(Boolean)
+    .join(" ");
+  openConfirmation({
+    kind: "save-patient",
+    title: editing ? "Update patient record?" : "Save patient record?",
+    message: `Are you sure you want to ${editing ? "update" : "save"} the patient record for ${patientName}?`,
+    confirmLabel: editing ? "Update Patient" : "Save Patient",
+  });
+}
+
 async function savePatient() {
+  if (busy.value) return;
   busy.value = true;
   try {
     const payload = validatedPayload({ ...patientForm }, { mobileRequired: true });
@@ -430,20 +458,39 @@ function editPatient(patient) {
   resetPatientForm(patient);
 }
 
-async function deletePatient(patient) {
-  if (
-    patient.source !== "profile" ||
-    !window.confirm(`Delete ${patient.name} and all linked treatment records?`)
-  )
-    return;
-  try {
-    await apiRequest("/api/patients", { method: "DELETE", body: { id: patient.id } });
-    props.state.patients = props.state.patients.filter((item) => item.id !== patient.id);
-    props.state.records = props.state.records.filter((item) => item.patient_id !== patient.id);
-    showToast("Patient record deleted.");
-  } catch (error) {
-    showToast(error.message, "error");
-  }
+function openConfirmation(details) {
+  if (busy.value || confirmation.value || confirmationBusy.value) return;
+  confirmationTrigger = document.activeElement;
+  confirmationError.value = "";
+  confirmation.value = details;
+  nextTick(() => {
+    document
+      .querySelector(".patient-confirm-dialog")
+      ?.setAttribute("aria-describedby", "patient-confirm-message");
+    confirmationCancelButton.value?.focus();
+  });
+}
+
+function closeConfirmation() {
+  if (confirmationBusy.value) return;
+  confirmation.value = null;
+  confirmationError.value = "";
+  const trigger = confirmationTrigger;
+  confirmationTrigger = null;
+  nextTick(() => {
+    if (trigger?.isConnected) trigger.focus();
+  });
+}
+
+function deletePatient(patient) {
+  if (patient.source !== "profile") return;
+  openConfirmation({
+    kind: "delete-patient",
+    id: patient.id,
+    title: "Delete patient record?",
+    message: `Are you sure you want to delete ${patient.name} and all linked treatment records? This cannot be undone.`,
+    confirmLabel: "Delete Patient",
+  });
 }
 
 function replacePatient(patient) {
@@ -452,27 +499,16 @@ function replacePatient(patient) {
     props.state.patients.splice(index, 1, { ...props.state.patients[index], ...patient });
 }
 
-async function setAccountActive(patient, isActive) {
-  if (
-    !isActive &&
-    !window.confirm(
-      `Disable ${patient.name}'s login? Their appointments and treatment records will remain available to the clinic.`,
-    )
-  )
-    return;
-  busy.value = true;
-  try {
-    const data = await apiRequest("/api/patients", {
-      method: "PATCH",
-      body: { action: "account_status", id: patient.id, is_active: isActive },
-    });
-    replacePatient(data.patient);
-    showToast(isActive ? "Patient account enabled." : "Patient account disabled.");
-  } catch (error) {
-    showToast(error.message, "error");
-  } finally {
-    busy.value = false;
-  }
+function setAccountActive(patient, isActive) {
+  openConfirmation({
+    kind: isActive ? "save-enable-account" : "disable-account",
+    id: patient.id,
+    title: isActive ? "Enable patient account?" : "Disable patient account?",
+    message: isActive
+      ? `Are you sure you want to enable ${patient.name}'s login? They will be able to access their patient account again.`
+      : `Are you sure you want to disable ${patient.name}'s login? Their appointments and treatment records will remain available to the clinic.`,
+    confirmLabel: isActive ? "Enable Account" : "Disable Account",
+  });
 }
 
 function recordProcedures(record) {
@@ -510,33 +546,57 @@ function resetTreatmentForm(record = null) {
 }
 
 // Treatment CRUD actions.
+function treatmentSaveDetails() {
+  const selectedProcedures = [
+    ...new Set(
+      (Array.isArray(treatmentForm.procedures) ? treatmentForm.procedures : [])
+        .map((value) => String(value || "").trim())
+        .filter(Boolean),
+    ),
+  ];
+  if (!selectedProcedures.length) throw new Error("Select at least one service.");
+  const payload = validatedPayload({
+    ...treatmentForm,
+    procedures: selectedProcedures,
+    procedure: selectedProcedures[0],
+  });
+  payload.treatment = payload.procedure;
+  const editing = Boolean(payload.id);
+  const scheduleFollowUp =
+    Boolean(payload.next_visit) && (!editing || Boolean(followUpContext.value));
+  if (scheduleFollowUp && !clinicDoctor.value) {
+    throw new Error("The clinic dentist could not be found. Refresh and try again.");
+  }
+  if (scheduleFollowUp && !openFollowUpDates.value.includes(payload.next_visit)) {
+    throw new Error("Choose a next-visit date with an available clinic slot.");
+  }
+  payload.schedule_follow_up = scheduleFollowUp;
+  return { payload, selectedProcedures, editing, scheduleFollowUp };
+}
+
+function requestSaveTreatment() {
+  if (busy.value) return;
+  let details;
+  try {
+    details = treatmentSaveDetails();
+  } catch (error) {
+    showToast(error.message, "error");
+    return;
+  }
+  const { selectedProcedures, editing } = details;
+  openConfirmation({
+    kind: "save-treatment",
+    title: editing ? "Update treatment record?" : "Save treatment record?",
+    message: `Are you sure you want to ${editing ? "update" : "save"} the ${selectedProcedures.join(", ")} treatment record for ${selectedPatient.value?.name || "this patient"}?`,
+    confirmLabel: editing ? "Update Treatment" : "Save Treatment",
+  });
+}
+
 async function saveTreatment() {
+  if (busy.value) return;
   busy.value = true;
   try {
-    const selectedProcedures = [
-      ...new Set(
-        (Array.isArray(treatmentForm.procedures) ? treatmentForm.procedures : [])
-          .map((value) => String(value || "").trim())
-          .filter(Boolean),
-      ),
-    ];
-    if (!selectedProcedures.length) throw new Error("Select at least one service.");
-    const payload = validatedPayload({
-      ...treatmentForm,
-      procedures: selectedProcedures,
-      procedure: selectedProcedures[0],
-    });
-    payload.treatment = payload.procedure;
-    const editing = Boolean(payload.id);
-    const scheduleFollowUp =
-      Boolean(payload.next_visit) && (!editing || Boolean(followUpContext.value));
-    if (scheduleFollowUp && !clinicDoctor.value) {
-      throw new Error("The clinic dentist could not be found. Refresh and try again.");
-    }
-    if (scheduleFollowUp && !openFollowUpDates.value.includes(payload.next_visit)) {
-      throw new Error("Choose a next-visit date with an available clinic slot.");
-    }
-    payload.schedule_follow_up = scheduleFollowUp;
+    const { payload, selectedProcedures, editing, scheduleFollowUp } = treatmentSaveDetails();
     const data = await apiRequest("/api/records", {
       method: editing ? "PATCH" : "POST",
       body: payload,
@@ -630,16 +690,54 @@ function closeFollowUp() {
   followUpWasScheduled.value = false;
 }
 
-async function deleteTreatment(record) {
-  if (!window.confirm(`Delete the ${treatmentProcedure(record)} treatment record?`)) return;
+function deleteTreatment(record) {
+  openConfirmation({
+    kind: "delete-treatment",
+    id: record.id,
+    title: "Delete treatment record?",
+    message: `Are you sure you want to delete the ${treatmentProcedure(record)} treatment record? This cannot be undone.`,
+    confirmLabel: "Delete Treatment",
+  });
+}
+
+async function confirmPendingAction() {
+  if (!confirmation.value || confirmationBusy.value) return;
+  const { kind, id } = confirmation.value;
+  if (kind === "save-patient" || kind === "save-treatment") {
+    closeConfirmation();
+    if (kind === "save-patient") await savePatient();
+    else await saveTreatment();
+    return;
+  }
+  confirmationBusy.value = true;
+  confirmationError.value = "";
   try {
-    await apiRequest("/api/records", { method: "DELETE", body: { id: record.id } });
-    const index = props.state.records.findIndex((item) => item.id === record.id);
-    if (index >= 0) props.state.records.splice(index, 1);
-    showToast("Treatment record deleted.");
-    emit("refresh");
+    if (kind === "delete-patient") {
+      await apiRequest("/api/patients", { method: "DELETE", body: { id } });
+      props.state.patients = props.state.patients.filter((item) => item.id !== id);
+      props.state.records = props.state.records.filter((item) => item.patient_id !== id);
+      showToast("Patient record deleted.");
+    } else if (kind === "disable-account" || kind === "save-enable-account") {
+      const isActive = kind === "save-enable-account";
+      const data = await apiRequest("/api/patients", {
+        method: "PATCH",
+        body: { action: "account_status", id, is_active: isActive },
+      });
+      replacePatient(data.patient);
+      showToast(isActive ? "Patient account enabled." : "Patient account disabled.");
+    } else if (kind === "delete-treatment") {
+      await apiRequest("/api/records", { method: "DELETE", body: { id } });
+      const index = props.state.records.findIndex((item) => item.id === id);
+      if (index >= 0) props.state.records.splice(index, 1);
+      showToast("Treatment record deleted.");
+      emit("refresh");
+    }
+    confirmationBusy.value = false;
+    closeConfirmation();
   } catch (error) {
-    showToast(error.message, "error");
+    confirmationError.value = error.message;
+  } finally {
+    confirmationBusy.value = false;
   }
 }
 
@@ -1191,7 +1289,7 @@ function viewTreatment(record) {
           }}
         </p>
       </template>
-      <form class="patient-editor-form" @submit.prevent="savePatient">
+      <form class="patient-editor-form" @submit.prevent="requestSavePatient">
         <div class="patient-editor-fields patient-form-grid">
           <label class="hp-field" aria-hidden="true"
             >Website<input v-model="patientForm._website" tabindex="-1"
@@ -1503,7 +1601,7 @@ function viewTreatment(record) {
       :busy="busy"
       :max-date="localDateIso()"
       @close="closeTreatmentEditor"
-      @submit="saveTreatment"
+      @submit="requestSaveTreatment"
     />
 
     <ScheduleFollowUpModal
@@ -1524,5 +1622,157 @@ function viewTreatment(record) {
       :record="detailRecord"
       @close="treatmentDetailOpen = false"
     />
+
+    <BaseModal
+      v-if="confirmation"
+      :title="confirmation.title"
+      eyebrow="Please confirm"
+      size-class="patient-confirm-dialog"
+      @close="closeConfirmation"
+    >
+      <template #header-icon>
+        <span
+          class="patient-confirm-icon"
+          :class="{ 'is-save': confirmation.kind.startsWith('save-') }"
+          aria-hidden="true"
+        >
+          <Save v-if="confirmation.kind.startsWith('save-')" :size="25" />
+          <TriangleAlert v-else :size="26" />
+        </span>
+      </template>
+      <div class="patient-confirm-body">
+        <p id="patient-confirm-message">{{ confirmation.message }}</p>
+        <p v-if="confirmationError" class="patient-confirm-error" role="alert">
+          {{ confirmationError }}
+        </p>
+        <div class="crud-dialog-actions patient-confirm-actions">
+          <button
+            ref="confirmationCancelButton"
+            class="secondary-button"
+            type="button"
+            :disabled="confirmationBusy"
+            @click="closeConfirmation"
+          >
+            Cancel
+          </button>
+          <button
+            class="patient-confirm-submit"
+            :class="{ 'is-save': confirmation.kind.startsWith('save-') }"
+            type="button"
+            :disabled="confirmationBusy"
+            @click="confirmPendingAction"
+          >
+            {{ confirmationBusy ? "Working..." : confirmation.confirmLabel }}
+          </button>
+        </div>
+      </div>
+    </BaseModal>
   </section>
 </template>
+
+<style scoped>
+:global(.crud-dialog.patient-confirm-dialog) {
+  width: min(500px, calc(100% - 32px));
+  border-color: var(--dashboard-border, #e8dfd0);
+  border-radius: 14px;
+  background: var(--dashboard-surface, #ffffff);
+  color: var(--dashboard-text, #171511);
+}
+
+:global(.patient-confirm-dialog .crud-dialog-header) {
+  border-bottom-color: var(--dashboard-border, #e8dfd0);
+  background: var(--dashboard-surface, #ffffff);
+}
+
+.patient-confirm-icon {
+  display: grid;
+  width: 48px;
+  height: 48px;
+  flex: 0 0 48px;
+  place-items: center;
+  border-radius: 12px;
+  background: #fff0ed;
+  color: #bc2727;
+}
+
+.patient-confirm-icon.is-save {
+  background: #f8f1e2;
+  color: #8a6526;
+}
+
+.patient-confirm-body {
+  padding: 22px;
+}
+
+.patient-confirm-body > p {
+  margin: 0;
+  color: var(--dashboard-text, #171511);
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.patient-confirm-body .patient-confirm-error {
+  margin-top: 14px;
+  color: #bb2222;
+  font-weight: 700;
+}
+
+.patient-confirm-actions {
+  border-top: 1px solid var(--dashboard-border, #e8dfd0);
+  margin-top: 22px;
+  padding-top: 18px;
+}
+
+.patient-confirm-submit {
+  display: inline-flex;
+  min-height: 42px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #c62828;
+  border-radius: 8px;
+  background: #c62828;
+  color: #ffffff;
+  padding: 0 17px;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.patient-confirm-submit:hover:not(:disabled),
+.patient-confirm-submit:focus-visible {
+  border-color: #a51c1c;
+  background: #a51c1c;
+}
+
+.patient-confirm-submit.is-save {
+  border-color: #8a6526;
+  background: #8a6526;
+}
+
+.patient-confirm-submit.is-save:hover:not(:disabled),
+.patient-confirm-submit.is-save:focus-visible {
+  border-color: #72521b;
+  background: #72521b;
+}
+
+.patient-confirm-submit:focus-visible,
+.patient-confirm-actions .secondary-button:focus-visible {
+  outline: 3px solid rgba(196, 154, 70, 0.45);
+  outline-offset: 2px;
+}
+
+.patient-confirm-submit:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+@media (max-width: 520px) {
+  .patient-confirm-actions {
+    flex-direction: column-reverse;
+  }
+
+  .patient-confirm-actions > * {
+    width: 100%;
+  }
+}
+</style>

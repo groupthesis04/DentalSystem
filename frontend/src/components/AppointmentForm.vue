@@ -3,9 +3,11 @@ import { computed, nextTick, reactive, ref, watch } from "vue";
 import { CalendarDays, Clock3, FileText, Info, Stethoscope, UserRound } from "lucide-vue-next";
 
 import AvailabilityDatePicker from "./AvailabilityDatePicker.vue";
+import ActionConfirmModal from "./ActionConfirmModal.vue";
 import AvatarBadge from "./AvatarBadge.vue";
 import ServiceMultiSelect from "./ServiceMultiSelect.vue";
 import SmsConsentModal from "./SmsConsentModal.vue";
+import { useActionConfirmation } from "../composables/useActionConfirmation";
 import { availableSlotDates, futureOpenSlots } from "../services/availability";
 import { apiRequest, session } from "../services/api";
 import { pendingAppointmentForUser, savePendingAppointment } from "../services/pendingAppointment";
@@ -32,6 +34,7 @@ const currentClinicDoctor = ref(props.clinicDoctor);
 const refreshingAvailability = ref(false);
 const consentOpen = ref(false);
 const submitButton = ref(null);
+const { confirmation, requestConfirmation, answerConfirmation } = useActionConfirmation();
 let restoringDraft = false;
 let initialServiceObserved = false;
 const bookableSlots = computed(() =>
@@ -135,7 +138,7 @@ watch(
 );
 
 function submit() {
-  if (busy.value) return;
+  if (busy.value || confirmation.value) return;
   try {
     const payload = validatedPayload({ ...form, service: form.services[0] || "" });
     if (!payload.services.length) throw new Error("Select at least one dental service.");
@@ -158,6 +161,20 @@ async function cancelConsent() {
 async function continueBooking(consentChoice) {
   if (!consentOpen.value || consentChoice?.appointmentSmsConsent !== true || busy.value) return;
   consentOpen.value = false;
+  const accepted = await requestConfirmation({
+    title: props.retainForAuthentication ? "Save booking details?" : "Submit appointment request?",
+    message: props.retainForAuthentication
+      ? `Are you sure you want to save your ${form.services.join(", ")} booking for ${form.date} at ${form.time}? You will review it before the request is sent to the clinic.`
+      : `Are you sure you want to submit your ${form.services.join(", ")} appointment request for ${form.date} at ${form.time}?`,
+    confirmLabel: props.retainForAuthentication ? "Save Details" : "Submit Request",
+    tone: "save",
+  });
+  if (!accepted) {
+    await nextTick();
+    submitButton.value?.focus();
+    return;
+  }
+  if (busy.value) return;
   busy.value = true;
   try {
     const payload = validatedPayload({
@@ -391,10 +408,12 @@ async function continueBooking(consentChoice) {
       </div>
     </template>
   </form>
-  <SmsConsentModal
-    v-if="consentOpen"
-    @agree="continueBooking"
-    @cancel="cancelConsent"
+  <SmsConsentModal v-if="consentOpen" @agree="continueBooking" @cancel="cancelConsent" />
+  <ActionConfirmModal
+    v-if="confirmation"
+    v-bind="confirmation"
+    @confirm="answerConfirmation(true)"
+    @cancel="answerConfirmation(false)"
   />
 </template>
 

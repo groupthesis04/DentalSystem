@@ -3,10 +3,12 @@ import { CalendarPlus, ChevronDown, LockKeyhole, Search, UserRound } from "lucid
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from "vue";
 
 import BaseModal from "../BaseModal.vue";
+import ActionConfirmModal from "../ActionConfirmModal.vue";
 import AvailabilityDatePicker from "../AvailabilityDatePicker.vue";
 import ServiceMultiSelect from "../ServiceMultiSelect.vue";
 import { availableSlotDates, futureOpenSlots } from "../../services/availability";
 import { apiRequest } from "../../services/api";
+import { useActionConfirmation } from "../../composables/useActionConfirmation";
 import { formatDate, localDateIso } from "../../services/format";
 import { showToast } from "../../services/toast";
 import { CLINIC_SMS_STAFF_NOTICE_VERSION } from "../../services/smsConsent";
@@ -24,6 +26,7 @@ const selectedPatientId = ref("");
 const patientPickerOpen = ref(false);
 const patientSearchInput = ref(null);
 const busy = ref(false);
+const { confirmation, requestConfirmation, answerConfirmation } = useActionConfirmation();
 const errorMessage = ref("");
 const smsConsent = ref(false);
 const clinicSmsConsent = ref(false);
@@ -177,7 +180,6 @@ async function submitAppointment() {
     return;
   }
 
-  busy.value = true;
   try {
     const payload = validatedPayload({
       patient_id: patientType.value === "existing" ? selectedPatient.value.id : "",
@@ -199,6 +201,18 @@ async function submitAppointment() {
         smsConsent.value && clinicSmsConsent.value ? CLINIC_SMS_STAFF_NOTICE_VERSION : "",
       _website: appointment._website,
     });
+    const patientName =
+      patientType.value === "existing" ? selectedPatient.value.name : newPatient.name.trim();
+    if (
+      !(await requestConfirmation({
+        title: "Save appointment?",
+        message: `Schedule ${appointment.services.join(", ")} for ${patientName} on ${formatDate(appointment.date)} at ${formatClock(appointment.time)}?`,
+        confirmLabel: "Save Appointment",
+        tone: "save",
+      }))
+    )
+      return;
+    busy.value = true;
     const data = await apiRequest("/api/appointments", { method: "POST", body: payload });
     showToast("Appointment added successfully.");
     emit("created", data);
@@ -542,6 +556,12 @@ async function submitAppointment() {
       </footer>
     </form>
   </BaseModal>
+  <ActionConfirmModal
+    v-if="confirmation"
+    v-bind="confirmation"
+    @confirm="answerConfirmation(true)"
+    @cancel="answerConfirmation(false)"
+  />
 </template>
 
 <style scoped>

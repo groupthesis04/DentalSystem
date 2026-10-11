@@ -13,6 +13,7 @@ import {
 } from "lucide-vue-next";
 import { nextTick, onMounted, ref } from "vue";
 
+import ActionConfirmModal from "../components/ActionConfirmModal.vue";
 import ContentManagement from "../components/doctor/ContentManagement.vue";
 import DoctorAccount from "../components/doctor/DoctorAccount.vue";
 import DoctorOverview from "../components/doctor/DoctorOverview.vue";
@@ -25,6 +26,7 @@ import PortalHeader from "../components/PortalHeader.vue";
 import PortalSidebar from "../components/PortalSidebar.vue";
 import { useDashboardPanel } from "../composables/useDashboardPanel";
 import { useDoctorStore } from "../composables/useDoctorStore";
+import { useActionConfirmation } from "../composables/useActionConfirmation";
 import { apiRequest, refreshSession, session, signOut } from "../services/api";
 import { dashboardPath, navigate } from "../router";
 import { consumeQueuedToast, queueToast, showToast } from "../services/toast";
@@ -33,6 +35,8 @@ const { state, load } = useDoctorStore();
 const highlightedId = ref("");
 const mobileNavigationOpen = ref(false);
 const portalHeader = ref(null);
+const statusBusy = ref(false);
+const { confirmation, requestConfirmation, answerConfirmation } = useActionConfirmation();
 let requestedLoad = 0;
 let completedLoad = 0;
 let loadingPromise = null;
@@ -115,6 +119,18 @@ async function logout() {
 }
 
 async function updateAppointmentStatus(item, status) {
+  if (statusBusy.value || status === item.status) return;
+  const label = status === "approved" ? "Accepted" : status === "cancelled" ? "Cancelled" : status;
+  if (
+    !(await requestConfirmation({
+      title: status === "cancelled" ? "Cancel appointment?" : "Save appointment status?",
+      message: `Are you sure you want to change this appointment to ${label}?`,
+      confirmLabel: status === "cancelled" ? "Cancel Appointment" : "Save Status",
+      tone: status === "cancelled" ? "danger" : "save",
+    }))
+  )
+    return;
+  statusBusy.value = true;
   try {
     const data = await apiRequest("/api/appointments", {
       method: "PATCH",
@@ -131,6 +147,8 @@ async function updateAppointmentStatus(item, status) {
   } catch (error) {
     showToast(error.message, "error");
     await refreshData();
+  } finally {
+    statusBusy.value = false;
   }
 }
 
@@ -275,4 +293,10 @@ onMounted(async () => {
     </main>
   </template>
   <div v-else class="loading-state">Opening your dashboard...</div>
+  <ActionConfirmModal
+    v-if="confirmation"
+    v-bind="confirmation"
+    @confirm="answerConfirmation(true)"
+    @cancel="answerConfirmation(false)"
+  />
 </template>

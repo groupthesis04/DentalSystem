@@ -22,7 +22,9 @@ import {
   XCircle,
 } from "lucide-vue-next";
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import ActionConfirmModal from "../ActionConfirmModal.vue";
 import BaseModal from "../BaseModal.vue";
+import { useActionConfirmation } from "../../composables/useActionConfirmation";
 import SmsTemplates from "./SmsTemplates.vue";
 import SmsMessageLogs from "./SmsMessageLogs.vue";
 import { apiRequest } from "../../services/api";
@@ -44,6 +46,7 @@ const showTest = ref(false);
 const testPhone = ref("");
 const testError = ref("");
 const details = ref(null);
+const { confirmation, requestConfirmation, answerConfirmation } = useActionConfirmation();
 let timer;
 let refreshing = false;
 const icons = {
@@ -174,7 +177,22 @@ function selectRule(key, focus = false) {
   }
 }
 
-async function updateRule(payload) {
+async function updateRule(payload, event = null) {
+  if (busy.value) return;
+  const targetRule = data.value?.rules.find((item) => item.key === payload.key);
+  if (event?.target) event.target.checked = Boolean(targetRule?.enabled);
+  const action = payload.enabled ? "enable" : "disable";
+  const label =
+    payload.key === "all" ? "all SMS automations" : targetRule?.name || "this automation";
+  if (
+    !(await requestConfirmation({
+      title: payload.enabled ? "Enable SMS Automation?" : "Disable SMS Automation?",
+      message: `Are you sure you want to ${action} ${label}?`,
+      confirmLabel: payload.enabled ? "Enable Automation" : "Disable Automation",
+      tone: "save",
+    }))
+  )
+    return;
   busy.value = true;
   try {
     await apiRequest("/api/sms/rules", { method: "PATCH", body: payload });
@@ -390,7 +408,9 @@ onBeforeUnmount(() => window.clearInterval(timer));
                           :aria-label="item.name"
                           :checked="item.enabled"
                           :disabled="busy"
-                          @change="updateRule({ key: item.key, enabled: $event.target.checked })"
+                          @change="
+                            updateRule({ key: item.key, enabled: $event.target.checked }, $event)
+                          "
                         /><span class="switch-track"></span
                         ><span>{{ item.enabled ? "ON" : "OFF" }}</span></label
                       >
@@ -611,6 +631,12 @@ onBeforeUnmount(() => window.clearInterval(timer));
       </div></BaseModal
     >
   </section>
+  <ActionConfirmModal
+    v-if="confirmation"
+    v-bind="confirmation"
+    @confirm="answerConfirmation(true)"
+    @cancel="answerConfirmation(false)"
+  />
 </template>
 
 <style scoped>
@@ -856,8 +882,9 @@ onBeforeUnmount(() => window.clearInterval(timer));
 .mobile-cell-label {
   display: none;
 }
-.sms-center tr.selected {
-  background: #f8f1e2;
+.sms-center .rules-table tbody tr:is(.selected, :hover) {
+  background: var(--sms-muted-surface, #f8f1e2);
+  color: var(--dashboard-text, #171511);
 }
 .rules-table th:nth-child(1) {
   width: 4%;
@@ -1496,11 +1523,8 @@ onBeforeUnmount(() => window.clearInterval(timer));
     flex: 1 1 40%;
   }
 }
-:global(html[data-dashboard-theme="dark"]) .sms-center tr.selected {
-  background: #28241e;
-}
-:global(html[data-dashboard-theme="dark"]) .sms-center,
-:global(html[data-dashboard-theme="dark"]) .sms-modal-form {
+:global(html[data-dashboard-theme="dark"] .sms-center),
+:global(html[data-dashboard-theme="dark"] .sms-modal-form) {
   --sms-muted-surface: #28241e;
 }
 </style>

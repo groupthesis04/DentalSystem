@@ -26,13 +26,20 @@ _DELIVERY_STATES = {
     "undelivered": "failed",
     "refunded": "refunded",
 }
+_ERROR_REASONS = frozenset({
+    "unknown", "configuration", "credentials", "rate_limit", "balance",
+    "sender", "recipient", "request_rejected", "account_restricted",
+    "provider_error", "provider_unavailable", "invalid_response",
+})
 
 
 class SmsProviderError(Exception):
-    def __init__(self, message, *, uncertain=False, retryable=False):
+    def __init__(self, message, *, uncertain=False, retryable=False, reason="unknown", http_status=None):
         super().__init__(message)
         self.uncertain = uncertain
         self.retryable = retryable
+        self.reason = reason if isinstance(reason, str) and reason in _ERROR_REASONS else "unknown"
+        self.http_status = http_status if isinstance(http_status, int) and 400 <= http_status <= 599 else None
 
 
 def name():
@@ -129,9 +136,9 @@ def _rejection_message(kind, *, code=None, sending=True, account=False):
 def _request_json(path, payload=None, *, account=False):
     token = settings.PHILSMS_API_TOKEN
     if not token:
-        raise SmsProviderError("PHILSMS_API_TOKEN is not configured.")
+        raise SmsProviderError("PHILSMS_API_TOKEN is not configured.", reason="configuration")
     if not re.fullmatch(r"[\x21-\x7e]+", token):
-        raise SmsProviderError("PHILSMS_API_TOKEN has an invalid format.")
+        raise SmsProviderError("PHILSMS_API_TOKEN has an invalid format.", reason="configuration")
 
     sending = payload is not None
     req = Request(
@@ -154,10 +161,17 @@ def _request_json(path, payload=None, *, account=False):
             kind = "credentials"
         elif error.code == 429:
             kind = "rate_limit"
+        reason = kind or {
+            400: "request_rejected",
+            403: "account_restricted",
+            422: "request_rejected",
+        }.get(error.code, "provider_error" if error.code >= 500 else "unknown")
         raise SmsProviderError(
             _rejection_message(kind, code=error.code, sending=sending, account=account),
             uncertain=sending and error.code >= 500,
             retryable=sending and (error.code == 429 or kind == "rate_limit"),
+            reason=reason,
+            http_status=error.code,
         ) from None
     except (URLError, TimeoutError, OSError):
         message = (
@@ -165,7 +179,7 @@ def _request_json(path, payload=None, *, account=False):
             if account else
             "PhilSMS response could not be confirmed. Check its message log before resending."
         )
-        raise SmsProviderError(message, uncertain=sending) from None
+        raise SmsProviderError(message, uncertain=sending, reason="provider_unavailable") from None
 
     try:
         result = json.loads(body.decode("utf-8"))
@@ -173,17 +187,20 @@ def _request_json(path, payload=None, *, account=False):
         raise SmsProviderError(
             "PhilSMS returned an invalid API response. Check its message log before resending.",
             uncertain=sending,
+            reason="invalid_response",
         ) from None
     if not isinstance(result, dict) or result.get("status") not in ("success", "error"):
         raise SmsProviderError(
             "PhilSMS returned an invalid API response. Check its message log before resending.",
             uncertain=sending,
+            reason="invalid_response",
         )
     if result["status"] == "error":
         kind = _rejection_kind(result)
         raise SmsProviderError(
             _rejection_message(kind, sending=sending, account=account),
             retryable=sending and kind == "rate_limit",
+            reason=kind or "request_rejected",
         )
     return result
 
@@ -213,12 +230,12 @@ def _delivery_status(result, *, require_known=False):
 
 def send(phone, body):
     if not settings.SMS_ENABLED:
-        raise SmsProviderError("SMS sending is disabled.")
+        raise SmsProviderError("SMS sending is disabled.", reason="configuration")
     recipient = normalize_phone(phone)
     if not settings.PHILSMS_API_TOKEN:
-        raise SmsProviderError("PHILSMS_API_TOKEN is not configured.")
+        raise SmsProviderError("PHILSMS_API_TOKEN is not configured.", reason="configuration")
     if not settings.PHILSMS_SENDER_ID:
-        raise SmsProviderError("PHILSMS_SENDER_ID is not configured.")
+        raise SmsProviderError("PHILSMS_SENDER_ID is not configured.", reason="configuration")
     result = _request_json("sms/send", {
         "recipient": recipient,
         "sender_id": settings.PHILSMS_SENDER_ID,

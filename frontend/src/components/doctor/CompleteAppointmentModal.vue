@@ -12,9 +12,11 @@ import {
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, useId, watch } from "vue";
 
 import AvailabilityDatePicker from "../AvailabilityDatePicker.vue";
+import ActionConfirmModal from "../ActionConfirmModal.vue";
 import BaseModal from "../BaseModal.vue";
 import { availableSlotDates, futureOpenSlots } from "../../services/availability";
 import { apiRequest } from "../../services/api";
+import { useActionConfirmation } from "../../composables/useActionConfirmation";
 import {
   appointmentService,
   appointmentServices,
@@ -35,6 +37,7 @@ const emit = defineEmits(["close", "completed", "follow-up"]);
 
 const today = localDateIso();
 const busy = ref(false);
+const { confirmation, requestConfirmation, answerConfirmation } = useActionConfirmation();
 const errorMessage = ref("");
 const serviceError = ref("");
 const servicePicker = ref(null);
@@ -213,7 +216,6 @@ async function submitTreatmentRecord() {
     return;
   }
 
-  busy.value = true;
   try {
     const payload = validatedPayload({
       ...form,
@@ -223,6 +225,17 @@ async function submitTreatmentRecord() {
       treatment: procedures[0],
       schedule_follow_up: Boolean(form.next_visit),
     });
+    const action = props.existingRecord ? "Update" : "Save";
+    if (
+      !(await requestConfirmation({
+        title: `${action} treatment record?`,
+        message: `${action} the treatment record for ${props.appointment.patient_name || "this patient"}${form.next_visit ? " and continue to follow-up scheduling" : " and complete the appointment"}?`,
+        confirmLabel: `${action} Record`,
+        tone: "save",
+      }))
+    )
+      return;
+    busy.value = true;
     const data = await apiRequest("/api/records", {
       method: props.existingRecord ? "PATCH" : "POST",
       body: payload,
@@ -454,6 +467,12 @@ async function submitTreatmentRecord() {
       </footer>
     </form>
   </BaseModal>
+  <ActionConfirmModal
+    v-if="confirmation"
+    v-bind="confirmation"
+    @confirm="answerConfirmation(true)"
+    @cancel="answerConfirmation(false)"
+  />
 </template>
 
 <style scoped>

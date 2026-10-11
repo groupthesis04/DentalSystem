@@ -1024,6 +1024,7 @@ class PhilSmsTransportTests(TestCase):
                     operation()
             self.assertIn("PHILSMS_API_TOKEN", str(caught.exception))
             self.assertNotIn("private-token", str(caught.exception))
+            self.assertEqual(caught.exception.reason, "credentials")
             self.assertFalse(caught.exception.uncertain)
             self.assertFalse(caught.exception.retryable)
 
@@ -1066,15 +1067,20 @@ class PhilSmsTransportTests(TestCase):
                 "communications.sms_provider.urlopen"
             ) as opener:
                 self.assertFalse(sms_provider.ready())
-                with self.assertRaises(sms_provider.SmsProviderError):
+                with self.assertRaises(sms_provider.SmsProviderError) as caught:
                     sms_provider.send("09123456789", "Hello")
+                self.assertEqual(caught.exception.reason, "configuration")
                 opener.assert_not_called()
 
     def test_http_failures_are_sanitized_and_classified(self):
-        for code, retryable, uncertain in (
-            (400, False, False), (401, False, False), (403, False, False),
-            (422, False, False), (429, True, False), (500, False, True),
-            (503, False, True),
+        for code, retryable, uncertain, reason in (
+            (400, False, False, "request_rejected"),
+            (401, False, False, "credentials"),
+            (403, False, False, "account_restricted"),
+            (422, False, False, "request_rejected"),
+            (429, True, False, "rate_limit"),
+            (500, False, True, "provider_error"),
+            (503, False, True, "provider_error"),
         ):
             with self.subTest(code=code), patch(
                 "communications.sms_provider.urlopen",
@@ -1084,19 +1090,21 @@ class PhilSmsTransportTests(TestCase):
                     sms_provider.send("09123456789", "Hello")
             self.assertEqual(caught.exception.retryable, retryable)
             self.assertEqual(caught.exception.uncertain, uncertain)
+            self.assertEqual(caught.exception.reason, reason)
+            self.assertEqual(caught.exception.http_status, code)
             self.assertNotIn("private-token", str(caught.exception))
 
     def test_http_rejections_use_safe_specific_reasons(self):
         cases = (
-            (401, {"status": "error", "message": "Unauthenticated."}, "API token", False),
-            (403, {"status": "error", "message": "The string supplied did not seem to be a phone number."}, "recipient phone number", False),
-            (403, {"status": "error", "message": "Sender ID is not approved."}, "sender ID", False),
-            (403, {"status": "error", "message": "Insufficient credits for this request."}, "balance or credits", False),
-            (429, {"status": "error", "message": "Too many requests."}, "rate limit", True),
+            (401, {"status": "error", "message": "Unauthenticated."}, "API token", False, "credentials"),
+            (403, {"status": "error", "message": "The string supplied did not seem to be a phone number."}, "recipient phone number", False, "recipient"),
+            (403, {"status": "error", "message": "Sender ID is not approved."}, "sender ID", False, "sender"),
+            (403, {"status": "error", "message": "Insufficient credits for this request."}, "balance or credits", False, "balance"),
+            (429, {"status": "error", "message": "Too many requests."}, "rate limit", True, "rate_limit"),
             (422, {"status": "error", "message": "The given data was invalid.",
-                   "errors": {"recipient": ["Invalid."]}}, "recipient phone number", False),
+                   "errors": {"recipient": ["Invalid."]}}, "recipient phone number", False, "recipient"),
         )
-        for code, provider_body, expected, retryable in cases:
+        for code, provider_body, expected, retryable, reason in cases:
             response = BytesIO(json.dumps(provider_body).encode("utf-8"))
             error = HTTPError("https://example/private-token", code, "private-token", {}, response)
             with self.subTest(code=code, expected=expected), patch(
@@ -1106,6 +1114,7 @@ class PhilSmsTransportTests(TestCase):
                     sms_provider.send("09123456789", "Hello patient")
             self.assertIn(expected, str(caught.exception))
             self.assertEqual(caught.exception.retryable, retryable)
+            self.assertEqual(caught.exception.reason, reason)
             for private_value in ("private-token", "639123456789", "Hello patient"):
                 self.assertNotIn(private_value, str(caught.exception))
 
@@ -1136,6 +1145,7 @@ class PhilSmsTransportTests(TestCase):
             with self.assertRaises(sms_provider.SmsProviderError) as caught:
                 sms_provider.send("09123456789", "Hello patient")
         self.assertIn("recipient phone number", str(caught.exception))
+        self.assertEqual(caught.exception.reason, "recipient")
         self.assertNotIn("639123456789", str(caught.exception))
 
     def test_timeout_and_invalid_response_do_not_expose_secrets(self):
@@ -1143,13 +1153,25 @@ class PhilSmsTransportTests(TestCase):
             with self.assertRaises(sms_provider.SmsProviderError) as caught:
                 sms_provider.send("09123456789", "Hello")
         self.assertTrue(caught.exception.uncertain)
+        self.assertEqual(caught.exception.reason, "provider_unavailable")
         self.assertNotIn("private-token", str(caught.exception))
 
         for body in (b'not-json', b'[]', b'{"status":"error","message":"private-token"}'):
             with self.subTest(body=body), patch("communications.sms_provider.urlopen", return_value=BytesIO(body)):
                 with self.assertRaises(sms_provider.SmsProviderError) as caught:
                     sms_provider.send("09123456789", "Hello")
-            self.assertNotIn("private-token", str(caught.exception))
+                self.assertNotIn("private-token", str(caught.exception))
+                self.assertEqual(
+                    caught.exception.reason,
+                    "request_rejected" if body.startswith(b'{"status":"error"') else "invalid_response",
+                )
+
+    def test_reason_is_never_copied_from_untrusted_text(self):
+        error = sms_provider.SmsProviderError(
+            "private-token", reason="639123456789", http_status="639123456789",
+        )
+        self.assertEqual(error.reason, "unknown")
+        self.assertIsNone(error.http_status)
 
     def test_success_without_provider_id_is_uncertain_without_fake_reference(self):
         with patch("communications.sms_provider.urlopen", return_value=BytesIO(b'{"status":"success","data":{}}')):

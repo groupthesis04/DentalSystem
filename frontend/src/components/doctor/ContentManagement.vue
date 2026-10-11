@@ -13,7 +13,9 @@ import {
 import { computed, nextTick, reactive, ref } from "vue";
 
 import ActionIconButton from "../ActionIconButton.vue";
+import ActionConfirmModal from "../ActionConfirmModal.vue";
 import BaseModal from "../BaseModal.vue";
+import { useActionConfirmation } from "../../composables/useActionConfirmation";
 import { apiRequest } from "../../services/api";
 import { getServiceModalContent } from "../../services/constants";
 import { formatDate, initials } from "../../services/format";
@@ -48,6 +50,7 @@ const feedbackEditorOpen = ref(false);
 const serviceNameInput = ref(null);
 const promoTitleInput = ref(null);
 const busy = ref("");
+const { confirmation, requestConfirmation, answerConfirmation } = useActionConfirmation();
 
 const averageRating = computed(() => {
   if (!props.state.feedback.length) return "0.0";
@@ -138,8 +141,8 @@ function editFeedback(item) {
 }
 
 async function saveService() {
+  if (busy.value) return;
   const editing = Boolean(serviceForm.id);
-  busy.value = "service";
   try {
     const body = validatedPayload({
       ...(editing ? { id: serviceForm.id } : {}),
@@ -152,6 +155,21 @@ async function saveService() {
       detail_care_note: serviceForm.detail_care_note,
       _website: serviceForm._website,
     });
+    if (body.name.length < 3) throw new Error("Service name must have at least 3 characters.");
+    if (body.description.length < 10)
+      throw new Error("Service description must have at least 10 characters.");
+    if (
+      !(await requestConfirmation({
+        title: editing ? "Update Service?" : "Save Service?",
+        message: editing
+          ? `Are you sure you want to save changes to ${body.name}?`
+          : `Are you sure you want to add ${body.name} as a service?`,
+        confirmLabel: editing ? "Update Service" : "Save Service",
+        tone: "save",
+      }))
+    )
+      return;
+    busy.value = "service";
     const data = await apiRequest("/api/services", {
       method: editing ? "PATCH" : "POST",
       body,
@@ -169,8 +187,8 @@ async function saveService() {
 }
 
 async function savePromo() {
+  if (busy.value) return;
   const editing = Boolean(promoForm.id);
-  busy.value = "promo";
   try {
     const body = validatedPayload({
       ...(editing ? { id: promoForm.id } : {}),
@@ -178,6 +196,21 @@ async function savePromo() {
       description: promoForm.description,
       _website: promoForm._website,
     });
+    if (body.title.length < 3) throw new Error("Promo title must have at least 3 characters.");
+    if (body.description.length < 10)
+      throw new Error("Promo description must have at least 10 characters.");
+    if (
+      !(await requestConfirmation({
+        title: editing ? "Update Promo?" : "Save Promo?",
+        message: editing
+          ? `Are you sure you want to save changes to ${body.title}?`
+          : `Are you sure you want to add ${body.title} as a promo?`,
+        confirmLabel: editing ? "Update Promo" : "Save Promo",
+        tone: "save",
+      }))
+    )
+      return;
+    busy.value = "promo";
     const data = await apiRequest("/api/promos", {
       method: editing ? "PATCH" : "POST",
       body,
@@ -195,7 +228,16 @@ async function savePromo() {
 }
 
 async function remove(path, collection, item, label) {
-  if (!window.confirm(`Delete ${label}?`)) return false;
+  if (busy.value) return false;
+  if (
+    !(await requestConfirmation({
+      title: "Delete Record?",
+      message: `Are you sure you want to delete ${label}? This cannot be undone.`,
+      confirmLabel: "Delete",
+      tone: "danger",
+    }))
+  )
+    return false;
   busy.value = `delete-${item.id}`;
   try {
     await apiRequest(path, { method: "DELETE", body: { id: item.id } });
@@ -222,11 +264,24 @@ async function deletePromo(promo) {
 }
 
 async function saveFeedback() {
-  busy.value = "feedback";
+  if (busy.value) return;
   try {
+    const body = validatedPayload({ ...feedbackForm });
+    if (body.message.length < 10)
+      throw new Error("Feedback message must have at least 10 characters.");
+    if (
+      !(await requestConfirmation({
+        title: "Save Feedback?",
+        message: "Are you sure you want to save these feedback changes?",
+        confirmLabel: "Save Feedback",
+        tone: "save",
+      }))
+    )
+      return;
+    busy.value = "feedback";
     const data = await apiRequest("/api/feedback", {
       method: "PATCH",
-      body: validatedPayload({ ...feedbackForm }),
+      body,
     });
     const index = props.state.feedback.findIndex((item) => item.id === data.feedback.id);
     if (index >= 0) props.state.feedback.splice(index, 1, data.feedback);
@@ -716,5 +771,11 @@ async function deleteFeedback(item) {
         </div>
       </form>
     </BaseModal>
+    <ActionConfirmModal
+      v-if="confirmation"
+      v-bind="confirmation"
+      @confirm="answerConfirmation(true)"
+      @cancel="answerConfirmation(false)"
+    />
   </section>
 </template>

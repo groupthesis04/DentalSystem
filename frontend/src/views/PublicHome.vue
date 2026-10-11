@@ -35,9 +35,11 @@ import {
 } from "lucide-vue-next";
 
 import AppointmentForm from "../components/AppointmentForm.vue";
+import ActionConfirmModal from "../components/ActionConfirmModal.vue";
 import AuthModal from "../components/AuthModal.vue";
 import BaseModal from "../components/BaseModal.vue";
 import BookingAuthPrompt from "../components/BookingAuthPrompt.vue";
+import { useActionConfirmation } from "../composables/useActionConfirmation";
 import { apiRequest, refreshSession, session, signOut } from "../services/api";
 import { fallbackPromos, fallbackServices, getServiceModalContent } from "../services/constants";
 import { dashboardPath, navigate } from "../router";
@@ -64,6 +66,7 @@ const searchInput = ref(null);
 const mobileMenuClose = ref(null);
 const feedbackForm = reactive({ name: "", rating: "5", message: "", _website: "" });
 const feedbackBusy = ref(false);
+const { confirmation, requestConfirmation, answerConfirmation } = useActionConfirmation();
 const showAllFeedback = ref(false);
 const ratingOptions = [1, 2, 3, 4, 5];
 
@@ -434,9 +437,23 @@ function bookingCreated() {
 }
 
 async function submitFeedback() {
+  if (feedbackBusy.value) return;
+  let payload;
+  try {
+    payload = validatedPayload({ ...feedbackForm });
+  } catch (error) {
+    showToast(error.message, "error");
+    return;
+  }
+  const accepted = await requestConfirmation({
+    title: "Submit feedback?",
+    message: `Are you sure you want to submit your ${payload.rating}-star feedback?`,
+    confirmLabel: "Submit Feedback",
+    tone: "save",
+  });
+  if (!accepted || feedbackBusy.value) return;
   feedbackBusy.value = true;
   try {
-    const payload = validatedPayload({ ...feedbackForm });
     const data = await apiRequest("/api/feedback", { method: "POST", body: payload });
     feedback.value.unshift(data.feedback);
     Object.assign(feedbackForm, { name: "", rating: "5", message: "", _website: "" });
@@ -1273,4 +1290,10 @@ onBeforeUnmount(() => {
     </div>
   </footer>
   <AuthModal v-if="authOpen" :key="authTab" :initial-tab="authTab" @close="authOpen = false" />
+  <ActionConfirmModal
+    v-if="confirmation"
+    v-bind="confirmation"
+    @confirm="answerConfirmation(true)"
+    @cancel="answerConfirmation(false)"
+  />
 </template>

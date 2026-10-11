@@ -498,6 +498,60 @@ class RegistrationLinkingTests(TestCase):
         self.assertTrue(verification.is_used)
         self.assertEqual(verification.code_hash, "")
 
+    def test_verification_message_uses_provider_accepted_one_time_code_wording(self):
+        self.clinic_profile()
+
+        response = self.register()
+
+        self.assertEqual(response.status_code, 202)
+        body = self.sms_send.call_args.args[1]
+        self.assertRegex(body, r"Your one-time code is [0-9]{6}\.")
+        self.assertNotIn("Your account verification code is", body)
+        self.assertIn("It expires in 5 minutes.", body)
+
+    def test_verification_sms_failure_exposes_only_fixed_reason_and_reference(self):
+        self.clinic_profile()
+        private_values = ("private-token", "639123456789", "123456")
+        cases = (
+            ("recipient", None, "SMS_RECIPIENT", "check that number"),
+            ("rate_limit", None, "SMS_RATE_LIMIT", "try again shortly"),
+            ("credentials", None, "SMS_ACCOUNT", "contact the clinic"),
+            ("sender", None, "SMS_SENDER", "contact the clinic"),
+            ("balance", None, "SMS_CREDITS", "contact the clinic"),
+            ("unknown", None, "SMS_UNAVAILABLE", "contact the clinic"),
+            ("unknown", 404, "SMS_HTTP_404", "contact the clinic"),
+        )
+        for reason, http_status, expected_code, expected_text in cases:
+            with self.subTest(reason=reason, http_status=http_status):
+                cache.clear()
+                PatientAccountVerification.objects.all().delete()
+                self.sms_send.side_effect = SmsProviderError(
+                    "private-token 639123456789 123456", reason=reason,
+                    http_status=http_status,
+                )
+                response = self.register()
+                self.assertEqual(response.status_code, 503)
+                self.assertEqual(response.json()["sms_error_code"], expected_code)
+                self.assertIn(expected_text, response.json()["error"].lower())
+                self.assertIn(expected_code, response.json()["error"])
+                for private_value in private_values:
+                    self.assertNotIn(private_value, response.content.decode("utf-8"))
+                self.assertFalse(User.objects.filter(email="juan@example.com").exists())
+
+    def test_provider_uncertainty_keeps_challenge_available(self):
+        profile = self.clinic_profile()
+        self.sms_send.side_effect = SmsProviderError(
+            "Unconfirmed response", uncertain=True, reason="provider_unavailable",
+        )
+
+        response = self.register()
+
+        self.assertEqual(response.status_code, 202)
+        self.assertTrue(response.json()["verification_required"])
+        verification = PatientAccountVerification.objects.get(patient=profile)
+        self.assertFalse(verification.is_used)
+        self.assertTrue(verification.code_hash)
+
     def test_next_registration_purges_day_old_pending_credentials(self):
         profile = self.clinic_profile()
         first = self.register()

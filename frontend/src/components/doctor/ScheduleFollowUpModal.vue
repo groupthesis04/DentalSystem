@@ -12,8 +12,10 @@ import {
 import { computed, reactive, ref, watch } from "vue";
 
 import BaseModal from "../BaseModal.vue";
+import ActionConfirmModal from "../ActionConfirmModal.vue";
 import ServiceMultiSelect from "../ServiceMultiSelect.vue";
 import { apiRequest } from "../../services/api";
+import { useActionConfirmation } from "../../composables/useActionConfirmation";
 import {
   appointmentService,
   appointmentServices,
@@ -37,6 +39,7 @@ const today = localDateIso();
 const now = new Date();
 const currentTime = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
 const busy = ref(false);
+const { confirmation, requestConfirmation, answerConfirmation } = useActionConfirmation();
 const errorMessage = ref("");
 const scheduledAppointment = ref(null);
 const smsConsent = ref(false);
@@ -150,7 +153,6 @@ async function scheduleFollowUp() {
     return;
   }
 
-  busy.value = true;
   try {
     const payload = validatedPayload({
       patient_id: props.appointment.patient_id,
@@ -168,6 +170,16 @@ async function scheduleFollowUp() {
         smsConsent.value && clinicSmsConsent.value ? CLINIC_SMS_STAFF_NOTICE_VERSION : "",
       _website: form._website,
     });
+    if (
+      !(await requestConfirmation({
+        title: "Schedule follow-up?",
+        message: `Schedule a follow-up for ${props.appointment.patient_name || "this patient"} on ${formatLongDate(props.preferredDate)} at ${formatClock(form.time)}?`,
+        confirmLabel: "Save Follow-up",
+        tone: "save",
+      }))
+    )
+      return;
+    busy.value = true;
     const data = await apiRequest("/api/appointments", { method: "POST", body: payload });
     scheduledAppointment.value = data.appointment;
     emit("scheduled", data);
@@ -378,6 +390,12 @@ async function scheduleFollowUp() {
       </footer>
     </form>
   </BaseModal>
+  <ActionConfirmModal
+    v-if="confirmation"
+    v-bind="confirmation"
+    @confirm="answerConfirmation(true)"
+    @cancel="answerConfirmation(false)"
+  />
 </template>
 
 <style scoped>

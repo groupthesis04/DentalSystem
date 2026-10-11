@@ -15,6 +15,8 @@ import {
 } from "lucide-vue-next";
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref } from "vue";
 
+import ActionConfirmModal from "./ActionConfirmModal.vue";
+import { useActionConfirmation } from "../composables/useActionConfirmation";
 import { session, apiRequest } from "../services/api";
 import { validatedPayload } from "../services/validation";
 import {
@@ -39,6 +41,7 @@ const tab = ref(props.initialTab);
 const busy = ref(false);
 const showPassword = ref(false);
 const errorMessage = ref("");
+const { confirmation, requestConfirmation, answerConfirmation } = useActionConfirmation();
 const login = reactive({ email: "", password: "", remember: false, _website: "" });
 const register = reactive({
   first_name: "",
@@ -129,6 +132,7 @@ const resetExpiresRemaining = computed(() =>
 );
 let countdownTimer;
 let resetFlowVersion = 0;
+let authModalMounted = false;
 // Optional local credentials are read only in development and stay out of source control.
 const configuredTestAccounts = [
   {
@@ -149,15 +153,24 @@ const testAccounts = import.meta.env.DEV
   : [];
 
 onMounted(() => {
+  authModalMounted = true;
   document.body.classList.add("modal-open");
   countdownTimer = window.setInterval(() => (now.value = Date.now()), 1000);
 });
 onBeforeUnmount(() => {
+  authModalMounted = false;
   disposeEmailValidation();
   clearResetState();
   document.body.classList.remove("modal-open");
   window.clearInterval(countdownTimer);
 });
+
+function answerAuthConfirmation(accepted) {
+  answerConfirmation(accepted);
+  nextTick(() => {
+    if (authModalMounted) document.body.classList.add("modal-open");
+  });
+}
 
 function normalizedRegistrationEmail(value = register.email) {
   return normalizeRegistrationEmail(value);
@@ -408,13 +421,20 @@ async function confirmPasswordReset() {
         "Password must be at least 8 characters and include uppercase, lowercase, number, and symbol characters.",
       );
     }
+    const accepted = await requestConfirmation({
+      title: "Reset your password?",
+      message: "Are you sure you want to save your new password?",
+      confirmLabel: "Reset Password",
+      tone: "save",
+    });
+    if (!accepted || flowVersion !== resetFlowVersion || tab.value !== "new-password") return;
     busy.value = true;
     const data = await apiRequest("/api/password-reset/confirm", {
       method: "POST",
       body: {
         reset_token: resetToken.value,
-        new_password: resetNewPassword.value,
-        confirm_password: resetConfirmPassword.value,
+        new_password: password,
+        confirm_password: password,
       },
     });
     if (flowVersion !== resetFlowVersion) return;
@@ -512,6 +532,15 @@ async function submitRegister() {
     const emailAtSubmit = normalizedRegistrationEmail();
     const mobileAtSubmit = register.phone;
     if (!(await checkRegistrationEmail())) return;
+    if (normalizedRegistrationEmail() !== emailAtSubmit || emailStatus.value !== "valid") return;
+    if (register.phone !== mobileAtSubmit || mobileInputError.value) return;
+    const accepted = await requestConfirmation({
+      title: "Create patient account?",
+      message: `Are you sure you want to create a patient account for ${payload.name}?`,
+      confirmLabel: "Create Account",
+      tone: "save",
+    });
+    if (!accepted || tab.value !== "register") return;
     if (normalizedRegistrationEmail() !== emailAtSubmit || emailStatus.value !== "valid") return;
     if (register.phone !== mobileAtSubmit || mobileInputError.value) return;
     busy.value = true;
@@ -1179,4 +1208,10 @@ function handleRegisterInvalid(event) {
       </div>
     </div>
   </Teleport>
+  <ActionConfirmModal
+    v-if="confirmation"
+    v-bind="confirmation"
+    @confirm="answerAuthConfirmation(true)"
+    @cancel="answerAuthConfirmation(false)"
+  />
 </template>

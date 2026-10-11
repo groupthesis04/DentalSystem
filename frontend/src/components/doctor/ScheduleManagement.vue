@@ -20,11 +20,13 @@ import {
 import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from "vue";
 
 import AvatarBadge from "../AvatarBadge.vue";
+import ActionConfirmModal from "../ActionConfirmModal.vue";
 import AddAppointmentModal from "./AddAppointmentModal.vue";
 import ClearAppointmentsModal from "./ClearAppointmentsModal.vue";
 import CompleteAppointmentModal from "./CompleteAppointmentModal.vue";
 import ScheduleFollowUpModal from "./ScheduleFollowUpModal.vue";
 import { apiRequest, session } from "../../services/api";
+import { useActionConfirmation } from "../../composables/useActionConfirmation";
 import {
   appointmentService,
   appointmentServices,
@@ -50,6 +52,7 @@ const month = ref(currentMonth);
 const selectedDates = ref(new Set());
 const schedule = reactive({ time_in: "08:00", time_out: "17:00", interval: "30", _website: "" });
 const busy = ref(false);
+const { confirmation, requestConfirmation, answerConfirmation } = useActionConfirmation();
 const addAppointmentOpen = ref(false);
 const clearDialogOpen = ref(false);
 const clearBusy = ref(false);
@@ -226,7 +229,6 @@ function toggleDate(cell) {
 }
 
 async function createSchedule() {
-  busy.value = true;
   try {
     const payload = validatedPayload({
       doctor: session.user?.name || props.state.clinicDoctor,
@@ -237,6 +239,17 @@ async function createSchedule() {
       _website: schedule._website,
     });
     if (!payload.dates) throw new Error("Select at least one available date.");
+    const dateCount = selectedDates.value.size;
+    if (
+      !(await requestConfirmation({
+        title: "Save clinic availability?",
+        message: `Create appointment slots for ${dateCount} selected date${dateCount === 1 ? "" : "s"}?`,
+        confirmLabel: "Save Availability",
+        tone: "save",
+      }))
+    )
+      return;
+    busy.value = true;
     const data = await apiRequest("/api/availability", { method: "POST", body: payload });
     props.state.availability.push(...(data.availability_created || [data.availability]));
     selectedDates.value = new Set();
@@ -255,8 +268,20 @@ function openClearDialog() {
 }
 
 async function clearAppointments(payload) {
-  clearBusy.value = true;
   try {
+    const dateCount = String(payload.dates || "")
+      .split(",")
+      .filter(Boolean).length;
+    if (
+      !(await requestConfirmation({
+        title: "Clear appointments and availability?",
+        message: `Are you sure you want to clear ${dateCount} selected date${dateCount === 1 ? "" : "s"}? Active appointments on those dates will be cancelled.`,
+        confirmLabel: "Clear Appointments",
+        tone: "danger",
+      }))
+    )
+      return;
+    clearBusy.value = true;
     const data = await apiRequest("/api/appointments", {
       method: "DELETE",
       body: payload,
@@ -674,6 +699,13 @@ function closeFollowUp() {
               <span><i class="available"></i>Available</span>
               <span><i class="fully-booked"></i>Fully Booked</span>
               <span><i class="unavailable"></i>Unavailable</span>
+              <button
+                class="primary-button calendar-save-availability"
+                type="submit"
+                :disabled="busy"
+              >
+                <Save :size="18" /> {{ busy ? "Saving..." : "Save Availability" }}
+              </button>
               <button class="clear-appointments-trigger" type="button" @click="openClearDialog">
                 <Trash2 :size="17" />
                 Clear Appointments
@@ -924,6 +956,12 @@ function closeFollowUp() {
       @back="returnToTreatmentRecord"
       @close="closeFollowUp"
       @scheduled="followUpScheduled"
+    />
+    <ActionConfirmModal
+      v-if="confirmation"
+      v-bind="confirmation"
+      @confirm="answerConfirmation(true)"
+      @cancel="answerConfirmation(false)"
     />
   </section>
 </template>
@@ -1373,6 +1411,10 @@ function closeFollowUp() {
 
 .schedule-calendar-legend i.unavailable {
   background: #e8dfd0;
+}
+
+.calendar-save-availability {
+  display: none;
 }
 
 .clear-appointments-trigger {
@@ -2411,6 +2453,24 @@ function closeFollowUp() {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 10px;
+  }
+
+  .schedule-form-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .schedule-form-actions .primary-button {
+    display: none;
+  }
+
+  .schedule-calendar-legend .calendar-save-availability {
+    display: inline-flex;
+    grid-column: 1 / -1;
+    min-height: 44px;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
   }
 
   .clear-appointments-trigger {

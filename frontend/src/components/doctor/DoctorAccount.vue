@@ -30,9 +30,11 @@ import {
 } from "lucide-vue-next";
 import { computed, onMounted, reactive, ref } from "vue";
 
+import { useActionConfirmation } from "../../composables/useActionConfirmation";
 import { apiRequest, session } from "../../services/api";
 import { showToast } from "../../services/toast";
 import { imageToDataUrl, validatedPayload } from "../../services/validation";
+import ActionConfirmModal from "../ActionConfirmModal.vue";
 import AvatarBadge from "../AvatarBadge.vue";
 import BaseModal from "../BaseModal.vue";
 import ActivityLog from "./ActivityLog.vue";
@@ -122,6 +124,7 @@ const patientSmsData = ref(null);
 const patientSmsLoading = ref(false);
 const patientSmsStopBusy = ref(false);
 const showPatientSmsStopConfirm = ref(false);
+const { confirmation, requestConfirmation, answerConfirmation } = useActionConfirmation();
 const editing = ref(false);
 const editingRecovery = ref(false);
 const fileInput = ref(null);
@@ -147,9 +150,7 @@ const form = reactive({
 });
 
 const isPatient = computed(() => props.mode === "patient");
-const patientSmsAllowed = computed(
-  () => patientSmsData.value?.sms_consent_status === "allowed",
-);
+const patientSmsAllowed = computed(() => patientSmsData.value?.sms_consent_status === "allowed");
 const patientSmsClinicWide = computed(
   () => patientSmsAllowed.value && patientSmsData.value?.sms_consent_method !== "booking",
 );
@@ -362,12 +363,21 @@ function removeImage() {
 }
 
 async function save() {
-  if (!editing.value) return;
-  busy.value = true;
+  if (!editing.value || busy.value) return;
   try {
+    const payload = validatedPayload({ ...form });
+    if (
+      !(await requestConfirmation({
+        title: "Save profile changes?",
+        message: "Are you sure you want to save the changes to your profile?",
+        confirmLabel: "Save Changes",
+      }))
+    )
+      return;
+    busy.value = true;
     const data = await apiRequest("/api/profile", {
       method: "PATCH",
-      body: validatedPayload({ ...form }),
+      body: payload,
     });
     session.user = data.user;
     syncForm();
@@ -381,15 +391,25 @@ async function save() {
 }
 
 async function changePassword() {
+  if (securityBusy.value) return;
   if (passwordForm.new_password !== passwordForm.confirm_password) {
     showToast("New passwords do not match.", "error");
     return;
   }
+  const payload = { ...passwordForm };
+  if (
+    !(await requestConfirmation({
+      title: "Update password?",
+      message: "Are you sure you want to update your account password?",
+      confirmLabel: "Update Password",
+    }))
+  )
+    return;
   securityBusy.value = true;
   try {
     await apiRequest("/api/account/change-password", {
       method: "POST",
-      body: { ...passwordForm },
+      body: payload,
     });
     Object.assign(passwordForm, { current_password: "", new_password: "", confirm_password: "" });
     await loadSecurity();
@@ -402,15 +422,25 @@ async function changePassword() {
 }
 
 async function saveRecovery() {
+  if (recoveryBusy.value) return;
   if (!recoveryForm.email.trim() && !recoveryForm.mobile_number.trim()) {
     showToast("Enter a recovery email or mobile number.", "error");
     return;
   }
+  const payload = { ...recoveryForm };
+  if (
+    !(await requestConfirmation({
+      title: "Save recovery contact?",
+      message: "Are you sure you want to save your recovery contact information?",
+      confirmLabel: "Save Contact",
+    }))
+  )
+    return;
   recoveryBusy.value = true;
   try {
     const data = await apiRequest("/api/account/recovery-contact", {
       method: "PATCH",
-      body: { ...recoveryForm },
+      body: payload,
     });
     recoveryForm.email = data.recovery_email || "";
     recoveryForm.mobile_number = data.recovery_mobile_number || "";
@@ -441,11 +471,21 @@ async function logOutOtherDevices() {
 }
 
 async function saveNotifications() {
+  if (notificationsBusy.value) return;
+  const preferences = { ...notificationPreferences };
+  if (
+    !(await requestConfirmation({
+      title: "Save notification settings?",
+      message: "Are you sure you want to save your notification preferences?",
+      confirmLabel: "Save Changes",
+    }))
+  )
+    return;
   notificationsBusy.value = true;
   try {
     const data = await apiRequest("/api/notification-preferences", {
       method: "PATCH",
-      body: { preferences: { ...notificationPreferences } },
+      body: { preferences },
     });
     Object.assign(notificationPreferences, data.preferences || {});
     showToast("Notification settings saved.");
@@ -816,7 +856,11 @@ async function saveNotifications() {
             </div>
             <div v-if="patientSmsAllowed" class="patient-sms-withdrawal">
               <p>You can stop all clinic SMS at any time without affecting your appointments.</p>
-              <button type="button" class="account-cancel-button" @click="showPatientSmsStopConfirm = true">
+              <button
+                type="button"
+                class="account-cancel-button"
+                @click="showPatientSmsStopConfirm = true"
+              >
                 Stop SMS
               </button>
             </div>
@@ -1067,6 +1111,12 @@ async function saveNotifications() {
       </aside>
     </div>
     <ActivityLog v-if="!isPatient && activeTab === 'security'" />
+    <ActionConfirmModal
+      v-if="confirmation"
+      v-bind="confirmation"
+      @confirm="answerConfirmation(true)"
+      @cancel="answerConfirmation(false)"
+    />
     <BaseModal
       v-if="isPatient && showPatientSmsStopConfirm"
       title="Stop clinic SMS?"

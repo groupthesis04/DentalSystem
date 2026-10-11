@@ -15,8 +15,10 @@ import {
 import { computed, onMounted, reactive, ref, watch } from "vue";
 
 import AvailabilityDatePicker from "../components/AvailabilityDatePicker.vue";
+import ActionConfirmModal from "../components/ActionConfirmModal.vue";
 import ServiceMultiSelect from "../components/ServiceMultiSelect.vue";
 import SmsConsentModal from "../components/SmsConsentModal.vue";
+import { useActionConfirmation } from "../composables/useActionConfirmation";
 import { dashboardPath, navigate } from "../router";
 import { apiRequest, refreshSession, session } from "../services/api";
 import { availableSlotDates, futureOpenSlots } from "../services/availability";
@@ -36,12 +38,14 @@ const loading = ref(true);
 const checking = ref(false);
 const confirming = ref(false);
 const consentOpen = ref(false);
+const consentChoiceForSubmission = ref(null);
 const validationError = ref("");
 const editing = ref(false);
 const editChecking = ref(false);
 const editSaving = ref(false);
 const editError = ref("");
 const editForm = reactive({ services: [], doctor: "", date: "", time: "", notes: "" });
+const { confirmation, requestConfirmation, answerConfirmation } = useActionConfirmation();
 
 const details = computed(() => draft.value?.appointment || null);
 const editableSlots = computed(() => futureOpenSlots(availability.value, editForm.doctor));
@@ -164,6 +168,7 @@ async function refreshEditorOptions() {
 
 async function editAppointment() {
   if (!details.value || confirming.value) return;
+  consentChoiceForSubmission.value = null;
   Object.assign(editForm, details.value, { services: [...selectedServices(details.value)] });
   editError.value = "";
   editing.value = true;
@@ -209,6 +214,16 @@ async function saveEditedAppointment() {
     if (!savedDraftIsCurrent()) {
       throw new Error("This saved appointment changed. Refresh the page to continue.");
     }
+    const accepted = await requestConfirmation({
+      title: "Save appointment changes?",
+      message: `Are you sure you want to save your ${payload.services.join(", ")} appointment for ${formatDate(payload.date)} at ${formatTime(payload.time)}?`,
+      confirmLabel: "Save Changes",
+      tone: "save",
+    });
+    if (!accepted) return;
+    if (!savedDraftIsCurrent()) {
+      throw new Error("This saved appointment changed. Refresh the page to continue.");
+    }
     draft.value = savePendingAppointment(
       {
         ...payload,
@@ -228,8 +243,15 @@ async function saveEditedAppointment() {
   }
 }
 
-function cancelAppointment() {
-  if (!window.confirm("Discard this saved appointment?")) return;
+async function cancelAppointment() {
+  if (confirming.value || editSaving.value) return;
+  const accepted = await requestConfirmation({
+    title: "Discard saved appointment?",
+    message: "Are you sure you want to discard this saved appointment? This cannot be undone.",
+    confirmLabel: "Discard Appointment",
+    tone: "danger",
+  });
+  if (!accepted) return;
   if (!savedDraftIsCurrent()) {
     showToast("The saved appointment changed. Refresh the page and try again.", "error");
     return;
@@ -244,7 +266,10 @@ function cancelAppointment() {
 
 async function confirmAppointment() {
   if (!draft.value || confirming.value) return;
-  if (details.value.appointment_sms_consent !== true || details.value.clinic_sms_consent === null) {
+  if (
+    !consentChoiceForSubmission.value &&
+    (details.value.appointment_sms_consent !== true || details.value.clinic_sms_consent === null)
+  ) {
     consentOpen.value = true;
     return;
   }
@@ -255,12 +280,37 @@ async function confirmAppointment() {
     if (!savedDraftIsCurrent()) {
       throw new Error("This saved appointment changed. Refresh the page before confirming it.");
     }
+    const accepted = await requestConfirmation({
+      title: "Submit appointment request?",
+      message: `Are you sure you want to submit your ${selectedServices(details.value).join(", ")} appointment request for ${formatDate(details.value.date)} at ${formatTime(details.value.time)}?`,
+      confirmLabel: "Submit Request",
+      tone: "save",
+    });
+    if (!accepted) {
+      consentChoiceForSubmission.value = null;
+      return;
+    }
+    if (!savedDraftIsCurrent()) {
+      throw new Error("This saved appointment changed. Refresh the page before confirming it.");
+    }
+    const bookingDetails = consentChoiceForSubmission.value
+      ? {
+          ...details.value,
+          appointment_sms_consent: true,
+          clinic_sms_consent: consentChoiceForSubmission.value.clinicSmsConsent === true,
+          sms_consent_notice_version:
+            consentChoiceForSubmission.value.clinicSmsConsent === true
+              ? CLINIC_SMS_BOOKING_NOTICE_VERSION
+              : "",
+        }
+      : details.value;
     const payload = validatedPayload({
-      ...details.value,
+      ...bookingDetails,
       booking_token: draft.value.bookingToken,
       _website: "",
     });
     const data = await apiRequest("/api/appointments", { method: "POST", body: payload });
+    consentChoiceForSubmission.value = null;
     clearPendingAppointment(draft.value.bookingToken);
     queueToast(
       data.replayed
@@ -294,21 +344,8 @@ function submitSmsChoice(consentChoice) {
     showToast("This saved appointment changed. Refresh the page before confirming it.", "error");
     return;
   }
-  try {
-    draft.value = savePendingAppointment(
-      {
-        ...details.value,
-        appointment_sms_consent: true,
-        clinic_sms_consent: consentChoice.clinicSmsConsent === true,
-        sms_consent_notice_version:
-          consentChoice.clinicSmsConsent === true ? CLINIC_SMS_BOOKING_NOTICE_VERSION : "",
-      },
-      { userId: session.user.id },
-    );
-    confirmAppointment();
-  } catch (error) {
-    showToast(error.message, "error");
-  }
+  consentChoiceForSubmission.value = consentChoice;
+  void confirmAppointment();
 }
 
 onMounted(async () => {
@@ -558,10 +595,12 @@ onMounted(async () => {
         </section>
       </template>
     </main>
-    <SmsConsentModal
-      v-if="consentOpen"
-      @agree="submitSmsChoice"
-      @cancel="consentOpen = false"
+    <SmsConsentModal v-if="consentOpen" @agree="submitSmsChoice" @cancel="consentOpen = false" />
+    <ActionConfirmModal
+      v-if="confirmation"
+      v-bind="confirmation"
+      @confirm="answerConfirmation(true)"
+      @cancel="answerConfirmation(false)"
     />
   </div>
 </template>
