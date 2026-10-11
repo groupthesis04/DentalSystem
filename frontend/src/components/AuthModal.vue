@@ -56,6 +56,8 @@ const register = reactive({
   _website: "",
 });
 const confirmPassword = ref("");
+const showRegisterPassword = ref(false);
+const showRegisterConfirmPassword = ref(false);
 const passwordInput = ref(null);
 const emailInput = ref(null);
 const mobileTouched = ref(false);
@@ -287,6 +289,8 @@ function switchTab(next) {
   tab.value = next;
   errorMessage.value = "";
   showPassword.value = false;
+  showRegisterPassword.value = false;
+  showRegisterConfirmPassword.value = false;
   if (next !== "verify") {
     verificationToken.value = "";
     verificationCode.value = "";
@@ -459,6 +463,8 @@ async function confirmPasswordReset() {
 function showVerification(data) {
   register.password = "";
   confirmPassword.value = "";
+  showRegisterPassword.value = false;
+  showRegisterConfirmPassword.value = false;
   verificationToken.value = data.verification_token;
   maskedMobile.value = data.masked_mobile;
   verificationCode.value = "";
@@ -1161,13 +1167,23 @@ function handleRegisterInvalid(event) {
                 <input
                   v-model="register.password"
                   name="password"
-                  type="password"
+                  :type="showRegisterPassword ? 'text' : 'password'"
                   autocomplete="new-password"
                   minlength="10"
                   maxlength="128"
                   placeholder="Create a password"
                   required
                 />
+                <button
+                  class="password-toggle"
+                  type="button"
+                  :aria-label="showRegisterPassword ? 'Hide password' : 'Show password'"
+                  :aria-pressed="showRegisterPassword"
+                  @click="showRegisterPassword = !showRegisterPassword"
+                >
+                  <EyeOff v-if="showRegisterPassword" aria-hidden="true" />
+                  <Eye v-else aria-hidden="true" />
+                </button>
               </span>
             </label>
             <label class="register-field">
@@ -1177,13 +1193,27 @@ function handleRegisterInvalid(event) {
                 <input
                   v-model="confirmPassword"
                   name="confirm_password"
-                  type="password"
+                  :type="showRegisterConfirmPassword ? 'text' : 'password'"
                   autocomplete="new-password"
                   minlength="10"
                   maxlength="128"
                   placeholder="Confirm your password"
                   required
                 />
+                <button
+                  class="password-toggle"
+                  type="button"
+                  :aria-label="
+                    showRegisterConfirmPassword
+                      ? 'Hide confirmed password'
+                      : 'Show confirmed password'
+                  "
+                  :aria-pressed="showRegisterConfirmPassword"
+                  @click="showRegisterConfirmPassword = !showRegisterConfirmPassword"
+                >
+                  <EyeOff v-if="showRegisterConfirmPassword" aria-hidden="true" />
+                  <Eye v-else aria-hidden="true" />
+                </button>
               </span>
             </label>
           </div>

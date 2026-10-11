@@ -690,6 +690,7 @@ async function saveNotifications() {
                   :aria-label="
                     passwordVisible.current ? 'Hide current password' : 'Show current password'
                   "
+                  :aria-pressed="passwordVisible.current"
                   @click="passwordVisible.current = !passwordVisible.current"
                 >
                   <EyeOff v-if="passwordVisible.current" :size="17" aria-hidden="true" />
@@ -713,6 +714,7 @@ async function saveNotifications() {
                 <button
                   type="button"
                   :aria-label="passwordVisible.next ? 'Hide new password' : 'Show new password'"
+                  :aria-pressed="passwordVisible.next"
                   @click="passwordVisible.next = !passwordVisible.next"
                 >
                   <EyeOff v-if="passwordVisible.next" :size="17" aria-hidden="true" />
@@ -737,6 +739,7 @@ async function saveNotifications() {
                   :aria-label="
                     passwordVisible.confirm ? 'Hide confirmed password' : 'Show confirmed password'
                   "
+                  :aria-pressed="passwordVisible.confirm"
                   @click="passwordVisible.confirm = !passwordVisible.confirm"
                 >
                   <EyeOff v-if="passwordVisible.confirm" :size="17" aria-hidden="true" />
@@ -1055,6 +1058,7 @@ async function saveNotifications() {
                     :aria-label="
                       passwordVisible.recovery ? 'Hide current password' : 'Show current password'
                     "
+                    :aria-pressed="passwordVisible.recovery"
                     @click="passwordVisible.recovery = !passwordVisible.recovery"
                   >
                     <EyeOff v-if="passwordVisible.recovery" :size="17" aria-hidden="true" />

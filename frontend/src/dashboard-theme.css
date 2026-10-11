@@ -6284,6 +6284,7 @@ html[data-dashboard-theme="dark"]
 .account-password-wrap button {
   display: grid;
   width: 32px;
+  min-width: 32px;
   height: 32px;
   place-items: center;
   padding: 0;
@@ -6291,11 +6292,17 @@ html[data-dashboard-theme="dark"]
   border-radius: 5px;
   background: transparent;
   color: #706b61;
+  cursor: pointer;
 }
 
 .account-password-wrap button:hover {
   background: #f8f1e2;
   color: #8a6526;
+}
+
+.account-password-wrap button:focus-visible {
+  outline: 3px solid rgba(196, 154, 70, 0.35);
+  outline-offset: 2px;
 }
 
 .account-form-actions {
@@ -6801,6 +6808,21 @@ html[data-dashboard-theme="dark"]
   .account-input-wrap
   input:disabled {
   color: #cfc5b3;
+}
+
+html[data-dashboard-theme="dark"]
+  body:is([data-page="doctor"], [data-page="patient"])
+  .account-password-wrap
+  button {
+  color: #e3c985;
+}
+
+html[data-dashboard-theme="dark"]
+  body:is([data-page="doctor"], [data-page="patient"])
+  .account-password-wrap
+  button:hover {
+  background: #342c20;
+  color: #f5dca2;
 }
 
 html[data-dashboard-theme="dark"]
