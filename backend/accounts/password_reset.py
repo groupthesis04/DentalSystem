@@ -325,12 +325,18 @@ def verify_password_reset(request):
         if challenge.attempts >= OTP_MAX_ATTEMPTS:
             return api_error("Too many incorrect attempts. Request a new code.", 429)
 
-        correct_code = bool(re.fullmatch(r"[0-9]{6}", code)) and check_password(code, challenge.code_hash)
+        valid_code_format = bool(re.fullmatch(r"[0-9]{6}", code))
+        correct_code = valid_code_format and check_password(code, challenge.code_hash)
         eligible_user = bool(
             user and user.is_active and challenge.user_id == user.pk
             and _email_key(user.email) == challenge.email_key
         )
         if not correct_code or not eligible_user:
+            logger.warning(
+                "Password reset verification rejected: valid_code_format=%s, "
+                "code_match=%s, account_eligible=%s",
+                valid_code_format, correct_code, eligible_user,
+            )
             challenge.attempts += 1
             challenge.save(update_fields=["attempts"])
             if challenge.attempts >= OTP_MAX_ATTEMPTS:

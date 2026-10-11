@@ -112,6 +112,7 @@ const resetToken = ref("");
 const resetMaskedEmail = ref("");
 const resetRequestRef = ref("");
 const resetCode = ref("");
+const resetCodeInput = ref(null);
 const resetNewPassword = ref("");
 const resetConfirmPassword = ref("");
 const showResetPassword = ref(false);
@@ -343,15 +344,19 @@ async function verifyPasswordResetCode() {
   if (busy.value) return;
   const flowVersion = resetFlowVersion;
   errorMessage.value = "";
-  if (!/^[0-9]{6}$/.test(resetCode.value)) {
+  const code = String(resetCodeInput.value?.value ?? resetCode.value)
+    .replace(/\D/g, "")
+    .slice(0, 6);
+  if (!/^[0-9]{6}$/.test(code)) {
     errorMessage.value = "Enter the 6-digit verification code.";
     return;
   }
+  resetCode.value = code;
   busy.value = true;
   try {
     const data = await apiRequest("/api/password-reset/verify", {
       method: "POST",
-      body: { reset_token: resetToken.value, code: resetCode.value },
+      body: { reset_token: resetToken.value, code },
     });
     if (flowVersion !== resetFlowVersion) return;
     if (!data.verified) throw new Error("Verification code does not match this request.");
@@ -833,6 +838,7 @@ function handleRegisterInvalid(event) {
             <span class="auth-input-wrap">
               <LockKeyhole aria-hidden="true" />
               <input
+                ref="resetCodeInput"
                 v-model="resetCode"
                 name="reset_code"
                 type="text"

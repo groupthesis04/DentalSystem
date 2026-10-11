@@ -320,6 +320,41 @@ class PasswordResetTests(TestCase):
         )
         self.assertNotEqual(repeated.status_code, 200)
 
+    def test_doctor_reset_accepts_emailed_code_and_preserves_admin_access(self):
+        requested = self.request_reset(self.doctor.email)
+        self.assertEqual(requested.status_code, 202, requested.content)
+        token = requested.json()["reset_token"]
+        code = self.code_sent()
+        self.assertEqual(self.send_email.call_args.args[0], self.doctor.email)
+        self.assertEqual(self.send_email.call_args.args[2], requested.json()["request_ref"])
+
+        wrong_code = "000000" if code != "000000" else "000001"
+        with self.assertLogs("accounts.password_reset", level="WARNING") as captured:
+            rejected = self.post(
+                "/api/password-reset/verify",
+                {"reset_token": token, "code": wrong_code},
+            )
+        self.assertEqual(rejected.status_code, 400, rejected.content)
+        log_output = "\n".join(captured.output)
+        self.assertIn("code_match=False", log_output)
+        self.assertIn("account_eligible=True", log_output)
+        for secret in (code, wrong_code, token, self.doctor.email):
+            self.assertNotIn(secret, log_output)
+
+        verified = self.post(
+            "/api/password-reset/verify", {"reset_token": token, "code": code}
+        )
+        self.assertEqual(verified.status_code, 200, verified.content)
+        self.assertTrue(verified.json()["verified"])
+        confirmed = self.confirm(token, "NewDoctor456!")
+        self.assertEqual(confirmed.status_code, 200, confirmed.content)
+        self.doctor.refresh_from_db()
+        self.assertTrue(self.doctor.check_password("NewDoctor456!"))
+        self.assertFalse(self.doctor.check_password("OldDoctor123!"))
+        self.assertEqual(self.doctor.role, "doctor")
+        self.assertTrue(self.doctor.is_staff)
+        self.login_as(self.doctor, "NewDoctor456!")
+
     def test_expired_and_invalid_tokens_cannot_be_verified(self):
         token, code = self.requested_token_and_code()
         self.assertEqual(
