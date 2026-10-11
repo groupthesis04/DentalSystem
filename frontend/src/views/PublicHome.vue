@@ -842,7 +842,7 @@ onBeforeUnmount(() => {
           />
           <blockquote>
             <span aria-hidden="true">&ldquo;</span>
-            <p>&ldquo;A healthier smile for a brighter tomorrow.&rdquo;</p>
+            <p>&ldquo;Your beautiful smile can be seen for miles and miles.&rdquo;</p>
             <cite>BORJA Dental Clinic</cite>
           </blockquote>
         </div>
@@ -940,7 +940,7 @@ onBeforeUnmount(() => {
             modern technology to provide safe, comfortable, and high-quality care.
           </p>
           <p class="services-photo-tagline" aria-hidden="true">
-            A healthier smile<br />for a brighter tomorrow.
+            Your beautiful smile can be seen for miles and miles.
           </p>
         </div>
       </div>
