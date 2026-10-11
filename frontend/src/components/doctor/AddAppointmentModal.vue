@@ -956,40 +956,40 @@ async function submitAppointment() {
   min-width: 150px;
 }
 
-:global(html[data-dashboard-theme="dark"]) .manual-appointment-form,
-:global(html[data-dashboard-theme="dark"]) .manual-section-heading h3,
-:global(html[data-dashboard-theme="dark"]) .patient-type-control legend,
-:global(html[data-dashboard-theme="dark"]) .manual-field > span:first-child {
+:global(html[data-dashboard-theme="dark"] .manual-appointment-form),
+:global(html[data-dashboard-theme="dark"] .manual-section-heading h3),
+:global(html[data-dashboard-theme="dark"] .patient-type-control legend),
+:global(html[data-dashboard-theme="dark"] .manual-field > span:first-child) {
   color: #edddbd;
 }
 
-:global(html[data-dashboard-theme="dark"]) .manual-form-section {
+:global(html[data-dashboard-theme="dark"] .manual-form-section) {
   border-color: #514b42;
 }
 
-:global(html[data-dashboard-theme="dark"]) .manual-section-heading p,
-:global(html[data-dashboard-theme="dark"]) .manual-field > small {
+:global(html[data-dashboard-theme="dark"] .manual-section-heading p),
+:global(html[data-dashboard-theme="dark"] .manual-field > small) {
   color: #aaa194;
 }
 
-:global(html[data-dashboard-theme="dark"]) .manual-control,
-:global(html[data-dashboard-theme="dark"]) .patient-type-control > div,
-:global(html[data-dashboard-theme="dark"]) .manual-patient-results,
-:global(html[data-dashboard-theme="dark"]) .manual-notes-field textarea {
+:global(html[data-dashboard-theme="dark"] .manual-control),
+:global(html[data-dashboard-theme="dark"] .patient-type-control > div),
+:global(html[data-dashboard-theme="dark"] .manual-patient-results),
+:global(html[data-dashboard-theme="dark"] .manual-notes-field textarea) {
   color: #edddbd;
   border-color: #514b42;
   background: #171511;
 }
 
-:global(html[data-dashboard-theme="dark"]) .manual-control :is(input, select),
-:global(html[data-dashboard-theme="dark"]) .manual-notes-field textarea,
-:global(html[data-dashboard-theme="dark"]) .manual-patient-results button {
+:global(html[data-dashboard-theme="dark"] .manual-control :is(input, select)),
+:global(html[data-dashboard-theme="dark"] .manual-notes-field textarea),
+:global(html[data-dashboard-theme="dark"] .manual-patient-results button) {
   color: #edddbd;
 }
 
-:global(html[data-dashboard-theme="dark"]) .manual-patient-results button[aria-selected="true"],
-:global(html[data-dashboard-theme="dark"]) .manual-patient-results button:hover,
-:global(html[data-dashboard-theme="dark"]) .patient-type-control label.active {
+:global(html[data-dashboard-theme="dark"] .manual-patient-results button[aria-selected="true"]),
+:global(html[data-dashboard-theme="dark"] .manual-patient-results button:hover),
+:global(html[data-dashboard-theme="dark"] .patient-type-control label.active) {
   background: #3f321e;
 }
 

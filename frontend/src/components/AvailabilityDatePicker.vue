@@ -521,43 +521,43 @@ onBeforeUnmount(() => {
   transform: translateY(-4px) scale(0.985);
 }
 
-:global(html[data-dashboard-theme="dark"]) .availability-date-trigger,
-:global(html[data-dashboard-theme="dark"]) .availability-calendar-popover {
+:global(html[data-dashboard-theme="dark"] .availability-date-trigger),
+:global(html[data-dashboard-theme="dark"] .availability-calendar-popover) {
   border-color: #594b35;
   background: #171511;
   color: #f8f1e2;
 }
 
-:global(html[data-dashboard-theme="dark"]) .availability-date-trigger > span,
-:global(html[data-dashboard-theme="dark"]) .availability-calendar-header strong {
+:global(html[data-dashboard-theme="dark"] .availability-date-trigger > span),
+:global(html[data-dashboard-theme="dark"] .availability-calendar-header strong) {
   color: #f8f1e2;
 }
 
-:global(html[data-dashboard-theme="dark"]) .availability-date-trigger .placeholder,
-:global(html[data-dashboard-theme="dark"]) .availability-weekdays,
-:global(html[data-dashboard-theme="dark"]) .availability-calendar-footer p,
-:global(html[data-dashboard-theme="dark"]) .availability-calendar-legend span {
+:global(html[data-dashboard-theme="dark"] .availability-date-trigger .placeholder),
+:global(html[data-dashboard-theme="dark"] .availability-weekdays),
+:global(html[data-dashboard-theme="dark"] .availability-calendar-footer p),
+:global(html[data-dashboard-theme="dark"] .availability-calendar-legend span) {
   color: #b9aa90;
 }
 
-:global(html[data-dashboard-theme="dark"]) .availability-calendar-grid button {
+:global(html[data-dashboard-theme="dark"] .availability-calendar-grid button) {
   background: #29251e;
   color: #9c907e;
 }
 
-:global(html[data-dashboard-theme="dark"]) .availability-calendar-grid button.available {
+:global(html[data-dashboard-theme="dark"] .availability-calendar-grid button.available) {
   border-color: #8d6d2c;
   background: #43371f;
   color: #f3dca7;
 }
 
-:global(html[data-dashboard-theme="dark"]) .availability-calendar-grid button.selected {
+:global(html[data-dashboard-theme="dark"] .availability-calendar-grid button.selected) {
   border-color: #c49a46;
   background: #9d7428;
   color: #fff;
 }
 
-:global(html[data-dashboard-theme="dark"]) .availability-calendar-footer {
+:global(html[data-dashboard-theme="dark"] .availability-calendar-footer) {
   border-color: #4b4030;
   background: #211d17;
 }

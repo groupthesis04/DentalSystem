@@ -534,15 +534,7 @@ async function submitRegister() {
     if (!(await checkRegistrationEmail())) return;
     if (normalizedRegistrationEmail() !== emailAtSubmit || emailStatus.value !== "valid") return;
     if (register.phone !== mobileAtSubmit || mobileInputError.value) return;
-    const accepted = await requestConfirmation({
-      title: "Create patient account?",
-      message: `Are you sure you want to create a patient account for ${payload.name}?`,
-      confirmLabel: "Create Account",
-      tone: "save",
-    });
-    if (!accepted || tab.value !== "register") return;
-    if (normalizedRegistrationEmail() !== emailAtSubmit || emailStatus.value !== "valid") return;
-    if (register.phone !== mobileAtSubmit || mobileInputError.value) return;
+    if (tab.value !== "register") return;
     busy.value = true;
     const data = await apiRequest("/api/register", { method: "POST", body: payload });
     if (data.verification_required) {

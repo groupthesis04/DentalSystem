@@ -663,15 +663,15 @@ function submitClear() {
   opacity: 0.48;
 }
 
-:global(html[data-dashboard-theme="dark"]) .clear-calendar-section,
-:global(html[data-dashboard-theme="dark"]) .clear-options-section {
+:global(html[data-dashboard-theme="dark"] .clear-calendar-section),
+:global(html[data-dashboard-theme="dark"] .clear-options-section) {
   color: #edddbd;
   background: #241e17;
 }
 
-:global(html[data-dashboard-theme="dark"]) .clear-calendar-heading h3,
-:global(html[data-dashboard-theme="dark"]) .clear-notify-control strong,
-:global(html[data-dashboard-theme="dark"]) .clear-message-field {
+:global(html[data-dashboard-theme="dark"] .clear-calendar-heading h3),
+:global(html[data-dashboard-theme="dark"] .clear-notify-control strong),
+:global(html[data-dashboard-theme="dark"] .clear-message-field) {
   color: #f8f1e2;
 }
 
