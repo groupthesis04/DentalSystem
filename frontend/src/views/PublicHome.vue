@@ -8,8 +8,6 @@ import {
   CalendarDays,
   Check,
   CircleUserRound,
-  ClipboardPlus,
-  Eye,
   Gift,
   Heart,
   HeartHandshake,
@@ -20,7 +18,6 @@ import {
   LogOut,
   MessageCircle,
   Menu,
-  MonitorSmartphone,
   Quote,
   Search,
   Send,
@@ -28,13 +25,13 @@ import {
   Sparkles,
   Star,
   Tag,
-  Target,
   UserPlus,
   UsersRound,
   X,
 } from "lucide-vue-next";
 
 import AppointmentForm from "../components/AppointmentForm.vue";
+import AboutStory from "../components/AboutStory.vue";
 import ActionConfirmModal from "../components/ActionConfirmModal.vue";
 import AuthModal from "../components/AuthModal.vue";
 import BaseModal from "../components/BaseModal.vue";
@@ -848,44 +845,6 @@ onBeforeUnmount(() => {
         </div>
       </div>
 
-      <div class="about-feature-grid">
-        <article>
-          <span class="about-card-index">01</span>
-          <MonitorSmartphone class="about-card-icon" :size="42" aria-hidden="true" />
-          <div>
-            <h3>Patient-first browsing</h3>
-            <p>
-              Visitors can explore services, promos, clinic details, and feedback without creating
-              an account.
-            </p>
-          </div>
-          <ArrowRight class="about-card-arrow" :size="20" aria-hidden="true" />
-        </article>
-        <article>
-          <span class="about-card-index">02</span>
-          <CalendarCheck2 class="about-card-icon" :size="42" aria-hidden="true" />
-          <div>
-            <h3>Login-protected booking</h3>
-            <p>
-              Appointment reservations are processed only after a patient logs in or creates an
-              account.
-            </p>
-          </div>
-          <ArrowRight class="about-card-arrow" :size="20" aria-hidden="true" />
-        </article>
-        <article>
-          <span class="about-card-index">03</span>
-          <ClipboardPlus class="about-card-icon" :size="42" aria-hidden="true" />
-          <div>
-            <h3>Doctor record tools</h3>
-            <p>
-              The clinic can review appointments and add treatment notes to secure patient records.
-            </p>
-          </div>
-          <ArrowRight class="about-card-arrow" :size="20" aria-hidden="true" />
-        </article>
-      </div>
-
       <div class="about-mobile-cta">
         <div>
           <h3>Let&rsquo;s keep your <span>smile healthy!</span></h3>
@@ -899,35 +858,7 @@ onBeforeUnmount(() => {
         </span>
       </div>
 
-      <div class="purpose-band">
-        <div class="purpose-heading">
-          <span class="section-kicker">Our purpose</span>
-          <h2>Our Mission, Vision, and Values</h2>
-        </div>
-        <div class="purpose-grid">
-          <article>
-            <span><Target :size="24" /></span>
-            <div>
-              <h3>Our Mission</h3>
-              <p>Deliver dependable dental care through organized, patient-centered service.</p>
-            </div>
-          </article>
-          <article>
-            <span><Eye :size="24" /></span>
-            <div>
-              <h3>Our Vision</h3>
-              <p>Make every clinic visit clearer, more comfortable, and easier to manage.</p>
-            </div>
-          </article>
-          <article>
-            <span><HeartHandshake :size="24" /></span>
-            <div>
-              <h3>Our Values</h3>
-              <p>Trust, privacy, compassion, professionalism, and responsible care.</p>
-            </div>
-          </article>
-        </div>
-      </div>
+      <AboutStory />
     </section>
 
     <section id="services" class="services-showcase">
