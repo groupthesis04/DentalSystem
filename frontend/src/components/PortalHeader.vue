@@ -64,8 +64,7 @@ const currentDate = computed(() =>
         <span>Have a productive day!</span>
       </div>
       <div class="dashboard-header-message" aria-hidden="true">
-        <strong>A Healthier Smile</strong>
-        <span>A Happier You</span>
+        <strong>Your beautiful smile can be seen for miles and miles.</strong>
       </div>
     </div>
     <div class="auth-actions">

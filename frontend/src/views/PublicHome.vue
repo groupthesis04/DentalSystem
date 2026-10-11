@@ -742,7 +742,7 @@ onBeforeUnmount(() => {
 
         <div class="mobile-drawer-feature">
           <div>
-            <strong>A Healthier Smile for a Happier You</strong>
+            <strong>Your beautiful smile can be seen for miles and miles.</strong>
             <span>Quality care. Brighter tomorrows.</span>
           </div>
           <span class="mobile-drawer-tooth" aria-hidden="true">
@@ -1282,7 +1282,7 @@ onBeforeUnmount(() => {
       <button type="button" @click="openBooking">Book Appointment</button>
     </nav>
     <div class="footer-contact">
-      <strong>A Healthier Smile, A Happier You</strong>
+      <strong>Your beautiful smile can be seen for miles and miles.</strong>
       <span>
         <a href="mailto:doctor@smilecare.local">doctor@smilecare.local</a>
         <a href="tel:+639170002026">0917-000-2026</a>
