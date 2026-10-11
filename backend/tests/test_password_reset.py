@@ -329,20 +329,11 @@ class PasswordResetTests(TestCase):
         self.assertEqual(self.send_email.call_args.args[2], requested.json()["request_ref"])
 
         wrong_code = "000000" if code != "000000" else "000001"
-        with self.assertLogs("accounts.password_reset", level="WARNING") as captured:
-            rejected = self.post(
-                "/api/password-reset/verify",
-                {"reset_token": token, "code": wrong_code},
-            )
+        rejected = self.post(
+            "/api/password-reset/verify",
+            {"reset_token": token, "code": wrong_code},
+        )
         self.assertEqual(rejected.status_code, 400, rejected.content)
-        log_output = "\n".join(captured.output)
-        self.assertIn("code_match=False", log_output)
-        self.assertIn("user_found=True", log_output)
-        self.assertIn("user_active=True", log_output)
-        self.assertIn("user_id_matches=True", log_output)
-        self.assertIn("email_key_matches=True", log_output)
-        for secret in (code, wrong_code, token, self.doctor.email):
-            self.assertNotIn(secret, log_output)
 
         verified = self.post(
             "/api/password-reset/verify", {"reset_token": token, "code": code}
@@ -357,6 +348,52 @@ class PasswordResetTests(TestCase):
         self.assertEqual(self.doctor.role, "doctor")
         self.assertTrue(self.doctor.is_staff)
         self.login_as(self.doctor, "NewDoctor456!")
+
+    def test_doctor_with_empty_id_can_resend_verify_and_reset_password(self):
+        doctor = User.objects.create_user(
+            id="",
+            email="emptyid-doctor@example.com",
+            password="OldSecret123!",
+            name="Dr. Example",
+            role="doctor",
+            is_staff=True,
+        )
+        self.assertEqual(doctor.pk, "")
+
+        requested = self.request_reset(doctor.email)
+        self.assertEqual(requested.status_code, 202, requested.content)
+        first_token = requested.json()["reset_token"]
+        first_code = self.code_sent()
+        self.assertEqual(self.send_email.call_args.args[0], doctor.email)
+        self.assertEqual(PasswordResetVerification.objects.get(user=doctor).user_id, "")
+
+        PasswordResetVerification.objects.filter(user=doctor).update(
+            created_at=timezone.now() - dt.timedelta(seconds=61)
+        )
+        resent = self.post("/api/password-reset/resend", {"reset_token": first_token})
+        self.assertEqual(resent.status_code, 202, resent.content)
+        self.assertEqual(self.send_email.call_count, 2)
+        self.assertEqual(self.send_email.call_args.args[0], doctor.email)
+        self.assertEqual(self.send_email.call_args.args[2], resent.json()["request_ref"])
+        second_token = resent.json()["reset_token"]
+        second_code = self.code_sent()
+        self.assertNotEqual(first_code, second_code)
+        self.assertNotEqual(requested.json()["request_ref"], resent.json()["request_ref"])
+
+        verified = self.post(
+            "/api/password-reset/verify",
+            {"reset_token": second_token, "code": second_code},
+        )
+        self.assertEqual(verified.status_code, 200, verified.content)
+        self.assertTrue(verified.json()["verified"])
+        confirmed = self.confirm(second_token, "FreshSecret456!")
+        self.assertEqual(confirmed.status_code, 200, confirmed.content)
+        doctor.refresh_from_db()
+        self.assertTrue(doctor.check_password("FreshSecret456!"))
+        self.assertFalse(doctor.check_password("OldSecret123!"))
+        self.assertEqual(doctor.role, "doctor")
+        self.assertTrue(doctor.is_staff)
+        self.login_as(doctor, "FreshSecret456!")
 
     def test_expired_and_invalid_tokens_cannot_be_verified(self):
         token, code = self.requested_token_and_code()

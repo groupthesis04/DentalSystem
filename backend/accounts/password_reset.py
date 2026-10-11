@@ -314,7 +314,7 @@ def verify_password_reset(request):
     if not original:
         return api_error(INVALID_CHALLENGE_MESSAGE)
     with transaction.atomic():
-        user = User.objects.select_for_update().filter(pk=original.user_id).first() if original.user_id else None
+        user = User.objects.select_for_update().filter(pk=original.user_id).first()
         challenge = PasswordResetVerification.objects.select_for_update().filter(pk=original.pk, token_hash=token_hash).first()
         if not challenge:
             return api_error(INVALID_CHALLENGE_MESSAGE)
@@ -325,21 +325,12 @@ def verify_password_reset(request):
         if challenge.attempts >= OTP_MAX_ATTEMPTS:
             return api_error("Too many incorrect attempts. Request a new code.", 429)
 
-        valid_code_format = bool(re.fullmatch(r"[0-9]{6}", code))
-        correct_code = valid_code_format and check_password(code, challenge.code_hash)
-        user_found = user is not None
-        user_active = bool(user_found and user.is_active)
-        user_id_matches = bool(user_found and challenge.user_id == user.pk)
-        email_key_matches = bool(user_found and _email_key(user.email) == challenge.email_key)
-        eligible_user = user_active and user_id_matches and email_key_matches
+        correct_code = bool(re.fullmatch(r"[0-9]{6}", code)) and check_password(code, challenge.code_hash)
+        eligible_user = bool(
+            user and user.is_active and challenge.user_id == user.pk
+            and _email_key(user.email) == challenge.email_key
+        )
         if not correct_code or not eligible_user:
-            logger.warning(
-                "Password reset verification rejected: valid_code_format=%s, "
-                "code_match=%s, user_found=%s, user_active=%s, "
-                "user_id_matches=%s, email_key_matches=%s",
-                valid_code_format, correct_code, user_found, user_active,
-                user_id_matches, email_key_matches,
-            )
             challenge.attempts += 1
             challenge.save(update_fields=["attempts"])
             if challenge.attempts >= OTP_MAX_ATTEMPTS:
@@ -371,7 +362,7 @@ def resend_password_reset(request):
         return api_error(INVALID_CHALLENGE_MESSAGE)
     now = timezone.now()
     with transaction.atomic():
-        user = User.objects.select_for_update().filter(pk=original.user_id).first() if original.user_id else None
+        user = User.objects.select_for_update().filter(pk=original.user_id).first()
         previous = PasswordResetVerification.objects.select_for_update().filter(pk=original.pk, token_hash=token_hash).first()
         if not previous or previous.is_used or previous.is_verified:
             return api_error(INVALID_CHALLENGE_MESSAGE, 409)
