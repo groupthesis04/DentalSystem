@@ -8512,3 +8512,141 @@ html[data-dashboard-theme="dark"] body[data-page="doctor"] .patient-editor-contr
     font-size: 0.78rem;
   }
 }
+
+/* Keep the doctor-only content, reports, and SMS workspaces cohesive in dark mode. */
+html[data-dashboard-theme="dark"] body[data-page="doctor"]
+  .content-management-page .content-summary-card small,
+html[data-dashboard-theme="dark"] body[data-page="doctor"]
+  .content-management-page .service-popup-editor legend {
+  color: #e5c783;
+}
+
+html[data-dashboard-theme="dark"] body[data-page="doctor"]
+  .reports-page :is(.report-date-range, .report-chart-legend span, .report-payment-legend dt) {
+  color: #e8dac1;
+}
+
+html[data-dashboard-theme="dark"] body[data-page="doctor"]
+  .reports-page .report-metric-copy > small.positive {
+  color: #9ae6b4;
+}
+
+html[data-dashboard-theme="dark"] body[data-page="doctor"]
+  .reports-page .report-metric-copy > small.negative {
+  color: #ff9ca5;
+}
+
+html[data-dashboard-theme="dark"] body[data-page="doctor"]
+  .reports-page .report-quick-actions button > span {
+  background: #3f321e;
+  color: #edcf90;
+}
+
+html[data-dashboard-theme="dark"] body[data-page="doctor"]
+  .reports-page .report-date-error {
+  border-color: #89515a;
+  background: #382127;
+  color: #ffbdc4;
+}
+
+html[data-dashboard-theme="dark"] body[data-page="doctor"]
+  .sms-center :is(.sms-provider, .sms-provider.warning) {
+  border-color: #66543a;
+  background: #30291f;
+  color: #e8dac1;
+}
+
+html[data-dashboard-theme="dark"] body[data-page="doctor"]
+  .sms-center .sms-alert.error,
+html[data-dashboard-theme="dark"] body[data-page="doctor"]
+  .sms-templates-page .template-error,
+html[data-dashboard-theme="dark"] body[data-page="doctor"]
+  .sms-log-page .log-error {
+  border-color: #89515a;
+  background: #382127;
+  color: #ffbdc4;
+}
+
+html[data-dashboard-theme="dark"] body[data-page="doctor"]
+  .sms-center :is(.stat-icon, .rule-icon, .log-avatar),
+html[data-dashboard-theme="dark"] body[data-page="doctor"]
+  .sms-templates-page :is(.page-icon, .metric-icon, .template-icon),
+html[data-dashboard-theme="dark"] body[data-page="doctor"]
+  .sms-log-page :is(.log-metric-icon, .log-table-panel .log-panel-heading > svg) {
+  border-color: #66543a;
+  background: #3f321e;
+  color: #edcf90;
+}
+
+html[data-dashboard-theme="dark"] body[data-page="doctor"]
+  .sms-center :is(.sms-actions button:not(.primary):not(.danger), .sms-template-action, .details-button, .log-pagination button:not(.active), .text-button),
+html[data-dashboard-theme="dark"] body[data-page="doctor"]
+  .sms-templates-page .template-card footer button:not(.delete-template-action),
+html[data-dashboard-theme="dark"] body[data-page="doctor"]
+  .sms-templates-page .template-settings footer button:not(.primary),
+html[data-dashboard-theme="dark"] body[data-page="doctor"]
+  .sms-log-page button:not(.primary):not(.current),
+html[data-dashboard-theme="dark"] body[data-page="doctor"]
+  .template-editor-form button:not(.primary):not(.danger-action) {
+  color: #e5c783;
+}
+
+html[data-dashboard-theme="dark"] body[data-page="doctor"]
+  .sms-center :is(.sms-actions button:not(.primary):not(.danger), .sms-template-action, .details-button, .log-pagination button:not(.active), .text-button):hover:not(:disabled),
+html[data-dashboard-theme="dark"] body[data-page="doctor"]
+  .sms-templates-page :is(.template-card footer, .template-settings footer) button:not(.primary):hover:not(:disabled),
+html[data-dashboard-theme="dark"] body[data-page="doctor"]
+  .sms-log-page button:not(.primary):not(.current):hover:not(:disabled),
+html[data-dashboard-theme="dark"] body[data-page="doctor"]
+  .template-editor-form button:not(.primary):not(.danger-action):hover:not(:disabled) {
+  border-color: #836b46;
+  background: #30291f;
+  color: #f5dfb2;
+}
+
+html[data-dashboard-theme="dark"] body[data-page="doctor"]
+  .sms-center .type-badge,
+html[data-dashboard-theme="dark"] body[data-page="doctor"]
+  .sms-log-page .log-type {
+  background: #30291f;
+  color: #f0d296;
+}
+
+html[data-dashboard-theme="dark"] body[data-page="doctor"]
+  .sms-center .type-badge.cancellation,
+html[data-dashboard-theme="dark"] body[data-page="doctor"]
+  .sms-log-page .log-type.cancellation {
+  background: #382127;
+  color: #ffabb8;
+}
+
+html[data-dashboard-theme="dark"] body[data-page="doctor"]
+  .sms-center .type-badge.approval,
+html[data-dashboard-theme="dark"] body[data-page="doctor"]
+  .sms-log-page .log-type.approval {
+  background: #1f3b2b;
+  color: #9ae6b4;
+}
+
+html[data-dashboard-theme="dark"] body[data-page="doctor"]
+  .sms-center .type-badge.walk_in,
+html[data-dashboard-theme="dark"] body[data-page="doctor"]
+  .sms-log-page .log-type.walk_in {
+  background: #21364b;
+  color: #a9d5ff;
+}
+
+html[data-dashboard-theme="dark"] body[data-page="doctor"]
+  .sms-center .sms-status.failed {
+  color: #ffabb8;
+}
+
+html[data-dashboard-theme="dark"] body[data-page="doctor"]
+  .sms-center .sms-status.delivered {
+  color: #9ae6b4;
+}
+
+html[data-dashboard-theme="dark"] body[data-page="doctor"]
+  .sms-center .sms-status.sent {
+  color: #a9d5ff;
+}

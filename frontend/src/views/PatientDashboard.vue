@@ -2,6 +2,7 @@
 import { CalendarDays, FileText, House } from "lucide-vue-next";
 import { computed, nextTick, onMounted, ref } from "vue";
 
+import "../patient-dark.css";
 import AppointmentForm from "../components/AppointmentForm.vue";
 import BaseModal from "../components/BaseModal.vue";
 import DoctorAccount from "../components/doctor/DoctorAccount.vue";

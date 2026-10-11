@@ -1,0 +1,357 @@
+/* Patient dashboard accents and nested surfaces in dark appearance. */
+html[data-dashboard-theme="dark"] body[data-page="patient"] .patient-portal {
+  --patient-dark-raised: #29241d;
+  --patient-dark-recessed: #191714;
+  --patient-dark-line: #4c4030;
+  --patient-dark-gold: #e5bd70;
+  --patient-dark-muted: #c2b7a4;
+}
+
+html[data-dashboard-theme="dark"] body[data-page="patient"] :is(
+  .patient-summary-card,
+  .patient-home-panel,
+  .patient-visits-surface,
+  .patient-records-panel,
+  .patient-record-summary
+) {
+  border-color: var(--patient-dark-line);
+  background: #211e19;
+  box-shadow: 0 10px 30px rgb(0 0 0 / 14%);
+}
+
+html[data-dashboard-theme="dark"] body[data-page="patient"] :is(
+  .patient-summary-icon,
+  .patient-heading-icon,
+  .patient-upcoming-empty > span,
+  .patient-quick-grid button > span:first-child,
+  .patient-records-title-icon,
+  .patient-history-title > span,
+  .patient-visits-title-icon,
+  .patient-visits-empty-row td > span,
+  .patient-records-empty-row td > span,
+  .patient-record-summary-list > div > span
+) {
+  border-color: var(--patient-dark-line);
+  background: #3a2e1d;
+  color: var(--patient-dark-gold);
+}
+
+html[data-dashboard-theme="dark"] body[data-page="patient"] .patient-summary-card.summary-completed {
+  border-color: #326f4b;
+  background: #1f3428;
+}
+
+html[data-dashboard-theme="dark"] body[data-page="patient"] .patient-summary-card.summary-cancelled {
+  border-color: #804351;
+  background: #38262b;
+}
+
+html[data-dashboard-theme="dark"] body[data-page="patient"] .summary-completed .patient-summary-icon {
+  background: #275638;
+  color: #a7ecc0;
+}
+
+html[data-dashboard-theme="dark"] body[data-page="patient"] .summary-cancelled .patient-summary-icon {
+  background: #673340;
+  color: #ffc4ce;
+}
+
+html[data-dashboard-theme="dark"] body[data-page="patient"] :is(
+  .patient-summary-card strong,
+  .patient-panel-heading h2,
+  .patient-upcoming-copy h3,
+  .patient-upcoming-empty h3,
+  .patient-visit-service strong,
+  .patient-visits-empty-row strong,
+  .patient-records-empty-row strong,
+  .patient-record-treatment strong,
+  .patient-record-summary-list strong
+) {
+  color: #fcfbf8;
+}
+
+html[data-dashboard-theme="dark"] body[data-page="patient"] :is(
+  .patient-summary-card small,
+  .patient-upcoming-copy dt,
+  .patient-upcoming-copy dd,
+  .patient-upcoming-empty p,
+  .patient-home-table td small,
+  .patient-visit-service small,
+  .patient-visit-action > span,
+  .patient-visits-empty-row small,
+  .patient-visits-footer p,
+  .patient-records-header p,
+  .patient-history-heading p,
+  .patient-record-treatment small,
+  .patient-record-notes small,
+  .patient-records-empty-row small,
+  .patient-records-footer p,
+  .patient-record-summary-list small,
+  .patient-record-care-note span
+) {
+  color: var(--patient-dark-muted);
+}
+
+/* Overview */
+html[data-dashboard-theme="dark"] body[data-page="patient"] :is(
+  .patient-upcoming-body,
+  .patient-upcoming-empty,
+  .patient-care-note,
+  .patient-record-balance,
+  .patient-record-care-note
+) {
+  border: 1px solid var(--patient-dark-line);
+  border-radius: 8px;
+  background: var(--patient-dark-raised);
+}
+
+html[data-dashboard-theme="dark"] body[data-page="patient"] .patient-date-tile {
+  border-color: var(--patient-dark-line);
+  background: var(--patient-dark-recessed);
+  color: #fcfbf8;
+}
+
+html[data-dashboard-theme="dark"] body[data-page="patient"] .patient-date-tile span {
+  background: #715121;
+  color: #fff8e9;
+}
+
+html[data-dashboard-theme="dark"] body[data-page="patient"] .patient-date-tile small {
+  color: var(--patient-dark-muted);
+}
+
+html[data-dashboard-theme="dark"] body[data-page="patient"] :is(
+  .patient-panel-heading > button,
+  .patient-clinic-panel address svg,
+  .patient-care-note strong,
+  .patient-record-care-note strong
+) {
+  color: var(--patient-dark-gold);
+}
+
+html[data-dashboard-theme="dark"] body[data-page="patient"] :is(
+  .patient-filter-tabs button,
+  .patient-visit-tabs button
+) {
+  border-color: var(--patient-dark-line);
+  background: var(--patient-dark-raised);
+  color: #eee5d6;
+}
+
+html[data-dashboard-theme="dark"] body[data-page="patient"] :is(
+  .patient-filter-tabs button,
+  .patient-visit-tabs button
+):is(:hover, :focus-visible, .active) {
+  border-color: var(--patient-dark-gold);
+  background: #715121;
+  color: #fff9eb;
+}
+
+html[data-dashboard-theme="dark"] body[data-page="patient"] .patient-filter-tabs button span {
+  background: rgb(255 255 255 / 10%);
+  color: inherit;
+}
+
+html[data-dashboard-theme="dark"] body[data-page="patient"] :is(
+  .patient-home-table th,
+  .patient-visits-table th,
+  .patient-records-table th
+) {
+  border-color: var(--patient-dark-line);
+  background: var(--patient-dark-raised);
+  color: #e1d0b2;
+}
+
+html[data-dashboard-theme="dark"] body[data-page="patient"] :is(
+  .patient-home-table td,
+  .patient-visits-table td,
+  .patient-records-table td
+) {
+  border-color: var(--patient-dark-line);
+}
+
+html[data-dashboard-theme="dark"] body[data-page="patient"] :is(
+  .patient-home-table tbody tr,
+  .patient-visits-table tbody tr,
+  .patient-records-table tbody tr
+):hover {
+  background: #30291e;
+}
+
+html[data-dashboard-theme="dark"] body[data-page="patient"] :is(
+  .patient-home-table td:last-child button,
+  .patient-record-actions button,
+  .patient-visits-footer nav button,
+  .patient-records-footer nav button
+) {
+  border-color: var(--patient-dark-line);
+  background: var(--patient-dark-raised);
+  color: var(--patient-dark-gold);
+}
+
+html[data-dashboard-theme="dark"] body[data-page="patient"] :is(
+  .patient-home-table td:last-child button,
+  .patient-record-actions button,
+  .patient-visits-footer nav button,
+  .patient-records-footer nav button
+):is(:hover, :focus-visible, .active):not(:disabled) {
+  border-color: var(--patient-dark-gold);
+  background: #715121;
+  color: #fff9eb;
+}
+
+html[data-dashboard-theme="dark"] body[data-page="patient"] :is(
+  .patient-quick-grid button,
+  .patient-mobile-appointments > li > button
+) {
+  border-color: var(--patient-dark-line);
+  background: var(--patient-dark-raised);
+  color: #fcfbf8;
+}
+
+html[data-dashboard-theme="dark"] body[data-page="patient"] :is(
+  .patient-quick-grid button,
+  .patient-mobile-appointments > li > button
+):is(:hover, :focus-visible) {
+  border-color: var(--patient-dark-gold);
+  background: #352b1d;
+}
+
+html[data-dashboard-theme="dark"] body[data-page="patient"] :is(
+  .patient-quick-grid small,
+  .patient-mobile-appointment-date small,
+  .patient-mobile-appointment-copy small,
+  .patient-mobile-appointments button > svg,
+  .patient-mobile-appointment-empty,
+  .patient-clinic-panel address,
+  .patient-clinic-panel address small,
+  .patient-clinic-panel address a,
+  .patient-care-note p
+) {
+  color: var(--patient-dark-muted);
+}
+
+html[data-dashboard-theme="dark"] body[data-page="patient"] .patient-mobile-appointment-empty {
+  border-color: var(--patient-dark-line);
+}
+
+/* Appointments */
+html[data-dashboard-theme="dark"] body[data-page="patient"] :is(
+  .patient-visits-header,
+  .patient-records-header
+) {
+  border-color: var(--patient-dark-line);
+  background: linear-gradient(100deg, #29241d, #211e19);
+}
+
+html[data-dashboard-theme="dark"] body[data-page="patient"] :is(
+  .patient-visits-toolbar,
+  .patient-history-heading
+) {
+  border-color: var(--patient-dark-line);
+}
+
+html[data-dashboard-theme="dark"] body[data-page="patient"] :is(
+  .patient-visit-search,
+  .patient-visit-date,
+  .patient-record-search,
+  .patient-record-range
+) {
+  border-color: var(--patient-dark-line);
+  background: var(--patient-dark-recessed);
+  color: var(--patient-dark-muted);
+}
+
+html[data-dashboard-theme="dark"] body[data-page="patient"] :is(
+  .patient-visit-search input,
+  .patient-visit-date input,
+  .patient-record-search input,
+  .patient-record-range select
+) {
+  background: transparent;
+  color: #fcfbf8;
+}
+
+html[data-dashboard-theme="dark"] body[data-page="patient"] .patient-visit-search input::placeholder,
+html[data-dashboard-theme="dark"] body[data-page="patient"] .patient-record-search input::placeholder {
+  color: var(--patient-dark-muted);
+}
+
+html[data-dashboard-theme="dark"] body[data-page="patient"] :is(
+  .patient-visit-search,
+  .patient-visit-date,
+  .patient-record-search,
+  .patient-record-range
+):focus-within {
+  border-color: var(--patient-dark-gold);
+  box-shadow: 0 0 0 3px rgb(229 189 112 / 18%);
+}
+
+html[data-dashboard-theme="dark"] body[data-page="patient"] .patient-visit-date button {
+  background: var(--patient-dark-raised);
+  color: var(--patient-dark-gold);
+}
+
+html[data-dashboard-theme="dark"] body[data-page="patient"] .patient-service-icon {
+  background: #3a2e1d;
+  color: var(--patient-dark-gold);
+}
+
+html[data-dashboard-theme="dark"] body[data-page="patient"] :is(
+  .patient-visit-number,
+  .patient-dentist-content svg,
+  .patient-date-time svg
+) {
+  color: var(--patient-dark-muted);
+}
+
+html[data-dashboard-theme="dark"] body[data-page="patient"] .patient-visit-action button {
+  border-color: #98545c;
+  background: #392126;
+  color: #ffc3c7;
+}
+
+html[data-dashboard-theme="dark"] body[data-page="patient"] .patient-visit-action button:is(:hover, :focus-visible) {
+  border-color: #ed929b;
+  background: #512931;
+  color: #ffe0e2;
+}
+
+/* Records */
+html[data-dashboard-theme="dark"] body[data-page="patient"] .patient-record-summary-list .tone-green {
+  background: #214235;
+  color: #a5eac5;
+}
+
+html[data-dashboard-theme="dark"] body[data-page="patient"] :is(
+  .patient-record-balance,
+  .patient-record-care-note
+) {
+  color: var(--patient-dark-gold);
+}
+
+@media (max-width: 620px) {
+  html[data-dashboard-theme="dark"] body[data-page="patient"] :is(
+    .patient-home-table tbody tr,
+    .patient-visits-table tbody tr,
+    .patient-records-table tbody tr,
+    .patient-visits-footer,
+    .patient-records-footer
+  ) {
+    border-color: var(--patient-dark-line);
+    background: #211e19;
+    color: #fcfbf8;
+  }
+
+  html[data-dashboard-theme="dark"] body[data-page="patient"] :is(
+    .patient-home-table td::before,
+    .patient-visits-table td::before,
+    .patient-records-table td::before
+  ) {
+    color: #e1d0b2;
+  }
+
+  html[data-dashboard-theme="dark"] body[data-page="patient"] .patient-visits-table td.patient-visit-service {
+    border-color: var(--patient-dark-line) !important;
+  }
+}

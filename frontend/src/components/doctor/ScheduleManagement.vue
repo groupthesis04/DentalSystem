@@ -1988,20 +1988,53 @@ function closeFollowUp() {
   cursor: not-allowed;
 }
 
+:global(html[data-dashboard-theme="dark"]) .schedule-workspace {
+  --schedule-surface: #27231e;
+  --schedule-raised: #302a23;
+  --schedule-field: #1d1a16;
+  --schedule-border: #5b4d39;
+  --schedule-text: #f5ebd9;
+  --schedule-muted: #c9baa1;
+  --schedule-gold: #e3bf74;
+  color: var(--schedule-text);
+}
+
 :global(html[data-dashboard-theme="dark"]) .schedule-hero,
 :global(html[data-dashboard-theme="dark"]) .schedule-settings-panel,
 :global(html[data-dashboard-theme="dark"]) .schedule-calendar-panel,
 :global(html[data-dashboard-theme="dark"]) .schedule-summary-card {
-  color: #edddbd;
-  border-color: #514b42;
-  background: #28241e;
+  color: var(--schedule-text);
+  border-color: var(--schedule-border);
+  border-radius: 12px;
+  background: var(--schedule-surface);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.14);
+}
+
+:global(html[data-dashboard-theme="dark"]) .schedule-hero {
+  background: linear-gradient(112deg, #30291f, var(--schedule-surface) 64%);
+}
+
+:global(html[data-dashboard-theme="dark"]) .schedule-summary-card {
+  background: var(--schedule-raised);
+}
+
+:global(html[data-dashboard-theme="dark"]) .schedule-hero-icon,
+:global(html[data-dashboard-theme="dark"]) .schedule-section-heading > span,
+:global(html[data-dashboard-theme="dark"]) .schedule-summary-card > span {
+  color: var(--schedule-gold);
+  background: #493820;
+}
+
+:global(html[data-dashboard-theme="dark"]) .schedule-hero .section-kicker,
+:global(html[data-dashboard-theme="dark"]) .schedule-section-heading > span svg {
+  color: var(--schedule-gold);
 }
 
 :global(html[data-dashboard-theme="dark"]) .schedule-hero h1,
 :global(html[data-dashboard-theme="dark"]) .schedule-section-heading h2,
 :global(html[data-dashboard-theme="dark"]) .schedule-summary-card strong,
 :global(html[data-dashboard-theme="dark"]) .schedule-calendar-heading h2 {
-  color: #f8f1e2;
+  color: var(--schedule-text);
 }
 
 :global(html[data-dashboard-theme="dark"]) .schedule-hero p,
@@ -2010,52 +2043,113 @@ function closeFollowUp() {
 :global(html[data-dashboard-theme="dark"]) .schedule-summary-card p,
 :global(html[data-dashboard-theme="dark"]) .schedule-field,
 :global(html[data-dashboard-theme="dark"]) .schedule-weekdays {
-  color: #cfc5b3;
+  color: var(--schedule-muted);
+}
+
+:global(html[data-dashboard-theme="dark"]) .schedule-summary-card small,
+:global(html[data-dashboard-theme="dark"]) .schedule-field > span:first-child {
+  color: #eadbc1;
 }
 
 :global(html[data-dashboard-theme="dark"]) .schedule-control,
-:global(html[data-dashboard-theme="dark"]) .schedule-control :is(input, select),
 :global(html[data-dashboard-theme="dark"]) .schedule-calendar-actions button,
 :global(html[data-dashboard-theme="dark"]) .schedule-calendar-day {
-  color: #edddbd;
-  border-color: #514b42;
-  background: #171511;
+  color: var(--schedule-text);
+  border-color: var(--schedule-border);
+  background: var(--schedule-field);
+}
+
+:global(html[data-dashboard-theme="dark"] body[data-page="doctor"])
+  .schedule-workspace
+  .schedule-control
+  :is(input, select, input[readonly]) {
+  color: var(--schedule-text);
+  border: 0;
+  background: transparent;
+  color-scheme: dark;
+}
+
+:global(html[data-dashboard-theme="dark"]) .schedule-control > svg {
+  color: var(--schedule-gold);
+}
+
+:global(html[data-dashboard-theme="dark"]) .schedule-control:focus-within,
+:global(html[data-dashboard-theme="dark"]) .schedule-calendar-actions button:focus-visible,
+:global(html[data-dashboard-theme="dark"]) .schedule-calendar-day:focus-visible {
+  border-color: var(--schedule-gold);
+  box-shadow: 0 0 0 3px rgba(227, 191, 116, 0.2);
+}
+
+:global(html[data-dashboard-theme="dark"]) .schedule-calendar-actions button:hover:not(:disabled),
+:global(html[data-dashboard-theme="dark"]) .schedule-calendar-day:hover:not(:disabled) {
+  color: #f9e3b7;
+  border-color: var(--schedule-gold);
+  background: #493820;
 }
 
 :global(html[data-dashboard-theme="dark"]) .schedule-calendar-day.available {
-  color: #edddbd;
-  border-color: #d5aa59;
-  background: #241e17;
+  color: #f3d79d;
+  border-color: #987345;
+  background: #42331f;
 }
 
 :global(html[data-dashboard-theme="dark"]) .schedule-calendar-day.fully-booked {
-  color: #ffc2cb;
-  border-color: #7d3542;
-  background: #28241e;
+  color: #ffc8d0;
+  border-color: #874650;
+  background: #46282f;
 }
 
-:global(html[data-dashboard-theme="dark"]) .schedule-calendar-day.selected {
-  color: #171511;
-  border-color: #d5aa59;
-  background: #d5aa59;
+:global(html[data-dashboard-theme="dark"]) .schedule-calendar-day.selected,
+:global(html[data-dashboard-theme="dark"]) .schedule-calendar-day.selected:hover:not(:disabled) {
+  color: #1b160f;
+  border-color: #f1cd82;
+  background: #e3bf74;
 }
 
 :global(html[data-dashboard-theme="dark"]) .schedule-calendar-day.unavailable,
 :global(html[data-dashboard-theme="dark"]) .schedule-calendar-day.past {
-  color: #706b61;
-  border-color: #28241e;
-  background: #28241e;
+  color: #a99f91;
+  border-color: #3d372d;
+  background: #26231e;
 }
 
+:global(html[data-dashboard-theme="dark"]) .schedule-information,
 :global(html[data-dashboard-theme="dark"]) .schedule-calendar-legend {
-  color: #cfc5b3;
-  background: #28241e;
+  color: #e8d4ae;
+  border: 1px solid #5a4730;
+  background: #382e20;
+}
+
+:global(html[data-dashboard-theme="dark"]) .schedule-information svg {
+  color: var(--schedule-gold);
+}
+
+:global(html[data-dashboard-theme="dark"]) .schedule-calendar-legend i.selected {
+  background: #e3bf74;
+}
+
+:global(html[data-dashboard-theme="dark"]) .schedule-calendar-legend i.available {
+  background: #987345;
+}
+
+:global(html[data-dashboard-theme="dark"]) .schedule-calendar-legend i.fully-booked {
+  background: #b66b78;
+}
+
+:global(html[data-dashboard-theme="dark"]) .schedule-calendar-legend i.unavailable {
+  background: #655c4d;
 }
 
 :global(html[data-dashboard-theme="dark"]) .clear-appointments-trigger {
-  color: #ffb7c2;
-  border-color: #7d3542;
-  background: #28241e;
+  color: #ffc8d0;
+  border-color: #874650;
+  background: #46282f;
+}
+
+:global(html[data-dashboard-theme="dark"]) .clear-appointments-trigger:is(:hover, :focus-visible) {
+  color: #ffe6e9;
+  border-color: #e89ba7;
+  background: #61333c;
 }
 
 :global(html[data-dashboard-theme="dark"]) .appointment-list-panel,
