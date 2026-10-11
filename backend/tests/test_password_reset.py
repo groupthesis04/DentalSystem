@@ -337,7 +337,10 @@ class PasswordResetTests(TestCase):
         self.assertEqual(rejected.status_code, 400, rejected.content)
         log_output = "\n".join(captured.output)
         self.assertIn("code_match=False", log_output)
-        self.assertIn("account_eligible=True", log_output)
+        self.assertIn("user_found=True", log_output)
+        self.assertIn("user_active=True", log_output)
+        self.assertIn("user_id_matches=True", log_output)
+        self.assertIn("email_key_matches=True", log_output)
         for secret in (code, wrong_code, token, self.doctor.email):
             self.assertNotIn(secret, log_output)
 
